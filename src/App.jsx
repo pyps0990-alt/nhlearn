@@ -210,7 +210,7 @@ const MainApp = () => {
       formData.append('file', fileToUpload);
 
       // 替換為你在 n8n 中的 Webhook 網址
-      const N8N_WEBHOOK_URL = 'https://nhmccyj-ai-agent.hf.space/webhook/1d773843-8f54-4ac8-b070-f06609f5b177'; 
+      const N8N_WEBHOOK_URL = 'https://nhmccyj-ai-agent.hf.space/webhook/04645141-372f-4e56-8731-bc124a7aad7e'; 
       const response = await fetch(N8N_WEBHOOK_URL, { method: 'POST', body: formData });
       
       if (!response.ok) throw new Error('伺服器無回應');
