@@ -5,14 +5,8 @@ import {
   CheckCircle2, Clock, Smartphone, Sparkles, Settings, ArrowLeft, Save, Edit3, ChevronRight, BookPlus, Wand2, MonitorPlay, MapPin, User, Package, BrainCircuit, Image as ImageIcon
 } from 'lucide-react';
 
-// ============================================================================
-// 📂 初始資料配置
-// ============================================================================
-
 const INITIAL_WEEKLY_SCHEDULE = {
-  1: [
-    { id: 101, startTime: '08:00', endTime: '09:00', subject: '國文', location: '302 教室', teacher: '王老師', items: '國文講義' }
-  ],
+  1: [{ id: 101, startTime: '08:00', endTime: '09:00', subject: '國文', location: '302 教室', teacher: '王老師', items: '國文講義' }],
   2: [], 3: [], 4: [], 5: [], 6: [], 0: []
 };
 
@@ -43,10 +37,6 @@ const timeToMins = (timeStr) => {
   return h * 60 + m;
 };
 
-// ============================================================================
-// 📂 UI 子組件：通知橫幅
-// ============================================================================
-
 const IosNotification = ({ notification }) => {
   const safeTop = 'max(16px, env(safe-area-inset-top))';
   const topPos = `calc(${safeTop} + 10px)`;
@@ -54,18 +44,12 @@ const IosNotification = ({ notification }) => {
   return (
     <div 
       className={`fixed left-0 right-0 z-[160] flex justify-center transition-all duration-[500ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] pointer-events-none px-4`}
-      style={{ 
-        top: notification.show ? topPos : '-120px', 
-        opacity: notification.show ? 1 : 0, 
-        transform: notification.show ? 'scale(1)' : 'scale(0.95)' 
-      }}
+      style={{ top: notification.show ? topPos : '-120px', opacity: notification.show ? 1 : 0, transform: notification.show ? 'scale(1)' : 'scale(0.95)' }}
     >
       <div className="w-full max-w-[360px] bg-[#f8f8f9]/95 backdrop-blur-2xl p-4 rounded-[24px] shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col gap-1.5 pointer-events-auto">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
-            <div className="bg-emerald-500 rounded-[8px] p-1.5 shadow-sm">
-              <Bell size={14} className="text-white" />
-            </div>
+            <div className="bg-emerald-500 rounded-[8px] p-1.5 shadow-sm"><Bell size={14} className="text-white" /></div>
             <span className="text-[13px] text-gray-700 font-bold tracking-wider uppercase">GSAT PRO</span>
           </div>
           <span className="text-[11px] text-gray-400 font-medium tracking-widest uppercase">Now</span>
@@ -79,16 +63,11 @@ const IosNotification = ({ notification }) => {
   );
 };
 
-// ============================================================================
-// 📂 核心邏輯組件
-// ============================================================================
-
 const MainApp = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [notification, setNotification] = useState({ show: false, title: '', message: '' });
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // --- 讀取與儲存 (LocalStorage) ---
   const [weeklySchedule, setWeeklySchedule] = useState(() => {
     const saved = localStorage.getItem('gsat_schedule');
     return saved ? JSON.parse(saved) : INITIAL_WEEKLY_SCHEDULE;
@@ -96,9 +75,7 @@ const MainApp = () => {
   
   const [vocabList, setVocabList] = useState(() => {
     const saved = localStorage.getItem('gsat_vocab');
-    return saved ? JSON.parse(saved) : [
-      { id: 1, word: 'indispensable', pos: 'adj.', meaning: '不可或缺的', example: 'Water is indispensable for all forms of life.' }
-    ];
+    return saved ? JSON.parse(saved) : [{ id: 1, word: 'indispensable', pos: 'adj.', meaning: '不可或缺的', example: 'Water is indispensable for all forms of life.' }];
   });
 
   const [notes, setNotes] = useState(() => {
@@ -118,38 +95,45 @@ const MainApp = () => {
   const [newNote, setNewNote] = useState({ category: '課堂筆記', title: '', content: '' });
   const [newVocab, setNewVocab] = useState({ word: '', pos: 'n. (名詞)', meaning: '', example: '' });
 
-  // 1️⃣ 新增：追蹤已發送過的通知，避免重複吵人
   const notifiedSet = useRef(new Set());
 
-  // 2️⃣ 新增：向瀏覽器請求推播權限
+  // --- 🔔 通知系統與權限 ---
   const requestPushPermission = async () => {
     if (!("Notification" in window)) {
-      triggerNotification('系統提示', '此瀏覽器不支援桌面通知功能。');
+      triggerNotification('系統提示', '此瀏覽器不支援桌面通知功能。請確認不是在 LINE 或 IG 內建瀏覽器開啟。');
       return;
     }
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
-      triggerNotification('授權成功', '您現在可以接收上課前 5 分鐘的提醒了！');
+      triggerNotification('授權成功 🎉', '您現在可以接收上課前 5 分鐘的提醒了！');
     } else {
-      triggerNotification('權限未開啟', '請在瀏覽器設定中允許通知。');
+      triggerNotification('權限未開啟', '請在瀏覽器設定中允許通知，或將網頁加入主畫面。');
     }
   };
 
-  // 3️⃣ 修改：讓這個函數同時觸發「App內橫幅」與「系統原生推播」
   const triggerNotification = (title, message) => {
     setNotification({ show: true, title: String(title), message: String(message) });
     setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 6000);
 
-    // 觸發原生 Web Notification (如果已授權)
     if ("Notification" in window && Notification.permission === "granted") {
-      // 避免在網頁顯示時重複發送太多通知，可選擇只在背景發送
-      if (document.visibilityState !== 'visible') {
-        try { new Notification(String(title), { body: String(message) }); } catch(e) {}
+      try { 
+        new Notification(String(title), { body: String(message), icon: '/favicon.ico' }); 
+      } catch(e) {
+        console.error("推播失敗", e);
       }
     }
   };
 
-  // 4️⃣ 新增：背景定時器，每 5 秒檢查一次是否快上課了
+  const testPushNotification = () => {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("測試成功！", { body: "這是一則來自 GSAT Pro 的系統原生推播！" });
+      triggerNotification("測試成功", "系統推播功能運作正常！");
+    } else {
+      requestPushPermission();
+    }
+  };
+
+  // 背景定時器 (每5秒檢查一次時間)
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
@@ -169,28 +153,15 @@ const MainApp = () => {
           const notifKey = `${c.id}-${dateStr}-5min`;
           if (!notifiedSet.current.has(notifKey)) {
             notifiedSet.current.add(notifKey);
-            
-            if ("Notification" in window && Notification.permission === "granted") {
-              try {
-                new Notification(`🔔 準備上課：${String(c.subject)}`, {
-                  body: `📍 地點：${String(c.location || '未定')}\n👨‍🏫 老師：${String(c.teacher || '無')}`
-                });
-              } catch(e) {}
-            }
-            // 同時觸發內建橫幅
-            triggerNotification(
-              `🔔 準備上課：${String(c.subject)}`, 
-              `📍 地點：${String(c.location || '未定')}\n👨‍🏫 老師：${String(c.teacher || '無')}`
-            );
+            triggerNotification(`🔔 準備上課：${String(c.subject)}`, `📍 地點：${String(c.location || '未定')}\n👨‍🏫 老師：${String(c.teacher || '無')}`);
           }
         }
       });
     }, 5000); 
-    
     return () => clearInterval(timer);
   }, [weeklySchedule]);
 
-  // 🛠️ 前端圖片壓縮引擎 (專治手機大檔案)
+  // --- 圖片壓縮 ---
   const compressImage = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -200,13 +171,9 @@ const MainApp = () => {
         img.src = event.target.result;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          // 限制最大寬度為 1200px
           const MAX_WIDTH = 1200; 
           let scaleSize = 1;
-          
-          if (img.width > MAX_WIDTH) {
-            scaleSize = MAX_WIDTH / img.width;
-          }
+          if (img.width > MAX_WIDTH) scaleSize = MAX_WIDTH / img.width;
           
           canvas.width = img.width * scaleSize;
           canvas.height = img.height * scaleSize;
@@ -214,14 +181,9 @@ const MainApp = () => {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
           
-          // 將 Canvas 轉回 JPEG Blob (品質 0.7 = 70%)
           canvas.toBlob((blob) => {
             if (!blob) return reject(new Error('Canvas to Blob failed'));
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { 
-              type: 'image/jpeg', 
-              lastModified: Date.now() 
-            });
-            resolve(compressedFile);
+            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { type: 'image/jpeg', lastModified: Date.now() }));
           }, 'image/jpeg', 0.7);
         };
         img.onerror = (error) => reject(error);
@@ -230,7 +192,7 @@ const MainApp = () => {
     });
   };
 
-  // --- Webhook AI 上傳處理 ---
+  // --- Webhook 上傳 ---
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -239,23 +201,17 @@ const MainApp = () => {
     triggerNotification('讀取中', '正在優化照片並傳送給 AI，請稍候...');
     
     try {
-      // 🚀 壓縮圖片
       let fileToUpload = file;
       if (file.type.startsWith('image/')) {
         fileToUpload = await compressImage(file);
-        console.log(`圖片壓縮完成！壓縮後: ${(fileToUpload.size/1024/1024).toFixed(2)}MB`);
       }
 
       const formData = new FormData();
       formData.append('file', fileToUpload);
 
-      // 替換為你的 n8n 正式網址
-      const N8N_WEBHOOK_URL = 'https://nhmccyj-n8n-free.hf.space/webhook/84aba968-67fb-44c5-b58f-e3120c1c1fb5'; 
-      
-      const response = await fetch(N8N_WEBHOOK_URL, {
-        method: 'POST',
-        body: formData,
-      });
+      // 替換為你在 n8n 中的 Webhook 網址
+      const N8N_WEBHOOK_URL = 'https://nhmccyj-ai-agent.hf.space/webhook/1d773843-8f54-4ac8-b070-f06609f5b177'; 
+      const response = await fetch(N8N_WEBHOOK_URL, { method: 'POST', body: formData });
       
       if (!response.ok) throw new Error('伺服器無回應');
       
@@ -265,15 +221,12 @@ const MainApp = () => {
       if (data && data.content) data = data.content;
       else if (data && data.text) data = data.text;
 
-      // 🚀 剝除 Markdown 並解析
       if (typeof data === 'string') {
         const cleanString = data.replace(/```json/gi, '').replace(/```/g, '').trim();
         data = JSON.parse(cleanString);
       }
 
-      if (!Array.isArray(data)) {
-        throw new Error("AI 回傳的格式錯誤，無法解析為陣列");
-      }
+      if (!Array.isArray(data)) throw new Error("AI 回傳的格式錯誤");
       
       const newClasses = data.map((item, index) => {
         const times = item.time ? item.time.split('~') : ['00:00', '00:00'];
@@ -288,11 +241,7 @@ const MainApp = () => {
         };
       });
 
-      setWeeklySchedule(prev => ({
-        ...prev,
-        [editDayTab]: newClasses
-      }));
-      
+      setWeeklySchedule(prev => ({ ...prev, [editDayTab]: newClasses }));
       triggerNotification('上傳成功 🎉', 'AI 已將課表自動對齊至當前星期！');
     } catch (error) {
       console.error('上傳失敗:', error);
@@ -303,19 +252,12 @@ const MainApp = () => {
     }
   };
 
-  // --- 手動編輯排程邏輯 ---
   const updateSchedule = (id, field, value) => {
-    setWeeklySchedule(prev => ({
-      ...prev,
-      [editDayTab]: prev[editDayTab].map(item => item.id === id ? { ...item, [field]: value } : item)
-    }));
+    setWeeklySchedule(prev => ({ ...prev, [editDayTab]: prev[editDayTab].map(item => item.id === id ? { ...item, [field]: value } : item) }));
   };
   
   const deleteSchedule = (id) => {
-    setWeeklySchedule(prev => ({
-      ...prev,
-      [editDayTab]: prev[editDayTab].filter(item => item.id !== id)
-    }));
+    setWeeklySchedule(prev => ({ ...prev, [editDayTab]: prev[editDayTab].filter(item => item.id !== id) }));
   };
 
   const { currentClass, currentProgress, todayClasses, tomorrowClasses, isAfter4PM } = useMemo(() => {
@@ -338,7 +280,6 @@ const MainApp = () => {
     return { currentClass: active, currentProgress: prog, todayClasses: todayList, tomorrowClasses: tomorrowList, isAfter4PM: currentTime.getHours() >= 16 };
   }, [currentTime, weeklySchedule]);
 
-  // --- 英文與筆記邏輯 ---
   const speakWord = (word) => { 
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -361,19 +302,9 @@ const MainApp = () => {
     setNewNote({ category: '課堂筆記', title: '', content: '' });
   };
   const handleDeleteNote = (id) => setNotes(prev => prev.filter(n => n.id !== id));
+  const handleGenerateExample = () => setNewVocab(prev => ({ ...prev, example: `This is an example sentence for ${prev.word}.` }));
+  const handleAiSummarize = () => setNewNote(prev => ({ ...prev, content: `【重點整理】\n1. ...\n\n---\n${prev.content}` }));
 
-  const handleGenerateExample = () => {
-    // 這裡可以換成呼叫 Gemini
-    setNewVocab(prev => ({ ...prev, example: `This is an example sentence for ${prev.word}.` }));
-  };
-
-  const handleAiSummarize = () => {
-    setNewNote(prev => ({ ...prev, content: `【重點整理】\n1. ...\n\n---\n${prev.content}` }));
-  };
-
-  // ============================================================================
-  // 📂 渲染視圖：日常排程 (Dashboard)
-  // ============================================================================
   const renderDashboard = () => (
     <div className="flex flex-col gap-5 w-full text-left animate-fadeIn">
       <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-[32px] p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex-shrink-0">
@@ -381,11 +312,14 @@ const MainApp = () => {
            <h2 className="text-3xl font-black mb-1.5 tracking-tight">早安，學習愉快！</h2>
            <p className="text-emerald-50 text-[11px] font-black tracking-widest uppercase opacity-90">Progress: {Math.round(currentProgress)}% | GSAT Pro</p>
            
-           {/* 5️⃣ 新增：在主頁加入請求權限的按鈕 */}
-           <button onClick={requestPushPermission} className="mt-5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-5 py-2.5 rounded-2xl text-[13px] font-black flex items-center gap-2 transition-all shadow-md active:scale-95">
-             <Bell size={16} /> 開啟上課提醒推播
-           </button>
-           
+           <div className="flex gap-2 mt-5">
+             <button onClick={requestPushPermission} className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2.5 rounded-2xl text-[12px] font-black flex items-center gap-2 transition-all shadow-md active:scale-95">
+               <Bell size={14} /> 授權通知
+             </button>
+             <button onClick={testPushNotification} className="bg-emerald-800/40 hover:bg-emerald-800/60 backdrop-blur-sm text-white px-4 py-2.5 rounded-2xl text-[12px] font-black flex items-center gap-2 transition-all shadow-md active:scale-95 border border-white/10">
+               <Sparkles size={14} /> 測試推播
+             </button>
+           </div>
          </div>
          <Sparkles className="absolute -right-4 -bottom-4 text-white opacity-10 w-40 h-40" />
       </div>
@@ -454,11 +388,7 @@ const MainApp = () => {
                 </div>
                ))}
                
-               {/* 🚀 手動新增排程按鈕 */}
-               <button 
-                  onClick={() => setWeeklySchedule({...weeklySchedule, [editDayTab]: [...(weeklySchedule[editDayTab]||[]), {id:Date.now(), subject:'新課程', startTime:'08:00', endTime:'09:00', location: '', teacher: '', items: ''}]})} 
-                  className="w-full py-4 border-2 border-dashed border-gray-300 rounded-[28px] text-gray-500 text-[15px] font-black hover:bg-gray-50 transition-all flex justify-center items-center gap-2"
-               >
+               <button onClick={() => setWeeklySchedule({...weeklySchedule, [editDayTab]: [...(weeklySchedule[editDayTab]||[]), {id:Date.now(), subject:'新課程', startTime:'08:00', endTime:'09:00', location: '', teacher: '', items: ''}]})} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-[28px] text-gray-500 text-[15px] font-black hover:bg-gray-50 transition-all flex justify-center items-center gap-2">
                  <Plus size={18} /> 手動新增排程
                </button>
 
@@ -491,13 +421,9 @@ const MainApp = () => {
     </div>
   );
 
-  // ============================================================================
-  // 📂 渲染視圖：英文單字 (English)
-  // ============================================================================
   const renderEnglish = () => (
     <div className="space-y-6 flex flex-col w-full text-left animate-fadeIn">
       <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3 px-1"><BookOpen className="text-emerald-500" size={28} /> 英文單字特訓</h2>
-      
       <div className="bg-white p-6 rounded-[36px] shadow-sm border border-gray-100">
         <h3 className="text-[15px] font-black text-gray-800 mb-5 flex items-center gap-2"><BookPlus size={18} className="text-emerald-500" /> 擴充單字庫</h3>
         <div className="flex flex-col gap-4">
@@ -508,20 +434,16 @@ const MainApp = () => {
             </select>
             <input type="text" className="w-2/3 bg-gray-50 border border-gray-100 rounded-[22px] px-4 py-4 outline-none text-[14px] font-black focus:bg-white focus:border-emerald-300 transition-all" placeholder="繁體中譯" value={newVocab.meaning || ''} onChange={e=>setNewVocab({...newVocab, meaning:e.target.value})} />
           </div>
-
           <div className="bg-emerald-50/50 p-5 rounded-[26px] border border-emerald-100 mt-2">
             <div className="flex justify-between items-center mb-4">
                <span className="text-[11px] font-black text-emerald-700 uppercase tracking-widest">AI Engine</span>
-               <button onClick={handleGenerateExample} className="text-[11px] font-black flex items-center gap-1.5 text-white bg-emerald-500 px-4 py-2.5 rounded-xl shadow-md active:scale-95 transition-transform">
-                 <Wand2 size={14} /> AI 產生例句
-               </button>
+               <button onClick={handleGenerateExample} className="text-[11px] font-black flex items-center gap-1.5 text-white bg-emerald-500 px-4 py-2.5 rounded-xl shadow-md active:scale-95 transition-transform"><Wand2 size={14} /> AI 產生例句</button>
             </div>
             <textarea className="w-full bg-white rounded-[20px] p-4 text-[15px] font-bold text-gray-900 min-h-[100px] outline-none border border-gray-200" placeholder="點擊按鈕生成學測情境..." value={newVocab.example || ''} onChange={e=>setNewVocab({...newVocab, example:e.target.value})} />
           </div>
           <button onClick={handleSaveVocab} className="w-full bg-emerald-600 text-white py-4 rounded-[24px] font-black shadow-md active:scale-95 transition-all mt-2">儲存單字卡</button>
         </div>
       </div>
-      
       <div className="flex flex-col gap-5">
         {vocabList.map(v => (
           <div key={v.id} className="p-6 bg-white rounded-[36px] shadow-sm border border-gray-100 relative overflow-hidden text-left hover:shadow-xl transition-all">
@@ -543,9 +465,6 @@ const MainApp = () => {
     </div>
   );
 
-  // ============================================================================
-  // 📂 渲染視圖：筆記系統 (Notes)
-  // ============================================================================
   const renderNoteGrid = () => (
     <div className="space-y-4 animate-fadeIn flex flex-col w-full text-left">
       <h2 className="text-xl font-black text-gray-900 flex items-center gap-2 px-1 mb-4"><Library className="text-emerald-500" size={24} /> 知識庫總覽</h2>
@@ -571,26 +490,20 @@ const MainApp = () => {
               <h2 className="text-lg font-black text-gray-950">{selectedSubject?.name} 筆記</h2>
            </div>
         </div>
-        
         <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
            <div className="flex flex-col gap-3">
               <div className="flex gap-2">
-                 <select className="w-1/3 bg-gray-50 border border-gray-200 rounded-xl px-2 text-[11px] font-black outline-none" value={newNote.category || ''} onChange={e=>setNewNote({...newNote, category:e.target.value})}>
-                    {NOTE_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
-                 </select>
+                 <select className="w-1/3 bg-gray-50 border border-gray-200 rounded-xl px-2 text-[11px] font-black outline-none" value={newNote.category || ''} onChange={e=>setNewNote({...newNote, category:e.target.value})}>{NOTE_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select>
                  <input type="text" className="w-2/3 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 outline-none text-[13px] font-black focus:border-emerald-300" placeholder="標題..." value={newNote.title || ''} onChange={e=>setNewNote({...newNote, title:e.target.value})} />
               </div>
               <div className="flex justify-between items-end mt-1">
                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Smart Input</span>
-                 <button onClick={handleAiSummarize} className="flex items-center gap-1.5 text-[10px] font-black bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg active:scale-95">
-                    <Sparkles size={12} /> AI 摘要考點
-                 </button>
+                 <button onClick={handleAiSummarize} className="flex items-center gap-1.5 text-[10px] font-black bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg active:scale-95"><Sparkles size={12} /> AI 摘要考點</button>
               </div>
               <textarea className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-[13px] font-bold text-gray-900 min-h-[160px] outline-none focus:bg-white focus:border-emerald-300" placeholder="貼上隨手抄錄的筆記..." value={newNote.content || ''} onChange={e=>setNewNote({...newNote, content:e.target.value})} />
               <button onClick={handleSaveNote} className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-black shadow-md active:scale-95 mt-1 flex justify-center items-center gap-2">儲存筆記 <Save size={16} /></button>
            </div>
         </div>
-
         <div className="flex flex-col gap-4 mt-2">
            {sn.map(n=>(
              <div key={n.id} className="p-5 bg-white rounded-3xl shadow-sm border border-gray-100 relative text-left">
@@ -600,9 +513,7 @@ const MainApp = () => {
                 </div>
                 <h4 className="font-black text-gray-950 text-[16px] mb-3 leading-tight">{String(n.title)}</h4>
                 <p className="text-[13.5px] font-bold text-gray-700 whitespace-pre-wrap leading-relaxed">{String(n.content)}</p>
-                <div className="mt-4 pt-3 border-t border-gray-50 flex items-center gap-1.5 text-[10px] text-gray-400 font-black">
-                  <Calendar size={12} /> {String(n.date)}
-                </div>
+                <div className="mt-4 pt-3 border-t border-gray-50 flex items-center gap-1.5 text-[10px] text-gray-400 font-black"><Calendar size={12} /> {String(n.date)}</div>
              </div>
            ))}
         </div>
@@ -610,7 +521,6 @@ const MainApp = () => {
     );
   };
 
-  // --- 主視圖切換 ---
   let currentContent = renderDashboard();
   if (activeTab === 'english') currentContent = renderEnglish();
   if (activeTab === 'notes') currentContent = selectedSubject ? renderNoteDetail() : renderNoteGrid();
@@ -618,13 +528,9 @@ const MainApp = () => {
   return (
     <>
       <IosNotification notification={notification} />
-      
-      {/* 捲動區域 */}
       <div className="flex-1 overflow-y-auto scroll-smooth w-full px-4 pt-10 pb-[120px] touch-pan-y scrollbar-hide">
         {currentContent}
       </div>
-
-      {/* 底部導航列 */}
       <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-200 flex justify-around px-2 pt-3 pb-8 z-40 shadow-[0_-15px_40px_rgba(0,0,0,0.05)] rounded-t-[40px]">
         {[{ id:'dashboard', icon:Calendar, label:'日常' }, { id:'english', icon:Volume2, label:'英文' }, { id:'notes', icon:Library, label:'筆記' }].map(item => (
           <button key={item.id} onClick={()=>{setActiveTab(item.id); setSelectedSubject(null);}} className={`flex flex-col items-center justify-center w-20 h-14 rounded-2xl transition-colors ${activeTab===item.id?'text-emerald-600':'text-gray-400'}`}>
@@ -637,53 +543,20 @@ const MainApp = () => {
   );
 };
 
-// ============================================================================
-// 📂 App 進入點與注入 CSS
-// ============================================================================
-
 export default function App() {
   return (
     <div className="w-full min-h-[100dvh] bg-[#F7FBFA] flex justify-center font-sans overflow-hidden">
       <style dangerouslySetInnerHTML={{__html: `
-        body, html {
-          margin: 0;
-          padding: 0;
-          background-color: #F7FBFA;
-          width: 100%;
-          overscroll-behavior-y: none;
-        }
-
-        .main-container {
-          width: 100%;
-          max-width: 600px;
-          margin: 0 auto;
-          position: relative;
-          height: 100dvh;
-          background-color: #F7FBFA;
-          box-shadow: 0 0 30px rgba(0,0,0,0.03);
-          display: flex;
-          flex-direction: column;
-        }
-
-        @supports (padding-bottom: env(safe-area-inset-bottom)) { 
-          .pb-safe { padding-bottom: max(2rem, env(safe-area-inset-bottom)); } 
-        }
-
-        @keyframes fadeIn { 
-          from { opacity: 0; transform: translateY(15px); } 
-          to { opacity: 1; transform: translateY(0); } 
-        }
-
-        .animate-fadeIn { 
-          animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
-        }
-
+        body, html { margin: 0; padding: 0; background-color: #F7FBFA; width: 100%; overscroll-behavior-y: none; }
+        .main-container { width: 100%; max-width: 600px; margin: 0 auto; position: relative; height: 100dvh; background-color: #F7FBFA; box-shadow: 0 0 30px rgba(0,0,0,0.03); display: flex; flex-direction: column; }
+        @supports (padding-bottom: env(safe-area-inset-bottom)) { .pb-safe { padding-bottom: max(2rem, env(safe-area-inset-bottom)); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fadeIn { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .font-black { font-weight: 900 !important; }
         * { -webkit-tap-highlight-color: transparent; }
       `}} />
-      
       <div className="main-container">
         <MainApp />
       </div>
