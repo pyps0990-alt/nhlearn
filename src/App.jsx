@@ -145,8 +145,8 @@ const MainApp = () => {
     formData.append('file', file);
 
     try {
-      // ⚠️⚠️⚠️ 請將這裡替換成你 n8n 的 Webhook URL ⚠️⚠️⚠️
-      const N8N_WEBHOOK_URL = 'https://nhmccyj-ai-agent.hf.space/webhook/1d773843-8f54-4ac8-b070-f06609f5b177'; 
+      // ⚠️⚠️⚠️ 請確保這裡是你的正式 n8n Webhook 網址 ⚠️⚠️⚠️
+      const N8N_WEBHOOK_URL = 'https://nhmccyj-n8n-free.hf.space/webhook/84aba968-67fb-44c5-b58f-e3120c1c1fb5'; 
       
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
@@ -154,8 +154,27 @@ const MainApp = () => {
       });
       
       if (!response.ok) throw new Error('伺服器無回應');
-      const data = await response.json(); 
       
+      // 1. 先接收 n8n 傳來的原始資料
+      let rawData = await response.json(); 
+      let data = rawData;
+
+      // 2. 防呆機制：如果 n8n 把字串包在 content 或 text 屬性裡面
+      if (data && data.content) data = data.content;
+      else if (data && data.text) data = data.text;
+
+      // 3. 防呆機制：如果它是字串，剝掉 Markdown 標記，並強轉成 JSON 陣列
+      if (typeof data === 'string') {
+        const cleanString = data.replace(/```json/gi, '').replace(/```/g, '').trim();
+        data = JSON.parse(cleanString);
+      }
+
+      // 4. 最後檢查：確保它現在真的是一個陣列了
+      if (!Array.isArray(data)) {
+        throw new Error("AI 回傳的格式錯誤，無法解析為陣列");
+      }
+      
+      // 5. 開始對陣列使用 map
       const newClasses = data.map((item, index) => {
         const times = item.time ? item.time.split('~') : ['00:00', '00:00'];
         return {
@@ -177,13 +196,13 @@ const MainApp = () => {
       triggerNotification('上傳成功 🎉', 'AI 已將課表自動對齊至當前星期！');
     } catch (error) {
       console.error('上傳失敗:', error);
-      triggerNotification('處理失敗', '無法連接到 n8n 伺服器，或請確認照片清晰。');
+      triggerNotification('處理失敗', '無法解析課表格式，請確保圖片清晰。');
     } finally {
       setUploadLoading(false);
       event.target.value = null; 
     }
   };
-
+  
   // --- 日常排程邏輯 ---
   const updateSchedule = (id, field, value) => {
     setWeeklySchedule(prev => ({
