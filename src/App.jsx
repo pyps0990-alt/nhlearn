@@ -118,10 +118,77 @@ const MainApp = () => {
   const [newNote, setNewNote] = useState({ category: '課堂筆記', title: '', content: '' });
   const [newVocab, setNewVocab] = useState({ word: '', pos: 'n. (名詞)', meaning: '', example: '' });
 
+  // 1️⃣ 新增：追蹤已發送過的通知，避免重複吵人
+  const notifiedSet = useRef(new Set());
+
+  // 2️⃣ 新增：向瀏覽器請求推播權限
+  const requestPushPermission = async () => {
+    if (!("Notification" in window)) {
+      triggerNotification('系統提示', '此瀏覽器不支援桌面通知功能。');
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      triggerNotification('授權成功', '您現在可以接收上課前 5 分鐘的提醒了！');
+    } else {
+      triggerNotification('權限未開啟', '請在瀏覽器設定中允許通知。');
+    }
+  };
+
+  // 3️⃣ 修改：讓這個函數同時觸發「App內橫幅」與「系統原生推播」
   const triggerNotification = (title, message) => {
     setNotification({ show: true, title: String(title), message: String(message) });
     setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 6000);
+
+    // 觸發原生 Web Notification (如果已授權)
+    if ("Notification" in window && Notification.permission === "granted") {
+      // 避免在網頁顯示時重複發送太多通知，可選擇只在背景發送
+      if (document.visibilityState !== 'visible') {
+        try { new Notification(String(title), { body: String(message) }); } catch(e) {}
+      }
+    }
   };
+
+  // 4️⃣ 新增：背景定時器，每 5 秒檢查一次是否快上課了
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setCurrentTime(now);
+      
+      const day = now.getDay();
+      const currentMins = now.getHours() * 60 + now.getMinutes();
+      const dateStr = now.toDateString();
+      
+      (weeklySchedule[day] || []).forEach(c => {
+        if (!c.startTime) return;
+        const startMins = timeToMins(c.startTime);
+        const diff = startMins - currentMins;
+        
+        // 上課前 5 分鐘準時提醒
+        if (diff === 5) {
+          const notifKey = `${c.id}-${dateStr}-5min`;
+          if (!notifiedSet.current.has(notifKey)) {
+            notifiedSet.current.add(notifKey);
+            
+            if ("Notification" in window && Notification.permission === "granted") {
+              try {
+                new Notification(`🔔 準備上課：${String(c.subject)}`, {
+                  body: `📍 地點：${String(c.location || '未定')}\n👨‍🏫 老師：${String(c.teacher || '無')}`
+                });
+              } catch(e) {}
+            }
+            // 同時觸發內建橫幅
+            triggerNotification(
+              `🔔 準備上課：${String(c.subject)}`, 
+              `📍 地點：${String(c.location || '未定')}\n👨‍🏫 老師：${String(c.teacher || '無')}`
+            );
+          }
+        }
+      });
+    }, 5000); 
+    
+    return () => clearInterval(timer);
+  }, [weeklySchedule]);
 
   // 🛠️ 前端圖片壓縮引擎 (專治手機大檔案)
   const compressImage = (file) => {
@@ -313,6 +380,12 @@ const MainApp = () => {
          <div className="relative z-10">
            <h2 className="text-3xl font-black mb-1.5 tracking-tight">早安，學習愉快！</h2>
            <p className="text-emerald-50 text-[11px] font-black tracking-widest uppercase opacity-90">Progress: {Math.round(currentProgress)}% | GSAT Pro</p>
+           
+           {/* 5️⃣ 新增：在主頁加入請求權限的按鈕 */}
+           <button onClick={requestPushPermission} className="mt-5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-5 py-2.5 rounded-2xl text-[13px] font-black flex items-center gap-2 transition-all shadow-md active:scale-95">
+             <Bell size={16} /> 開啟上課提醒推播
+           </button>
+           
          </div>
          <Sparkles className="absolute -right-4 -bottom-4 text-white opacity-10 w-40 h-40" />
       </div>
