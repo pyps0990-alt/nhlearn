@@ -146,7 +146,7 @@ const MainApp = () => {
 
     try {
       // ⚠️⚠️⚠️ 請將這裡替換成你 n8n 的 Webhook URL ⚠️⚠️⚠️
-      const N8N_WEBHOOK_URL = 'https://nhmccyj-n8n-free.hf.space/webhook-test/84aba968-67fb-44c5-b58f-e3120c1c1fb5'; 
+      const N8N_WEBHOOK_URL = 'https://nhmccyj-n8n-free.hf.space/webhook/84aba968-67fb-44c5-b58f-e3120c1c1fb5'; 
       
       const response = await fetch(N8N_WEBHOOK_URL, {
         method: 'POST',
