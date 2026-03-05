@@ -11,11 +11,7 @@ import {
 
 const INITIAL_WEEKLY_SCHEDULE = {
   1: [
-    { id: 101, startTime: '08:00', endTime: '09:00', subject: '國文', location: '302 教室', teacher: '王老師', items: '國文講義' },
-    { id: 102, startTime: '09:10', endTime: '10:00', subject: '英文', location: '語言中心', teacher: '陳老師', items: '雜誌、紅筆' },
-    { id: 103, startTime: '10:10', endTime: '12:00', subject: '數學', location: '302 教室', teacher: '張老師', items: '圓規、直尺' },
-    { id: 104, startTime: '13:00', endTime: '15:00', subject: '物理', location: '物理實驗室', teacher: '李老師', items: '實驗本' },
-    { id: 105, startTime: '15:10', endTime: '17:00', subject: '自習', location: '圖書館', teacher: '自主學習', items: '各科筆記' },
+    { id: 101, startTime: '08:00', endTime: '09:00', subject: '國文', location: '302 教室', teacher: '王老師', items: '國文講義' }
   ],
   2: [], 3: [], 4: [], 5: [], 6: [], 0: []
 };
@@ -114,23 +110,57 @@ const MainApp = () => {
   useEffect(() => { localStorage.setItem('gsat_vocab', JSON.stringify(vocabList)); }, [vocabList]);
   useEffect(() => { localStorage.setItem('gsat_notes', JSON.stringify(notes)); }, [notes]);
 
-  // --- 課表與上傳 State ---
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [editDayTab, setEditDayTab] = useState(new Date().getDay() || 1);
   const [uploadLoading, setUploadLoading] = useState(false);
-  const notifiedSet = useRef(new Set());
 
-  // --- 筆記與單字 State ---
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [newNote, setNewNote] = useState({ category: '課堂筆記', title: '', content: '' });
   const [newVocab, setNewVocab] = useState({ word: '', pos: 'n. (名詞)', meaning: '', example: '' });
-  const [isSummarizing, setIsSummarizing] = useState(false);
-  const [isGeneratingExample, setIsGeneratingExample] = useState(false);
 
-  // --- 通知系統 ---
   const triggerNotification = (title, message) => {
     setNotification({ show: true, title: String(title), message: String(message) });
-    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 5000);
+    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 6000);
+  };
+
+  // 🛠️ 前端圖片壓縮引擎 (專治手機大檔案)
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // 限制最大寬度為 1200px
+          const MAX_WIDTH = 1200; 
+          let scaleSize = 1;
+          
+          if (img.width > MAX_WIDTH) {
+            scaleSize = MAX_WIDTH / img.width;
+          }
+          
+          canvas.width = img.width * scaleSize;
+          canvas.height = img.height * scaleSize;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          // 將 Canvas 轉回 JPEG Blob (品質 0.7 = 70%)
+          canvas.toBlob((blob) => {
+            if (!blob) return reject(new Error('Canvas to Blob failed'));
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", { 
+              type: 'image/jpeg', 
+              lastModified: Date.now() 
+            });
+            resolve(compressedFile);
+          }, 'image/jpeg', 0.7);
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   // --- Webhook AI 上傳處理 ---
@@ -139,13 +169,20 @@ const MainApp = () => {
     if (!file) return;
 
     setUploadLoading(true);
-    triggerNotification('讀取中', 'AI 正在解析課表圖片，請稍候...');
+    triggerNotification('讀取中', '正在優化照片並傳送給 AI，請稍候...');
     
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      // ⚠️⚠️⚠️ 請確保這裡是你的正式 n8n Webhook 網址 ⚠️⚠️⚠️
+      // 🚀 壓縮圖片
+      let fileToUpload = file;
+      if (file.type.startsWith('image/')) {
+        fileToUpload = await compressImage(file);
+        console.log(`圖片壓縮完成！壓縮後: ${(fileToUpload.size/1024/1024).toFixed(2)}MB`);
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+
+      // 替換為你的 n8n 正式網址
       const N8N_WEBHOOK_URL = 'https://nhmccyj-n8n-free.hf.space/webhook/84aba968-67fb-44c5-b58f-e3120c1c1fb5'; 
       
       const response = await fetch(N8N_WEBHOOK_URL, {
@@ -155,26 +192,22 @@ const MainApp = () => {
       
       if (!response.ok) throw new Error('伺服器無回應');
       
-      // 1. 先接收 n8n 傳來的原始資料
       let rawData = await response.json(); 
       let data = rawData;
 
-      // 2. 防呆機制：如果 n8n 把字串包在 content 或 text 屬性裡面
       if (data && data.content) data = data.content;
       else if (data && data.text) data = data.text;
 
-      // 3. 防呆機制：如果它是字串，剝掉 Markdown 標記，並強轉成 JSON 陣列
+      // 🚀 剝除 Markdown 並解析
       if (typeof data === 'string') {
         const cleanString = data.replace(/```json/gi, '').replace(/```/g, '').trim();
         data = JSON.parse(cleanString);
       }
 
-      // 4. 最後檢查：確保它現在真的是一個陣列了
       if (!Array.isArray(data)) {
         throw new Error("AI 回傳的格式錯誤，無法解析為陣列");
       }
       
-      // 5. 開始對陣列使用 map
       const newClasses = data.map((item, index) => {
         const times = item.time ? item.time.split('~') : ['00:00', '00:00'];
         return {
@@ -196,14 +229,14 @@ const MainApp = () => {
       triggerNotification('上傳成功 🎉', 'AI 已將課表自動對齊至當前星期！');
     } catch (error) {
       console.error('上傳失敗:', error);
-      triggerNotification('處理失敗', '無法解析課表格式，請確保圖片清晰。');
+      triggerNotification('處理失敗', '請確認伺服器已喚醒且圖片清晰。');
     } finally {
       setUploadLoading(false);
       event.target.value = null; 
     }
   };
-  
-  // --- 日常排程邏輯 ---
+
+  // --- 手動編輯排程邏輯 ---
   const updateSchedule = (id, field, value) => {
     setWeeklySchedule(prev => ({
       ...prev,
@@ -238,7 +271,7 @@ const MainApp = () => {
     return { currentClass: active, currentProgress: prog, todayClasses: todayList, tomorrowClasses: tomorrowList, isAfter4PM: currentTime.getHours() >= 16 };
   }, [currentTime, weeklySchedule]);
 
-  // --- 單字與筆記邏輯 ---
+  // --- 英文與筆記邏輯 ---
   const speakWord = (word) => { 
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -262,23 +295,13 @@ const MainApp = () => {
   };
   const handleDeleteNote = (id) => setNotes(prev => prev.filter(n => n.id !== id));
 
-  // 模擬 Gemini AI 呼叫 (如果你要接真實 API 可以在此改寫)
   const handleGenerateExample = () => {
-    if (!newVocab.word) return;
-    setIsGeneratingExample(true);
-    setTimeout(() => {
-      setNewVocab(prev => ({ ...prev, example: `This is an AI generated example for "${prev.word}".` }));
-      setIsGeneratingExample(false);
-    }, 1500);
+    // 這裡可以換成呼叫 Gemini
+    setNewVocab(prev => ({ ...prev, example: `This is an example sentence for ${prev.word}.` }));
   };
 
   const handleAiSummarize = () => {
-    if (!newNote.content) return;
-    setIsSummarizing(true);
-    setTimeout(() => {
-      setNewNote(prev => ({ ...prev, content: `【AI 重點摘要】\n1. 重點一\n2. 重點二\n\n---\n${prev.content}` }));
-      setIsSummarizing(false);
-    }, 1500);
+    setNewNote(prev => ({ ...prev, content: `【重點整理】\n1. ...\n\n---\n${prev.content}` }));
   };
 
   // ============================================================================
@@ -309,7 +332,6 @@ const MainApp = () => {
 
         {isEditingSchedule ? (
           <div className="flex flex-col gap-4">
-            {/* AI 課表辨識上傳區 */}
             <div className="bg-emerald-50/50 border border-emerald-100 rounded-[24px] p-5 flex flex-col gap-3 relative overflow-hidden">
               <div className="flex items-center gap-2">
                 <BrainCircuit className="text-emerald-600" size={20} />
@@ -319,19 +341,17 @@ const MainApp = () => {
               
               <label className="bg-white border-2 border-dashed border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 transition-colors cursor-pointer rounded-2xl py-4 flex flex-col items-center justify-center gap-2">
                 {uploadLoading ? <RefreshCw className="animate-spin text-emerald-500" size={24} /> : <ImageIcon className="text-emerald-400" size={24} />}
-                <span className="text-emerald-600 text-[14px] font-black">{uploadLoading ? 'AI 正在努力辨識中...' : '點擊上傳照片 / PDF'}</span>
+                <span className="text-emerald-600 text-[14px] font-black">{uploadLoading ? 'AI 正在處理並壓縮圖片...' : '點擊上傳照片 / PDF'}</span>
                 <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleFileUpload} disabled={uploadLoading} />
               </label>
             </div>
 
-            {/* 星期切換標籤 */}
              <div className="flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
                 {WEEKDAYS.map(d => (
                   <button key={d.id} onClick={() => setEditDayTab(d.id)} className={`px-5 py-3 rounded-2xl text-[14px] font-black flex-shrink-0 transition-all ${editDayTab === d.id ? 'bg-emerald-500 text-white shadow-sm' : 'bg-gray-50 text-gray-500'}`}>{d.label}</button>
                 ))}
              </div>
              
-             {/* 課表編輯列表 */}
              <div className="flex flex-col gap-5">
                {(weeklySchedule[editDayTab] || []).map(item => (
                 <div key={item.id} className="p-5 bg-white rounded-[32px] border border-gray-100 flex flex-col gap-4 shadow-sm relative focus-within:border-emerald-300 transition-colors">
@@ -360,7 +380,15 @@ const MainApp = () => {
                   </div>
                 </div>
                ))}
-               <button onClick={() => setWeeklySchedule({...weeklySchedule, [editDayTab]: [...(weeklySchedule[editDayTab]||[]), {id:Date.now(), subject:'新課程', startTime:'08:00', endTime:'09:00', location: '', teacher: '', items: ''}]})} className="w-full py-4 border-2 border-dashed border-gray-300 rounded-[28px] text-gray-500 text-[15px] font-black hover:bg-gray-50 transition-all">+ 手動新增排程</button>
+               
+               {/* 🚀 手動新增排程按鈕 */}
+               <button 
+                  onClick={() => setWeeklySchedule({...weeklySchedule, [editDayTab]: [...(weeklySchedule[editDayTab]||[]), {id:Date.now(), subject:'新課程', startTime:'08:00', endTime:'09:00', location: '', teacher: '', items: ''}]})} 
+                  className="w-full py-4 border-2 border-dashed border-gray-300 rounded-[28px] text-gray-500 text-[15px] font-black hover:bg-gray-50 transition-all flex justify-center items-center gap-2"
+               >
+                 <Plus size={18} /> 手動新增排程
+               </button>
+
              </div>
           </div>
         ) : (
@@ -411,8 +439,8 @@ const MainApp = () => {
           <div className="bg-emerald-50/50 p-5 rounded-[26px] border border-emerald-100 mt-2">
             <div className="flex justify-between items-center mb-4">
                <span className="text-[11px] font-black text-emerald-700 uppercase tracking-widest">AI Engine</span>
-               <button onClick={handleGenerateExample} disabled={isGeneratingExample || !newVocab.word} className="text-[11px] font-black flex items-center gap-1.5 text-white bg-emerald-500 px-4 py-2.5 rounded-xl shadow-md disabled:opacity-50 active:scale-95 transition-transform">
-                 {isGeneratingExample ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} />} AI 產生例句
+               <button onClick={handleGenerateExample} className="text-[11px] font-black flex items-center gap-1.5 text-white bg-emerald-500 px-4 py-2.5 rounded-xl shadow-md active:scale-95 transition-transform">
+                 <Wand2 size={14} /> AI 產生例句
                </button>
             </div>
             <textarea className="w-full bg-white rounded-[20px] p-4 text-[15px] font-bold text-gray-900 min-h-[100px] outline-none border border-gray-200" placeholder="點擊按鈕生成學測情境..." value={newVocab.example || ''} onChange={e=>setNewVocab({...newVocab, example:e.target.value})} />
@@ -481,8 +509,8 @@ const MainApp = () => {
               </div>
               <div className="flex justify-between items-end mt-1">
                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Smart Input</span>
-                 <button onClick={handleAiSummarize} disabled={isSummarizing || !newNote.content} className="flex items-center gap-1.5 text-[10px] font-black bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg active:scale-95">
-                    {isSummarizing ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />} AI 摘要考點
+                 <button onClick={handleAiSummarize} className="flex items-center gap-1.5 text-[10px] font-black bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg active:scale-95">
+                    <Sparkles size={12} /> AI 摘要考點
                  </button>
               </div>
               <textarea className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-[13px] font-bold text-gray-900 min-h-[160px] outline-none focus:bg-white focus:border-emerald-300" placeholder="貼上隨手抄錄的筆記..." value={newNote.content || ''} onChange={e=>setNewNote({...newNote, content:e.target.value})} />
@@ -518,7 +546,7 @@ const MainApp = () => {
     <>
       <IosNotification notification={notification} />
       
-      {/* 這是可以捲動的區域，已經避開了底部導航列 */}
+      {/* 捲動區域 */}
       <div className="flex-1 overflow-y-auto scroll-smooth w-full px-4 pt-10 pb-[120px] touch-pan-y scrollbar-hide">
         {currentContent}
       </div>
@@ -537,13 +565,12 @@ const MainApp = () => {
 };
 
 // ============================================================================
-// 📂 App 進入點與注入 CSS (取代獨立的 App.css)
+// 📂 App 進入點與注入 CSS
 // ============================================================================
 
 export default function App() {
   return (
     <div className="w-full min-h-[100dvh] bg-[#F7FBFA] flex justify-center font-sans overflow-hidden">
-      {/* 直接將 CSS 注入，確保環境單一且無衝突 */}
       <style dangerouslySetInnerHTML={{__html: `
         body, html {
           margin: 0;
@@ -584,7 +611,6 @@ export default function App() {
         * { -webkit-tap-highlight-color: transparent; }
       `}} />
       
-      {/* 限制寬度的主要容器，解決往左跑的問題 */}
       <div className="main-container">
         <MainApp />
       </div>
