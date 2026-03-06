@@ -268,8 +268,6 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
 
   return (
     <div className="space-y-6 flex flex-col w-full text-left animate-fadeIn">
-      <SchoolNewsWidget />
-
       {/* 頂部歡迎區卡片 */}
       <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-[32px] p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex-shrink-0">
         <div className="relative z-10">
@@ -299,6 +297,8 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
         </div>
         <Sparkles className="absolute -right-4 -bottom-4 text-white opacity-10 w-40 h-40" />
       </div>
+
+      <SchoolNewsWidget />
 
       <div className="bg-white p-5 md:p-8 rounded-[36px] shadow-sm border border-gray-100 w-full mb-2">
         <div className="flex items-center justify-between mb-6 border-b border-gray-50 pb-4">
