@@ -63,9 +63,7 @@ const IosNotification = ({ notification }) => {
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <div className="bg-emerald-500 rounded-[8px] p-1.5 shadow-sm"><Bell size={14} className="text-white" /></div>
-            <span className="text-[13px] text-gray-700 font-bold tracking-wider uppercase">GSAT PRO</span>
           </div>
-          <span className="text-[11px] text-gray-400 font-medium tracking-widest uppercase">Now</span>
         </div>
         <div className="px-1 pb-1 mt-1">
           <div className="text-[16px] font-black text-gray-950 leading-tight mb-1.5">{String(notification?.title || '')}</div>
@@ -816,8 +814,23 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
   const handleSaveNote = () => {
     if (!newNote.title || (!newNote.content && !attachedImage)) return;
-    setNotes(prev => [{ id: Date.now(), subject: String(selectedSubject?.name || '未知'), ...newNote, image: attachedImage, date: new Date().toLocaleDateString() }, ...prev]);
+    const noteToSave = {
+      id: Date.now(),
+      subject: String(selectedSubject?.name || '未知'),
+      ...newNote,
+      image: attachedImage,
+      date: new Date().toLocaleDateString()
+    };
+
+    setNotes(prev => [noteToSave, ...prev]);
     setNewNote({ category: '課堂筆記', title: '', content: '' });
+    setAttachedImage(null);
+    triggerNotification('儲存成功', `已儲存至「${selectedSubject?.name}」筆記。`);
+
+    // 如果已登入 Google，啟動自動備份
+    if (isGoogleConnected) {
+      handleBackupToDrive(noteToSave);
+    }
   };
 
   const handleDeleteNote = (id) => setNotes(prev => prev.filter(n => n.id !== id));
@@ -885,22 +898,23 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
   };
 
   const handleBackupToDrive = async (note) => {
-    if (!isGoogleConnected || !window.gapi.client.getToken()) {
+    if (!isGoogleConnected || !window.gapi?.client?.getToken()) {
       triggerNotification('請先登入', '需先在設定登入 Google 帳號才能備份。');
       return;
     }
 
     setIsUploadingDrive(true);
-    triggerNotification('備份中', '正在上傳至 Google Drive...');
+    // 只有在手動點擊（非自動備份）時才顯示初始通知？或者統一顯示
+    triggerNotification('雲端備份中', `正在同步「${note.title}」至 Drive...`);
 
     try {
+      // 1. 確保根資料夾 "GSAT Pro 筆記" 存在
       const rootFolderRes = await window.gapi.client.drive.files.list({
         q: "name='GSAT Pro 筆記' and mimeType='application/vnd.google-apps.folder' and trashed=false",
         fields: 'files(id)'
       });
 
       let rootFolderId = rootFolderRes.result.files.length > 0 ? rootFolderRes.result.files[0].id : null;
-
       if (!rootFolderId) {
         const createRootRes = await window.gapi.client.drive.files.create({
           resource: { name: 'GSAT Pro 筆記', mimeType: 'application/vnd.google-apps.folder' },
@@ -909,6 +923,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
         rootFolderId = createRootRes.result.id;
       }
 
+      // 2. 確保科目資料夾存在
       const subjectName = note.subject || '未分類';
       const subFolderRes = await window.gapi.client.drive.files.list({
         q: `name='${subjectName}' and '${rootFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
@@ -916,7 +931,6 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
       });
 
       let subFolderId = subFolderRes.result.files.length > 0 ? subFolderRes.result.files[0].id : null;
-
       if (!subFolderId) {
         const createSubRes = await window.gapi.client.drive.files.create({
           resource: { name: subjectName, mimeType: 'application/vnd.google-apps.folder', parents: [rootFolderId] },
@@ -925,39 +939,86 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
         subFolderId = createSubRes.result.id;
       }
 
+      // 3. 上傳或更新筆記文字檔
+      const fileName = `${note.title}.txt`;
       const fileContent = `標題: ${note.title}\n分類: ${note.category}\n日期: ${note.date}\n\n內容:\n${note.content}`;
-      const fileMetadata = {
-        name: `${note.title}_${Date.now()}.txt`,
-        parents: [subFolderId]
-      };
+
+      const existingFileRes = await window.gapi.client.drive.files.list({
+        q: `name='${fileName}' and '${subFolderId}' in parents and trashed=false`,
+        fields: 'files(id)'
+      });
+      const existingFileId = existingFileRes.result.files.length > 0 ? existingFileRes.result.files[0].id : null;
 
       const boundary = '-------314159265358979323846';
-      const delimiter = "\r\n--" + boundary + "\r\n";
-      const close_delim = "\r\n--" + boundary + "--";
+      if (existingFileId) {
+        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=media`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${window.gapi.client.getToken().access_token}`,
+            'Content-Type': 'text/plain; charset=UTF-8'
+          },
+          body: fileContent
+        });
+      } else {
+        const fileMetadata = { name: fileName, parents: [subFolderId] };
+        const multipartBody =
+          `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(fileMetadata)}\r\n` +
+          `--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${fileContent}\r\n` +
+          `--${boundary}--`;
 
-      let multipartRequestBody =
-        delimiter +
-        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-        JSON.stringify(fileMetadata) +
-        delimiter +
-        'Content-Type: text/plain; charset=UTF-8\r\n\r\n' +
-        fileContent +
-        close_delim;
+        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${window.gapi.client.getToken().access_token}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`
+          },
+          body: multipartBody
+        });
+      }
 
-      await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${window.gapi.client.getToken().access_token}`,
-          'Content-Type': `multipart/related; boundary=${boundary}`
-        },
-        body: multipartRequestBody
-      });
+      // 4. 如果有圖片，也同步上傳或更新
+      if (note.image) {
+        const imgName = `${note.title}_附圖.jpg`;
+        const base64Data = note.image.split(',')[1];
 
-      triggerNotification('備份成功 🎉', '檔案已存入 Drive，您可以隨時匯入 NotebookLM 進行深階問答！');
+        const existingImgRes = await window.gapi.client.drive.files.list({
+          q: `name='${imgName}' and '${subFolderId}' in parents and trashed=false`,
+          fields: 'files(id)'
+        });
+        const existingImgId = existingImgRes.result.files.length > 0 ? existingImgRes.result.files[0].id : null;
+
+        if (existingImgId) {
+          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingImgId}?uploadType=media`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${window.gapi.client.getToken().access_token}`,
+              'Content-Type': 'image/jpeg'
+            },
+            body: Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
+          });
+        } else {
+          const imgMetadata = { name: imgName, parents: [subFolderId] };
+          const imgMultipartBody =
+            `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(imgMetadata)}\r\n` +
+            `--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Data}\r\n` +
+            `--${boundary}--`;
+
+          await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${window.gapi.client.getToken().access_token}`,
+              'Content-Type': `multipart/related; boundary=${boundary}`
+            },
+            body: imgMultipartBody
+          });
+        }
+      }
+
+      triggerNotification('同步成功 ☁️', `筆記「${note.title}」已安全存入 Drive。`);
 
     } catch (e) {
       console.error("Drive 備份失敗", e);
-      triggerNotification('備份失敗', '請確認權限或稍後再試。');
+      triggerNotification('雲端備份失敗', '請確認網路連線或重新登入 Google 帳號。');
     } finally {
       setIsUploadingDrive(false);
     }
