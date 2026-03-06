@@ -47,7 +47,7 @@ const timeToMins = (timeStr) => {
 // --- ★ Google API 設定 ★ ---
 const GOOGLE_CLIENT_ID = '687493999096-ou5u6bug4t9v1u54bp39qauimvedvou9.apps.googleusercontent.com';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly';
 
 // ================= 共用元件 =================
 const IosNotification = ({ notification }) => {
@@ -1018,7 +1018,11 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
     } catch (e) {
       console.error("Drive 備份失敗", e);
-      triggerNotification('雲端備份失敗', '請確認網路連線或重新登入 Google 帳號。');
+      if (e.status === 403 || (e.result?.error?.code === 403)) {
+        triggerNotification('權限不足 (403)', '請確保已在 Google Cloud Console 開啟 Drive API，或嘗試登出後重新登入授權。');
+      } else {
+        triggerNotification('雲端備份失敗', '請確認網路連線或重新登入 Google 帳號。');
+      }
     } finally {
       setIsUploadingDrive(false);
     }
@@ -1767,6 +1771,22 @@ const MainApp = () => {
   useEffect(() => { localStorage.setItem('gsat_stores', JSON.stringify(stores)); }, [stores]);
   useEffect(() => { localStorage.setItem('gsat_subjects', JSON.stringify(subjects)); }, [subjects]);
 
+  // --- 新增：行動端輸入優化 (防止鍵盤遮擋) ---
+  useEffect(() => {
+    const handleFocusIn = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        const el = e.target;
+        // 等待鍵盤彈出並結束滾動
+        setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      }
+    };
+
+    document.addEventListener('focusin', handleFocusIn);
+    return () => document.removeEventListener('focusin', handleFocusIn);
+  }, []);
+
   // --- 3. React Refs ---
   const notifiedSet = useRef(new Set());
   const scheduleRef = useRef(weeklySchedule);
@@ -2035,7 +2055,13 @@ export default function App() {
       <style dangerouslySetInnerHTML={{
         __html: `
           body, html { margin: 0; padding: 0; background-color: #f3f4f6; width: 100%; overscroll-behavior-y: none; }
-          .main-container { width: 100%; max-width: 1024px; margin: 0 auto; position: relative; height: 100dvh; background-color: #F7FBFA; box-shadow: 0 0 40px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; }
+          .main-container { width: 100%; max-width: 1024px; margin: 0 auto; position: relative; height: 100dvh; height: 100svh; background-color: #F7FBFA; box-shadow: 0 0 40px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden; }
+          
+          /* 針對行動端鍵盤優化 */
+          @media (max-width: 768px) {
+            .main-container { height: -webkit-fill-available; height: fill-available; }
+          }
+          
           @supports (padding-bottom: env(safe-area-inset-bottom)) { .pb-safe { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); } }
           @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
           .animate-fadeIn { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -2043,6 +2069,7 @@ export default function App() {
           .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
           .font-black { font-weight: 900 !important; }
           * { -webkit-tap-highlight-color: transparent; }
+          input, textarea { font-size: 16px !important; } /* 防止 iOS 自動縮放 */
         `}} />
       <div className="main-container">
         <MainApp />
