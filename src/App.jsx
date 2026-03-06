@@ -155,9 +155,11 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
     const file = event.target.files[0];
     if (!file) return;
 
-    const apiKey = localStorage.getItem('gsat_gemini_key');
-    if (!apiKey) {
-      triggerNotification('設定未完成', '請先至設定綁定 Gemini API Key');
+    const hasGemini = localStorage.getItem('gsat_gemini_key');
+    const hasOpenRouter = localStorage.getItem('gsat_openrouter_key');
+    const hasWindowAi = window.ai && window.ai.canCreateTextSession;
+    if (!hasGemini && !hasOpenRouter && !hasWindowAi) {
+      triggerNotification('設定未完成', '請先至設定綁定 API Key 或使用支援 AI 功能的瀏覽器');
       return;
     }
 
@@ -265,8 +267,11 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
   }, []);
 
   return (
-    <div className="flex flex-col gap-5 w-full text-left animate-fadeIn">
-      <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-[32px] p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex-shrink-0 mt-2">
+    <div className="space-y-6 flex flex-col w-full text-left animate-fadeIn">
+      <SchoolNewsWidget />
+
+      {/* 頂部歡迎區卡片 */}
+      <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-[32px] p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex-shrink-0">
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-3xl font-black tracking-tight">{getGreeting()}</h2>
@@ -765,7 +770,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
   const handleDeleteSubject = (name) => {
     if (window.confirm(`確定要刪除「${name}」及其關聯內容嗎？`)) {
       setSubjects(prev => prev.filter(s => s.name !== name));
-      setNotes(prev => prev.filter(n => n.subject !== name));
+      setNotes(prev => prev.filter(n => n.subject === name));
       triggerNotification('已刪除', `已移除科目：${name}`);
     }
   };
@@ -907,12 +912,17 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
       files.forEach(file => {
         const reader = new FileReader();
         reader.onloadend = () => {
-          setAttachments(prev => [...prev, {
-            id: Date.now() + Math.random(),
-            name: file.name,
-            type: file.type.startsWith('image/') ? 'image' : 'file',
-            data: reader.result
-          }]);
+          if (file.type.startsWith('image/')) {
+            setAttachments(prev => [...prev, {
+              id: Date.now() + Math.random(),
+              name: file.name,
+              type: 'image',
+              data: reader.result
+            }]);
+          } else {
+            triggerNotification('不支援的格式', '目前僅支援圖片上傳，以維護系統效能。');
+          }
+
         };
         reader.readAsDataURL(file);
       });
@@ -1310,7 +1320,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
             <div className="flex gap-2 flex-grow">
               <label className="flex-1 flex items-center justify-center gap-2 text-[13px] font-black text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100/50 border border-emerald-100/50 py-3.5 rounded-2xl cursor-pointer active:scale-95 transition-all group/btn">
                 <Upload size={18} className="group-hover/btn:-translate-y-0.5 transition-transform" /> 上傳檔案
-                <input type="file" multiple className="hidden" onChange={handleFileUpload} />
+                <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} />
               </label>
               <button
                 onClick={handleAiSummarize}
@@ -1376,7 +1386,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
                     {att.type === 'image' ? (
                       <img src={att.data} alt={att.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     ) : (
-                      <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center p-3">
+                      <div className="w-full h-32 bg-gray-50 flex flex-col items-center justify-center p-3">
                         <FileText size={24} className="text-gray-400 mb-1" />
                         <span className="text-[10px] font-bold text-gray-500 text-center line-clamp-2">{att.name}</span>
                       </div>
@@ -1763,12 +1773,13 @@ const TransitWidget = () => {
               </span>
             </div>
 
-            <div className="flex items-center justify-between relative px-2">
-              {/* Background Line */}
-              <div className="absolute top-5 left-8 right-8 h-1.5 bg-gray-200 rounded-full z-0 overflow-hidden">
+            <div className="flex items-center justify-between relative px-2 py-4">
+              {/* Background Line - 調整 top 為 5.5 或更精確的值使其中間穿過 */}
+              <div className="absolute top-[38px] left-12 right-12 h-1 bg-gray-200 rounded-full z-0 overflow-hidden">
                 {/* Animated Flow Line */}
                 <div className="h-full bg-blue-400 rounded-full animate-route-flow origin-left"></div>
               </div>
+
 
               {currentRoute.steps.map((step, sIdx) => (
                 <div key={sIdx} className="flex flex-col items-center gap-3 z-10 w-1/3">
@@ -1789,8 +1800,60 @@ const TransitWidget = () => {
   );
 };
 
+// 新增：學校官網公告元件
+const SchoolNewsWidget = () => {
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 內湖高中 NSS 系統的最新消息通常在這個頁面
+  const NEWS_PAGE_URL = "https://www.nhsh.tp.edu.tw/content?a=T0RESU5qYzNPVE01TlRFPTBjVE0zRWpOeDRrVGludGVseQ==&c=T0RESU9ERXhNamsyTVRnPTNrek01RWpOeElrVGludGVseQ==";
+
+  useEffect(() => {
+    // 由於 CORS 限制，前端直接 fetch 學校網站會失敗
+    // 這裡通常需要一個 API Proxy 或 Serverless Function
+    // 暫時以模擬資料與官方連結呈現，確保 UI 穩定
+    setTimeout(() => {
+      setNews([
+        { title: "114學年度第2學期學習歷程檔案上傳截止日期公告", date: "2026-03-05" },
+        { title: "第38屆學生會正副會長遴選辦法", date: "2026-03-03" },
+        { title: "HVL高中排球聯賽決賽應援團招募資訊", date: "2026-03-01" }
+      ]);
+      setLoading(false);
+    }, 800);
+  }, []);
+
+  return (
+    <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 mt-5">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-[16px] font-black text-gray-800 flex items-center gap-2">
+          <Globe className="text-blue-500" size={20} /> 學校最新公告
+        </h3>
+        <a href={NEWS_PAGE_URL} target="_blank" rel="noreferrer" className="text-[12px] font-black text-blue-600 hover:underline">查看更多</a>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center p-4">
+          <RefreshCw size={20} className="text-gray-200 animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {news.map((item, idx) => (
+            <a key={idx} href={NEWS_PAGE_URL} target="_blank" rel="noreferrer" className="block p-3.5 bg-gray-50/50 hover:bg-blue-50/50 border border-gray-100 rounded-2xl transition-all group">
+              <div className="flex flex-col gap-1">
+                <div className="text-[11px] font-black text-blue-500/70">{item.date}</div>
+                <div className="text-[13.5px] font-black text-gray-800 group-hover:text-blue-700 transition-colors line-clamp-1">{item.title}</div>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // 6. 交通與 YouBike
 const TrafficTab = () => {
+
   return (
     <div className="space-y-5 flex flex-col w-full text-left animate-fadeIn mb-8">
       <h2 className="text-2xl font-black text-gray-900 flex items-center gap-3 px-1"><Bus className="text-emerald-500" size={28} /> 交通與 YouBike</h2>
@@ -1833,6 +1896,8 @@ const SettingsModal = ({ isOpen, onClose, triggerNotification, handleAuthClick, 
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* 通知設定 */}
+
+
           <div className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm">
             <h3 className="text-[14px] font-black text-gray-800 mb-4 flex items-center gap-2"><Bell className="text-orange-500" size={18} /> 通知功能設定</h3>
             <div className="flex gap-2">
@@ -2340,4 +2405,4 @@ export default function App() {
       </div>
     </div>
   );
-}
+} 2
