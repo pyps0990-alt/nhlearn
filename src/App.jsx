@@ -936,18 +936,20 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
     try {
       const prompt = `請幫我整理並摘要這份高中 ${selectedSubject?.name} 筆記的重點，請條列式列出核心考點。`;
-      let imageObj = null;
-      const firstImage = attachments.find(a => a.type === 'image');
-      if (firstImage) {
-        imageObj = { mimeType: "image/jpeg", data: firstImage.data.split(',')[1] };
-      }
+      const aiImages = attachments
+        .filter(a => a.type === 'image')
+        .slice(0, 5)
+        .map(a => ({
+          mimeType: a.data.split(';')[0].split(':')[1] || 'image/jpeg',
+          data: a.data.split(',')[1]
+        }));
 
       let contentToAI = prompt;
       if (newNote.content) {
         contentToAI = `${prompt}\n\n以下是文字筆記內容：\n${newNote.content}`;
       }
 
-      const summary = await fetchAI(contentToAI, { temperature: 0.3, image: imageObj });
+      const summary = await fetchAI(contentToAI, { temperature: 0.3, images: aiImages });
       setNewNote(prev => ({ ...prev, content: `【AI 重點整理】\n${summary}\n\n---\n${prev.content}` }));
       triggerNotification('完成', '已將摘要插入筆記內容！');
     } catch (e) {
@@ -1243,84 +1245,87 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
         )}
       </div>
 
-      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 opacity-50 group-hover:scale-110 transition-transform duration-1000"></div>
+      <div className="bg-white/70 backdrop-blur-xl p-6 rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-1000"></div>
 
         <div className="relative z-10 flex flex-col gap-4">
-          <div className="flex gap-2">
-            <div className="relative w-1/3">
+          <div className="flex gap-2.5">
+            <div className="relative flex-shrink-0 w-32">
               <select
-                className="w-full h-full bg-gray-50 border border-gray-200 rounded-[18px] px-3 pr-8 appearance-none text-[12px] font-black outline-none focus:border-emerald-300 transition-colors"
+                className="w-full h-full bg-gray-50/50 border border-gray-200/50 rounded-2xl px-3.5 pr-8 appearance-none text-[13px] font-black outline-none focus:border-emerald-300 transition-all cursor-pointer"
                 value={newNote.category}
                 onChange={e => setNewNote({ ...newNote, category: e.target.value })}
               >
                 {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                <ChevronRight size={14} className="rotate-90" />
+                <ChevronLeft size={14} className="-rotate-90" />
               </div>
             </div>
-            <input
-              type="text"
-              className="w-2/3 bg-gray-50 border border-gray-200 rounded-[18px] px-4 py-3.5 outline-none text-[14px] font-black focus:border-emerald-300 focus:bg-white transition-all"
-              placeholder="輸入筆記標題..."
-              value={newNote.title}
-              onChange={e => setNewNote({ ...newNote, title: e.target.value })}
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                className="w-full bg-gray-50/50 border border-gray-200/50 rounded-2xl px-5 py-4 outline-none text-[15px] font-black focus:border-emerald-300 focus:bg-white transition-all shadow-sm"
+                placeholder="輸入筆記標題..."
+                value={newNote.title}
+                onChange={e => setNewNote({ ...newNote, title: e.target.value })}
+              />
+              <div className="absolute left-0 bottom-0 w-0 h-0.5 bg-emerald-500 transition-all duration-300 group-focus-within:w-full"></div>
+            </div>
+          </div>
+
+          <div className="relative">
+            <textarea
+              className="w-full bg-gray-50/80 border border-gray-200/50 rounded-[24px] p-5 text-[15px] font-bold text-gray-800 min-h-[140px] outline-none focus:bg-white focus:border-emerald-300 transition-all resize-none shadow-inner leading-relaxed"
+              placeholder="開始記錄您的學習內容..."
+              value={newNote.content}
+              onChange={e => setNewNote({ ...newNote, content: e.target.value })}
             />
           </div>
 
-          <textarea
-            className="w-full bg-gray-50 border border-gray-200 rounded-[24px] p-5 text-[14px] font-bold text-gray-900 min-h-[160px] outline-none focus:bg-white focus:border-emerald-300 transition-all resize-none shadow-inner"
-            placeholder="點擊此處開始記錄您的學習靈感、錯題解析或重點整理..."
-            value={newNote.content}
-            onChange={e => setNewNote({ ...newNote, content: e.target.value })}
-          />
-
           {attachments.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-fadeIn">
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 animate-fadeIn p-1">
               {attachments.map((att) => (
-                <div key={att.id} className="relative aspect-square rounded-2xl overflow-hidden border border-gray-200 shadow-sm group/att">
+                <div key={att.id} className="relative aspect-square rounded-2xl overflow-hidden border border-gray-200/50 shadow-sm group/att bg-white">
                   {att.type === 'image' ? (
-                    <img src={att.data} alt={att.name} className="w-full h-full object-cover" />
+                    <img src={att.data} alt={att.name} className="w-full h-full object-cover group-hover/att:scale-105 transition-transform" />
                   ) : (
-                    <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center p-2">
-                      <FileText size={24} className="text-gray-400 mb-1" />
-                      <span className="text-[10px] font-bold text-gray-500 text-center line-clamp-2">{att.name}</span>
+                    <div className="w-full h-full flex flex-col items-center justify-center p-2">
+                      <FileText size={20} className="text-emerald-500 mb-1" />
+                      <span className="text-[9px] font-black text-gray-400 text-center line-clamp-1 truncate w-full px-1">{att.name}</span>
                     </div>
                   )}
                   <button
                     onClick={() => setAttachments(prev => prev.filter(a => a.id !== att.id))}
-                    className="absolute top-1.5 right-1.5 p-1.5 bg-black/60 text-white rounded-full backdrop-blur-md active:scale-90 transition-transform opacity-0 group-hover/att:opacity-100"
+                    className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full backdrop-blur-md active:scale-90 transition-all opacity-0 group-hover/att:opacity-100"
                   >
-                    <X size={12} />
+                    <X size={10} />
                   </button>
                 </div>
               ))}
             </div>
           )}
 
-
-          <div className="flex justify-between items-center mt-1">
-            <div className="flex gap-2">
-              <label className="flex items-center gap-2 text-[12px] font-black text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 px-4 py-2.5 rounded-2xl cursor-pointer active:scale-95 transition-all">
-                <Upload size={16} /> 上傳檔案
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <div className="flex gap-2 flex-grow">
+              <label className="flex-1 flex items-center justify-center gap-2 text-[13px] font-black text-emerald-700 bg-emerald-50/50 hover:bg-emerald-100/50 border border-emerald-100/50 py-3.5 rounded-2xl cursor-pointer active:scale-95 transition-all group/btn">
+                <Upload size={18} className="group-hover/btn:-translate-y-0.5 transition-transform" /> 上傳檔案
                 <input type="file" multiple className="hidden" onChange={handleFileUpload} />
               </label>
-
               <button
                 onClick={handleAiSummarize}
                 disabled={isProcessingAI}
-                className="flex items-center gap-2 text-[12px] font-black bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100 px-4 py-2.5 rounded-2xl active:scale-95 transition-all disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-2 text-[13px] font-black bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100/50 border border-indigo-100/50 py-3.5 rounded-2xl active:scale-95 transition-all disabled:opacity-50 group/btn"
               >
-                {isProcessingAI ? <RefreshCw size={14} className="animate-spin text-purple-400" /> : <Sparkles size={14} />}
+                {isProcessingAI ? <RefreshCw size={18} className="animate-spin" /> : <Sparkles size={18} className="text-indigo-500" />}
                 AI 摘要
               </button>
             </div>
             <button
               onClick={handleSaveNote}
-              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2"
+              className="flex-shrink-0 flex items-center justify-center w-14 h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
             >
-              儲存 <Save size={18} />
+              <Save size={24} />
             </button>
           </div>
         </div>
@@ -1910,15 +1915,21 @@ const SettingsModal = ({ isOpen, onClose, triggerNotification, handleAuthClick, 
 
 // --- ★ Unified AI Fetcher (Resilient Fallback) ★ ---
 const fetchAI = async (prompt, options = {}) => {
-  const { temperature = 0.7, responseJson = false, image = null } = options;
+  const { temperature = 0.7, responseJson = false, image = null, images = [] } = options;
   const geminiKey = localStorage.getItem('gsat_gemini_key');
   const openRouterKey = localStorage.getItem('gsat_openrouter_key');
+
+  // 將單一 image 合併進 images 陣列處理
+  const allImages = [...images];
+  if (image) allImages.push(image);
 
   // 1. Try Google Gemini API (Primary)
   if (geminiKey) {
     try {
       const contents = [{ parts: [{ text: prompt }] }];
-      if (image) contents[0].parts.push({ inlineData: image });
+      if (allImages.length > 0) {
+        allImages.forEach(img => contents[0].parts.push({ inlineData: img }));
+      }
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1942,10 +1953,13 @@ const fetchAI = async (prompt, options = {}) => {
         messages: [{ role: "user", content: prompt }],
         temperature
       };
-      if (image) {
+      if (allImages.length > 0) {
         body.messages[0].content = [
           { type: "text", text: prompt },
-          { type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.data}` } }
+          ...allImages.map(img => ({
+            type: "image_url",
+            image_url: { url: `data:${img.mimeType};base64,${img.data}` }
+          }))
         ];
       }
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
