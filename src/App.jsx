@@ -1430,11 +1430,16 @@ const StoresTab = ({ stores, setStores }) => {
 };
 
 const YoubikeWidget = () => {
-  // 1. 補齊所有需要的 State
   const [youbikeData, setYoubikeData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdateTime, setLastUpdateTime] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchYoubike = useCallback(async () => {
     setError(null);
@@ -1495,7 +1500,7 @@ const YoubikeWidget = () => {
         <div className="flex items-center gap-3">
           <div className="flex flex-col items-end">
             <span className="text-[18px] font-black text-gray-800 font-mono leading-none">
-              {new Date().toLocaleTimeString('zh-TW', { hour12: false })}
+              {currentTime.toLocaleTimeString('zh-TW', { hour12: false })}
             </span>
           </div>
           <button onClick={fetchYoubike} className="p-1.5 bg-gray-50 text-gray-400 rounded-lg active:scale-90 transition-transform hover:bg-gray-100">
@@ -1800,8 +1805,6 @@ const SettingsModal = ({ isOpen, onClose, triggerNotification, handleAuthClick, 
         </div>
       </div>
     </div>
-      </div >
-    </div >
   );
 };
 
