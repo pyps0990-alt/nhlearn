@@ -44,6 +44,16 @@ const timeToMins = (timeStr) => {
   return h * 60 + m;
 };
 
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 11) return '早安，學習愉快！';
+  if (hour >= 11 && hour < 14) return '午安，記得休息！';
+  if (hour >= 14 && hour < 18) return '下午好，繼續加油！';
+  if (hour >= 18 && hour < 22) return '晚上好，充實自我！';
+  return '夜深了，早點休息喔！';
+};
+
+
 // --- ★ Google API 設定 ★ ---
 const GOOGLE_CLIENT_ID = '687493999096-ou5u6bug4t9v1u54bp39qauimvedvou9.apps.googleusercontent.com';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
@@ -259,7 +269,7 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
       <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-[32px] p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex-shrink-0 mt-2">
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-4">
-            <h2 className="text-3xl font-black tracking-tight">早安，學習愉快！</h2>
+            <h2 className="text-3xl font-black tracking-tight">{getGreeting()}</h2>
             <div className="flex flex-col items-end">
               <span className="text-emerald-50 text-[11px] font-black uppercase tracking-widest opacity-80">CURRENT TIME</span>
               <span className="text-white text-[24px] font-black font-mono drop-shadow-sm">
@@ -648,7 +658,10 @@ const QuizModal = ({ isOpen, onClose, quizData, subject }) => {
   const q = quizData[currentQuestion];
 
   return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn">
+    <div
+      className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="w-full max-w-[450px] bg-white rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
           <div>
@@ -723,7 +736,7 @@ const QuizModal = ({ isOpen, onClose, quizData, subject }) => {
 // 4. 筆記本 (Notes)
 const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, setSelectedSubject, triggerNotification, isGoogleConnected }) => {
   const [newNote, setNewNote] = useState({ category: '課堂筆記', title: '', content: '' });
-  const [attachedImage, setAttachedImage] = useState(null);
+  const [attachments, setAttachments] = useState([]);
   const [isProcessingAI, setIsProcessingAI] = useState(false);
   const [isUploadingDrive, setIsUploadingDrive] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -800,18 +813,18 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
   };
 
   const handleSaveNote = () => {
-    if (!newNote.title || (!newNote.content && !attachedImage)) return;
+    if (!newNote.title || (!newNote.content && attachments.length === 0)) return;
     const noteToSave = {
       id: Date.now(),
       subject: String(selectedSubject?.name || '未知'),
       ...newNote,
-      image: attachedImage,
+      attachments: attachments,
       date: new Date().toLocaleDateString()
     };
 
     setNotes(prev => [noteToSave, ...prev]);
     setNewNote({ category: '課堂筆記', title: '', content: '' });
-    setAttachedImage(null);
+    setAttachments([]);
     triggerNotification('儲存成功', `已儲存至「${selectedSubject?.name}」筆記。`);
 
     // 如果已登入 Google，啟動自動備份
@@ -867,15 +880,17 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
         await window.gapi.client.drive.files.delete({ fileId: file.id });
       }
 
-      // 4. 搜尋並刪除圖片檔
-      const imgName = `${note.title}_附圖.jpg`;
-      const imgRes = await window.gapi.client.drive.files.list({
-        q: `name='${imgName}' and '${subFolderId}' in parents and trashed=false`,
-        fields: 'files(id)'
-      });
-
-      for (const img of imgRes.result.files) {
-        await window.gapi.client.drive.files.delete({ fileId: img.id });
+      // 4. 搜尋並刪除所有附件檔
+      const attachments = note.attachments || (note.image ? [{ type: 'image', name: `${note.title}_附圖.jpg`, data: note.image }] : []);
+      for (const att of attachments) {
+        const attName = att.name || `${note.title}_附件_${Date.now()}.jpg`;
+        const attRes = await window.gapi.client.drive.files.list({
+          q: `name='${attName}' and '${subFolderId}' in parents and trashed=false`,
+          fields: 'files(id)'
+        });
+        for (const file of attRes.result.files) {
+          await window.gapi.client.drive.files.delete({ fileId: file.id });
+        }
       }
 
       triggerNotification('雲端同步成功 ☁️', `已從 Drive 移除「${note.title}」。`);
@@ -886,12 +901,21 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
     }
   };
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setAttachedImage(reader.result);
-      reader.readAsDataURL(file);
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setAttachments(prev => [...prev, {
+            id: Date.now() + Math.random(),
+            name: file.name,
+            type: file.type.startsWith('image/') ? 'image' : 'file',
+            data: reader.result
+          }]);
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
@@ -902,7 +926,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
       return;
     }
 
-    if (!newNote.content && !attachedImage) {
+    if (!newNote.content && attachments.length === 0) {
       triggerNotification('需要內容', '請輸入筆記內容或上傳照片供 AI 分析。');
       return;
     }
@@ -913,8 +937,9 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
     try {
       const prompt = `請幫我整理並摘要這份高中 ${selectedSubject?.name} 筆記的重點，請條列式列出核心考點。`;
       let imageObj = null;
-      if (attachedImage) {
-        imageObj = { mimeType: "image/jpeg", data: attachedImage.split(',')[1] };
+      const firstImage = attachments.find(a => a.type === 'image');
+      if (firstImage) {
+        imageObj = { mimeType: "image/jpeg", data: firstImage.data.split(',')[1] };
       }
 
       let contentToAI = prompt;
@@ -1012,8 +1037,49 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
         });
       }
 
-      // 4. 如果有圖片，也同步上傳或更新
-      if (note.image) {
+      // 4. 同步所有附件檔
+      const noteAttachments = note.attachments || [];
+
+      for (const att of noteAttachments) {
+        const attName = att.name;
+        const base64Data = att.data.split(',')[1];
+        const mimeType = att.type === 'image' ? (att.data.split(';')[0].split(':')[1] || 'image/jpeg') : 'application/octet-stream';
+
+        const existingAttRes = await window.gapi.client.drive.files.list({
+          q: `name='${attName}' and '${subFolderId}' in parents and trashed=false`,
+          fields: 'files(id)'
+        });
+        const existingAttId = existingAttRes.result.files.length > 0 ? existingAttRes.result.files[0].id : null;
+
+        if (existingAttId) {
+          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingAttId}?uploadType=media`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${window.gapi.client.getToken().access_token}`,
+              'Content-Type': mimeType
+            },
+            body: Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
+          });
+        } else {
+          const attMetadata = { name: attName, parents: [subFolderId] };
+          const attMultipartBody =
+            `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(attMetadata)}\r\n` +
+            `--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Data}\r\n` +
+            `--${boundary}--`;
+
+          await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${window.gapi.client.getToken().access_token}`,
+              'Content-Type': `multipart/related; boundary=${boundary}`
+            },
+            body: attMultipartBody
+          });
+        }
+      }
+
+      // 相容舊資料 & 上傳圖片
+      if (note.image && (!note.attachments || note.attachments.length === 0)) {
         const imgName = `${note.title}_附圖.jpg`;
         const base64Data = note.image.split(',')[1];
 
@@ -1049,6 +1115,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
           });
         }
       }
+
 
       triggerNotification('同步成功 ☁️', `筆記「${note.title}」已安全存入 Drive。`);
 
@@ -1209,24 +1276,37 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
             onChange={e => setNewNote({ ...newNote, content: e.target.value })}
           />
 
-          {attachedImage && (
-            <div className="relative w-full h-40 rounded-2xl overflow-hidden border border-gray-200 shadow-sm animate-fadeIn">
-              <img src={attachedImage} alt="附圖" className="w-full h-full object-cover" />
-              <button
-                onClick={() => setAttachedImage(null)}
-                className="absolute top-3 right-3 p-2 bg-black/60 text-white rounded-full backdrop-blur-md active:scale-90 transition-transform"
-              >
-                <X size={16} />
-              </button>
+          {attachments.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 animate-fadeIn">
+              {attachments.map((att) => (
+                <div key={att.id} className="relative aspect-square rounded-2xl overflow-hidden border border-gray-200 shadow-sm group/att">
+                  {att.type === 'image' ? (
+                    <img src={att.data} alt={att.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center p-2">
+                      <FileText size={24} className="text-gray-400 mb-1" />
+                      <span className="text-[10px] font-bold text-gray-500 text-center line-clamp-2">{att.name}</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setAttachments(prev => prev.filter(a => a.id !== att.id))}
+                    className="absolute top-1.5 right-1.5 p-1.5 bg-black/60 text-white rounded-full backdrop-blur-md active:scale-90 transition-transform opacity-0 group-hover/att:opacity-100"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
+
 
           <div className="flex justify-between items-center mt-1">
             <div className="flex gap-2">
               <label className="flex items-center gap-2 text-[12px] font-black text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 px-4 py-2.5 rounded-2xl cursor-pointer active:scale-95 transition-all">
-                <ImageIcon size={16} /> 掃描筆記
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                <Upload size={16} /> 上傳檔案
+                <input type="file" multiple className="hidden" onChange={handleFileUpload} />
               </label>
+
               <button
                 onClick={handleAiSummarize}
                 disabled={isProcessingAI}
@@ -1284,11 +1364,27 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
             <h4 className="font-black text-gray-900 text-[18px] mb-3 leading-tight tracking-tight">{String(n.title)}</h4>
 
-            {n.image && (
-              <div className="w-full h-48 rounded-2xl overflow-hidden mb-4 border border-gray-50 shadow-inner group-hover:shadow-md transition-shadow">
-                <img src={n.image} alt="筆記附圖" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+            {((n.attachments && n.attachments.length > 0) || n.image) && (
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {n.attachments ? n.attachments.map((att) => (
+                  <div key={att.id} className="w-full h-32 rounded-2xl overflow-hidden border border-gray-50 shadow-inner group-hover/att:shadow-md transition-shadow relative">
+                    {att.type === 'image' ? (
+                      <img src={att.data} alt={att.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-50 flex flex-col items-center justify-center p-3">
+                        <FileText size={24} className="text-gray-400 mb-1" />
+                        <span className="text-[10px] font-bold text-gray-500 text-center line-clamp-2">{att.name}</span>
+                      </div>
+                    )}
+                  </div>
+                )) : n.image && (
+                  <div className="w-full h-48 rounded-2xl overflow-hidden mb-4 border border-gray-50 shadow-inner">
+                    <img src={n.image} alt="筆記附圖" className="w-full h-full object-cover" />
+                  </div>
+                )}
               </div>
             )}
+
 
             <div className="relative">
               <p className="text-[14.5px] font-bold text-gray-700 whitespace-pre-wrap leading-[1.7] tracking-normal mb-1">
@@ -1720,7 +1816,10 @@ const SettingsModal = ({ isOpen, onClose, triggerNotification, handleAuthClick, 
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity">
+    <div
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="w-full max-w-[600px] bg-[#f8f8f9] h-[85vh] sm:h-auto sm:max-h-[85vh] rounded-t-[40px] sm:rounded-[40px] shadow-2xl flex flex-col overflow-hidden animate-fadeIn">
         <div className="bg-white px-6 py-5 flex justify-between items-center border-b border-gray-100">
           <h2 className="text-xl font-black text-gray-900 flex items-center gap-2"><Settings className="text-emerald-500" size={24} /> 系統設定</h2>

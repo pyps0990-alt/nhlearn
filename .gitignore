@@ -1,3 +1,15 @@
 node_modules
 .env
 dist
+
+# Android
+android/
+.gradle/
+build/
+*.apk
+*.aar
+local.properties
+*.keystore
+*.jks
+build_log.txt
+build_log_utf8.txt
