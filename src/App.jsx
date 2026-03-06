@@ -63,11 +63,13 @@ const IosNotification = ({ notification }) => {
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <div className="bg-emerald-500 rounded-[8px] p-1.5 shadow-sm"><Bell size={14} className="text-white" /></div>
+            <span className="text-[12px] font-black text-gray-400 uppercase tracking-wider">GSAT PRO</span>
           </div>
+          <span className="text-[12px] font-bold text-gray-400">現在</span>
         </div>
-        <div className="px-1 pb-1 mt-1">
-          <div className="text-[16px] font-black text-gray-950 leading-tight mb-1.5">{String(notification?.title || '')}</div>
-          <div className="text-[14px] font-bold text-gray-600 leading-relaxed whitespace-pre-line">{String(notification?.message || '')}</div>
+        <div className="px-1 pb-1 mt-0.5">
+          <div className="text-[15px] font-black text-gray-950 leading-tight mb-1">{String(notification?.title || '')}</div>
+          <div className="text-[13px] font-bold text-gray-600 leading-relaxed whitespace-pre-line">{String(notification?.message || '')}</div>
         </div>
       </div>
     </div>
@@ -85,7 +87,7 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
   const [previewSchedule, setPreviewSchedule] = useState(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -194,24 +196,13 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
         "0": []
       }`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inlineData: { mimeType: mimeType, data: base64Data } }
-            ]
-          }],
-          generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-        })
+      const summary = await fetchAI(prompt, {
+        temperature: 0.1,
+        responseJson: true,
+        image: { mimeType, data: base64Data }
       });
 
-      const result = await response.json();
-      if (result.error) throw new Error(result.error.message);
-
-      let rawText = result.candidates[0].content.parts[0].text;
+      let rawText = summary;
       rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const parsedData = JSON.parse(rawText);
 
@@ -267,7 +258,15 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
     <div className="flex flex-col gap-5 w-full text-left animate-fadeIn">
       <div className="bg-gradient-to-br from-emerald-500 to-teal-700 rounded-[32px] p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex-shrink-0 mt-2">
         <div className="relative z-10">
-          <h2 className="text-3xl font-black mb-4 tracking-tight">早安，學習愉快！</h2>
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-3xl font-black tracking-tight">早安，學習愉快！</h2>
+            <div className="flex flex-col items-end">
+              <span className="text-emerald-50 text-[11px] font-black uppercase tracking-widest opacity-80">CURRENT TIME</span>
+              <span className="text-white text-[24px] font-black font-mono drop-shadow-sm">
+                {currentTime.toLocaleTimeString('zh-TW', { hour12: false })}
+              </span>
+            </div>
+          </div>
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-end">
               <span className="text-emerald-50 text-[12px] font-black tracking-widest uppercase opacity-90">今日學習進度</span>
@@ -786,21 +785,9 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
       筆記內容如下：
       ${combinedContent}`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
-        })
-      });
-
-      const result = await response.json();
-      if (result.error) throw new Error(result.error.message);
-
-      let quizRaw = result.candidates[0].content.parts[0].text;
-      quizRaw = quizRaw.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const parsedQuiz = JSON.parse(quizRaw);
+      let rawText = await fetchAI(prompt, { temperature: 0.7, responseJson: true });
+      rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const parsedQuiz = JSON.parse(rawText);
 
       setQuizData(parsedQuiz);
       setIsQuizOpen(true);
@@ -833,7 +820,71 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
     }
   };
 
-  const handleDeleteNote = (id) => setNotes(prev => prev.filter(n => n.id !== id));
+  const handleDeleteNote = async (id) => {
+    const noteToDelete = notes.find(n => n.id === id);
+    if (!noteToDelete) return;
+
+    if (window.confirm(`確定要刪除「${noteToDelete.title}」嗎？`)) {
+      setNotes(prev => prev.filter(n => n.id !== id));
+      triggerNotification('已刪除', `已移除本地筆記：${noteToDelete.title}`);
+
+      // 如果已連線 Google，同步刪除雲端檔案
+      if (isGoogleConnected) {
+        handleDeleteFromDrive(noteToDelete);
+      }
+    }
+  };
+
+  const handleDeleteFromDrive = async (note) => {
+    if (!isGoogleConnected || !window.gapi?.client?.getToken()) return;
+
+    try {
+      // 1. 找到根資料夾
+      const rootFolderRes = await window.gapi.client.drive.files.list({
+        q: "name='GSAT Pro 筆記' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        fields: 'files(id)'
+      });
+      const rootFolderId = rootFolderRes.result.files.length > 0 ? rootFolderRes.result.files[0].id : null;
+      if (!rootFolderId) return;
+
+      // 2. 找到科目資料夾
+      const subjectName = note.subject || '未分類';
+      const subFolderRes = await window.gapi.client.drive.files.list({
+        q: `name='${subjectName}' and '${rootFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id)'
+      });
+      const subFolderId = subFolderRes.result.files.length > 0 ? subFolderRes.result.files[0].id : null;
+      if (!subFolderId) return;
+
+      // 3. 搜尋並刪除文字檔
+      const fileName = `${note.title}.txt`;
+      const fileRes = await window.gapi.client.drive.files.list({
+        q: `name='${fileName}' and '${subFolderId}' in parents and trashed=false`,
+        fields: 'files(id)'
+      });
+
+      for (const file of fileRes.result.files) {
+        await window.gapi.client.drive.files.delete({ fileId: file.id });
+      }
+
+      // 4. 搜尋並刪除圖片檔
+      const imgName = `${note.title}_附圖.jpg`;
+      const imgRes = await window.gapi.client.drive.files.list({
+        q: `name='${imgName}' and '${subFolderId}' in parents and trashed=false`,
+        fields: 'files(id)'
+      });
+
+      for (const img of imgRes.result.files) {
+        await window.gapi.client.drive.files.delete({ fileId: img.id });
+      }
+
+      triggerNotification('雲端同步成功 ☁️', `已從 Drive 移除「${note.title}」。`);
+
+    } catch (e) {
+      console.error("雲端刪除失敗", e);
+      // 靜默失敗或顯示輕量提示
+    }
+  };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -861,32 +912,17 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
     try {
       const prompt = `請幫我整理並摘要這份高中 ${selectedSubject?.name} 筆記的重點，請條列式列出核心考點。`;
-      let reqBody = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3 }
-      };
-
+      let imageObj = null;
       if (attachedImage) {
-        const base64Data = attachedImage.split(',')[1];
-        reqBody.contents[0].parts.push({
-          inlineData: { mimeType: "image/jpeg", data: base64Data }
-        });
+        imageObj = { mimeType: "image/jpeg", data: attachedImage.split(',')[1] };
       }
 
+      let contentToAI = prompt;
       if (newNote.content) {
-        reqBody.contents[0].parts[0].text = `${prompt}\n\n以下是文字筆記內容：\n${newNote.content}`;
+        contentToAI = `${prompt}\n\n以下是文字筆記內容：\n${newNote.content}`;
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reqBody)
-      });
-
-      const result = await response.json();
-      if (result.error) throw new Error(result.error.message);
-
-      const summary = result.candidates[0].content.parts[0].text;
+      const summary = await fetchAI(contentToAI, { temperature: 0.3, image: imageObj });
       setNewNote(prev => ({ ...prev, content: `【AI 重點整理】\n${summary}\n\n---\n${prev.content}` }));
       triggerNotification('完成', '已將摘要插入筆記內容！');
     } catch (e) {
@@ -1452,13 +1488,20 @@ const YoubikeWidget = () => {
 
   return (
     <div className="bg-white p-5 md:p-6 rounded-[32px] shadow-sm border border-gray-100">
-      <div className="flex justify-between items-center mb-3">
+      <div className="flex justify-between items-center mb-1">
         <h3 className="text-[15px] font-black text-gray-800 flex items-center gap-2">
           <Bike className="text-emerald-500" size={18} /> 附近 YouBike 站點
         </h3>
-        <button onClick={fetchYoubike} className="p-1.5 bg-gray-50 text-gray-400 rounded-lg active:scale-90 transition-transform hover:bg-gray-100">
-          <RefreshCw size={14} className={loading && youbikeData.length ? "animate-spin" : ""} />
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end">
+            <span className="text-[18px] font-black text-gray-800 font-mono leading-none">
+              {new Date().toLocaleTimeString('zh-TW', { hour12: false })}
+            </span>
+          </div>
+          <button onClick={fetchYoubike} className="p-1.5 bg-gray-50 text-gray-400 rounded-lg active:scale-90 transition-transform hover:bg-gray-100">
+            <RefreshCw size={14} className={loading && youbikeData.length ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 mb-4">
@@ -1655,6 +1698,7 @@ const TrafficTab = () => {
 // ================= 設定彈出視窗 =================
 const SettingsModal = ({ isOpen, onClose, triggerNotification, handleAuthClick, isGoogleConnected, handleSignoutClick, requestPushPermission, testPushNotification }) => {
   const [geminiKey, setGeminiKey] = useState(localStorage.getItem('gsat_gemini_key') || '');
+  const [openRouterKey, setOpenRouterKey] = useState(localStorage.getItem('gsat_openrouter_key') || '');
 
   if (!isOpen) return null;
 
@@ -1662,6 +1706,12 @@ const SettingsModal = ({ isOpen, onClose, triggerNotification, handleAuthClick, 
     const val = e.target.value;
     setGeminiKey(val);
     localStorage.setItem('gsat_gemini_key', val);
+  };
+
+  const handleSaveOpenRouterKey = (e) => {
+    const val = e.target.value;
+    setOpenRouterKey(val);
+    localStorage.setItem('gsat_openrouter_key', val);
   };
 
   return (
@@ -1710,24 +1760,122 @@ const SettingsModal = ({ isOpen, onClose, triggerNotification, handleAuthClick, 
 
           {/* AI 引擎設定 */}
           <div className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm">
-            <h3 className="text-[14px] font-black text-gray-800 mb-4 flex items-center gap-2"><BrainCircuit className="text-purple-500" size={18} /> AI 引擎設定 (Gemini)</h3>
-            <div className="space-y-3">
-              <label className="text-[12px] font-black text-gray-600">Gemini API Key</label>
-              <input
-                type="password"
-                placeholder="輸入您的 Google Gemini API Key"
-                value={geminiKey}
-                onChange={handleSaveGeminiKey}
-                className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-[14px] font-black outline-none focus:border-purple-300"
-              />
+            <h3 className="text-[14px] font-black text-gray-800 mb-4 flex items-center gap-2"><BrainCircuit className="text-purple-500" size={18} /> AI 引擎設定</h3>
+            <div className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-[12px] font-black text-gray-400 ml-1 flex justify-between">
+                  GOOGLE GEMINI KEY (優先)
+                  {!geminiKey && <span className="text-amber-500">未設定</span>}
+                </label>
+                <input
+                  type="password"
+                  placeholder="輸入您的 Google Gemini API Key"
+                  value={geminiKey}
+                  onChange={handleSaveGeminiKey}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-[14px] font-black outline-none focus:border-purple-300"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-[12px] font-black text-gray-400 ml-1 flex justify-between">
+                  OPENROUTER KEY (備援)
+                  {!openRouterKey && <span className="text-blue-500">可使用免費模型</span>}
+                </label>
+                <input
+                  type="password"
+                  placeholder="輸入您的 OpenRouter API Key"
+                  value={openRouterKey}
+                  onChange={handleSaveOpenRouterKey}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3.5 text-[14px] font-black outline-none focus:border-blue-300"
+                />
+              </div>
+
+              <div className="p-3 bg-purple-50 rounded-xl">
+                <p className="text-[11px] font-bold text-gray-500 leading-relaxed">
+                  💡 系統將依序嘗試：Gemini ➡ OpenRouter ➡ 內建 AI (Chrome window.ai)。
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+      </div >
+    </div >
   );
 };
 
+
+// --- ★ Unified AI Fetcher (Resilient Fallback) ★ ---
+const fetchAI = async (prompt, options = {}) => {
+  const { temperature = 0.7, responseJson = false, image = null } = options;
+  const geminiKey = localStorage.getItem('gsat_gemini_key');
+  const openRouterKey = localStorage.getItem('gsat_openrouter_key');
+
+  // 1. Try Google Gemini API (Primary)
+  if (geminiKey) {
+    try {
+      const contents = [{ parts: [{ text: prompt }] }];
+      if (image) contents[0].parts.push({ inlineData: image });
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { temperature, responseMimeType: responseJson ? "application/json" : "text/plain" }
+        })
+      });
+      const data = await res.json();
+      if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return data.candidates[0].content.parts[0].text;
+      }
+    } catch (e) { console.warn("Gemini failing, trying fallback...", e); }
+  }
+
+  // 2. Try OpenRouter (Secondary / Free Models)
+  if (openRouterKey) {
+    try {
+      const body = {
+        model: "google/gemini-2.0-flash-exp:free",
+        messages: [{ role: "user", content: prompt }],
+        temperature
+      };
+      if (image) {
+        body.messages[0].content = [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.data}` } }
+        ];
+      }
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openRouterKey}`,
+          'HTTP-Referer': 'https://gsat-pro.vercel.app',
+          'X-Title': 'GSAT Pro'
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.choices?.[0]?.message?.content) {
+        return data.choices[0].message.content;
+      }
+    } catch (e) { console.warn("OpenRouter failing, trying fallback...", e); }
+  }
+
+  // 3. Try window.ai (Chrome Gemini Nano - Truly Built-in)
+  if (window.ai && window.ai.canCreateTextSession) {
+    try {
+      const capabilities = await window.ai.canCreateTextSession();
+      if (capabilities !== "no") {
+        const session = await window.ai.createTextSession();
+        return await session.prompt(prompt);
+      }
+    } catch (e) { console.warn("window.ai failing...", e); }
+  }
+
+  throw new Error("無法連接 AI 引擎。請檢查 API Key 或確保瀏覽器支援 AI 功能。");
+};
 
 // ================= 主應用程式 =================
 const MainApp = () => {

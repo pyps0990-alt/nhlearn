@@ -1317,53 +1317,70 @@
     // ============================================
     // 串接 Gemini API 系統 (自動支援 JSON 格式)
     // ============================================
-    function getGeminiKey() {
-      return localStorage.getItem('gsat_gemini_key');
-    }
+    function getGeminiKey() { return localStorage.getItem('gsat_gemini_key') || ''; }
+    function getOpenRouterKey() { return localStorage.getItem('gsat_openrouter_key') || ''; }
 
-    async function fetchFromGemini(prompt, temperature, forceJson = false) {
-      const key = getGeminiKey();
-      if (!key) throw new Error("NO_KEY");
+    // --- ★ Unified AI Fetcher (Resilient Fallback) ★ ---
+    async function fetchAI(prompt, options = {}) {
+      const { temperature = 0.7, forceJson = false } = options;
+      const geminiKey = getGeminiKey();
+      const openRouterKey = getOpenRouterKey();
 
-      const modelsToTry = ['gemini-2.5-flash', 'gemini-2.5-flash-latest', 'gemini-3.0-pro', 'gemini-3.1-pro'];
-      let lastError = null;
-
-      for (const model of modelsToTry) {
+      // 1. Try Google Gemini API (Primary)
+      if (geminiKey) {
         try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-
-          let generationConfig = { temperature: temperature };
-          // 如果支援並需要 JSON，強制模型輸出 JSON
-          if (forceJson && model.includes('1.5')) {
-            generationConfig.responseMimeType = "application/json";
-          }
-
-          const response = await fetch(url, {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+          const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: generationConfig
+              generationConfig: { temperature, responseMimeType: forceJson ? "application/json" : "text/plain" }
             })
           });
-
-          const data = await response.json();
-
-          if (data.error) {
-            if (data.error.code === 404 || data.error.message.includes('not found')) {
-              lastError = new Error(data.error.message);
-              continue;
-            }
-            throw new Error(data.error.message);
+          const data = await res.json();
+          if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+            return data.candidates[0].content.parts[0].text;
           }
-
-          return data.candidates[0].content.parts[0].text;
-        } catch (error) {
-          lastError = error;
-          if (error.name === 'TypeError') throw error;
-        }
+        } catch (e) { console.warn("Gemini failing, trying fallback...", e); }
       }
-      throw lastError;
+
+      // 2. Try OpenRouter (Secondary)
+      if (openRouterKey) {
+        try {
+          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${openRouterKey}`,
+              'HTTP-Referer': 'https://gsat-pro.vercel.app',
+              'X-Title': 'GSAT Pro'
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.0-flash-exp:free",
+              messages: [{ role: "user", content: prompt }],
+              temperature
+            })
+          });
+          const data = await res.json();
+          if (data.choices?.[0]?.message?.content) {
+            return data.choices[0].message.content;
+          }
+        } catch (e) { console.warn("OpenRouter failing, trying fallback...", e); }
+      }
+
+      // 3. Try window.ai (Built-in)
+      if (window.ai && window.ai.canCreateTextSession) {
+        try {
+          const capabilities = await window.ai.canCreateTextSession();
+          if (capabilities !== "no") {
+            const session = await window.ai.createTextSession();
+            return await session.prompt(prompt);
+          }
+        } catch (e) { console.warn("window.ai failing...", e); }
+      }
+
+      throw new Error("無法連接 AI 引擎。請檢查金鑰設定或使用 Chrome 內建 AI。");
     }
 
     async function autoFillWithAI() {
@@ -1375,7 +1392,7 @@
       try {
         const prompt = `你是一位高中大考英文專家。請分析單字「${word}」。\n1. 必須考慮「一字多義」與「大考中心」的常見考法，將最重要的幾個意思整合，例如「1. 意思一\n2. 意思二」。\n2. 判斷該單字在大考中心高中英文參考詞彙表中的級別 (1~6級)，若為超綱字或片語請評估對應難度給予 1~6 的數字。\n嚴格回傳 JSON 格式。格式：{"chinese": "繁體中文意思(使用 \\n 換行分隔多義)", "pos": "最常考的詞性縮寫(n., v., adj., adv., prep., conj., pron., int., art., phrase 其中一個)", "level": "數字1到6"}`;
 
-        let rawText = await fetchFromGemini(prompt, 0.3, true);
+        let rawText = await fetchAI(prompt, { temperature: 0.3, forceJson: true });
         rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
         const resultJSON = JSON.parse(rawText);
 
@@ -1435,7 +1452,7 @@
 - 💡 **正確解答**
 - 📝 **詳解**`;
 
-        const text = await fetchFromGemini(prompt, 0.7);
+        const text = await fetchAI(prompt, { temperature: 0.7 });
 
         const formattedText = text
           .replace(/### (.*?)(?:\n|$)/g, '<h3>$1</h3>')
@@ -1792,7 +1809,7 @@
             ]
           }`;
 
-        const resultText = await fetchFromGemini(prompt, 0.7, true);
+        const resultText = await fetchAI(prompt, { temperature: 0.7, forceJson: true });
         const cleanJSON = resultText.replace(/```json/gi, '').replace(/```/g, '').trim();
         currentAiQuizData = JSON.parse(cleanJSON);
 
