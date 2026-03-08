@@ -475,7 +475,7 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
       </div>
 
       {/* 外部連結 */}
-      <div className="bg-white/80 backdrop-blur-2xl p-5 md:p-6 rounded-[32px] shadow-soft border border-white/60 flex flex-col gap-4 mb-8">
+      <div className="bg-white/80 backdrop-blur-2xl p-5 md:p-6 rounded-[32px] shadow-soft border border-white/60 flex flex-col gap-4 mb-4">
         <h3 className="text-[17px] font-black text-gray-950 flex items-center gap-2">
           <Globe className="text-emerald-500" size={20} /> 校園快速連結
         </h3>
@@ -501,6 +501,13 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
             <span className="text-[13px] font-black text-gray-700 text-center">內中必備外食單</span>
           </a>
         </div>
+      </div>
+
+      {/* 法律資訊連結 (Google 驗證用) */}
+      <div className="px-1 mb-8 flex justify-center gap-4">
+        <a href="/privacy" target="_blank" rel="noreferrer" className="text-[11px] font-bold text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest">Privacy Policy</a>
+        <span className="text-gray-200">/</span>
+        <a href="/terms" target="_blank" rel="noreferrer" className="text-[11px] font-bold text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest">Terms of Service</a>
       </div>
 
     </div>
