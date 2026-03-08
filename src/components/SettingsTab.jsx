@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Settings, User, Monitor, Sun, Moon, Edit3,
   Bell, Sparkles, Cloud, BrainCircuit, RefreshCw,
-  CheckCircle2, X, Store, Trash2, Lock, MapPin
+  CheckCircle2, X, Store, Trash2, Lock, MapPin, Globe, Plus, Link
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -11,7 +11,8 @@ const SettingsTab = ({
   isAdmin, setIsAdmin, triggerNotification, handleAuthClick,
   isGoogleConnected, handleSignoutClick, requestPushPermission,
   testPushNotification, theme, setTheme, aiTestStatus,
-  testAiConnection, geminiKey, setGeminiKey, setActiveTab
+  testAiConnection, geminiKey, setGeminiKey,
+  customLinks, setCustomLinks
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
   const [campusName, setCampusName] = useState(() => localStorage.getItem('gsat_campus_name') || '內湖高中');
@@ -36,6 +37,37 @@ const SettingsTab = ({
   // 權限狀態
   const [locPermission, setLocPermission] = useState('prompt');
   const [notifPermission, setNotifPermission] = useState(Notification.permission);
+
+  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [newLinkTitle, setNewLinkTitle] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [editingLink, setEditingLink] = useState(null); // id, title, url
+
+  const handleAddCustomLink = () => {
+    if (!newLinkTitle.trim() || !newLinkUrl.trim()) {
+      triggerNotification('資料不全', '請輸入名稱與網址');
+      return;
+    }
+    let url = newLinkUrl.trim();
+    if (!url.startsWith('http')) url = 'https://' + url;
+    setCustomLinks([...customLinks, { title: newLinkTitle.trim(), url, id: Date.now() }]);
+    setNewLinkTitle('');
+    setNewLinkUrl('');
+    setIsAddingLink(false);
+    triggerNotification('新增成功', `已加入：${newLinkTitle}`);
+  };
+
+  const handleRemoveLink = (id, title) => {
+    setCustomLinks(customLinks.filter(l => l.id !== id));
+    triggerNotification('已刪除', `已移除：${title}`);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingLink.title.trim() || !editingLink.url.trim()) return;
+    setCustomLinks(customLinks.map(l => l.id === editingLink.id ? editingLink : l));
+    setEditingLink(null);
+    triggerNotification('更新成功', '連結資訊已儲存');
+  };
 
   useEffect(() => {
     if (navigator.permissions && navigator.permissions.query) {
@@ -124,10 +156,10 @@ const SettingsTab = ({
     <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade mb-8">
       <div className="flex justify-between items-center px-1">
         <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-3">
-          <Settings size={28} /> 系統設定與管理
+          <Settings size={28} /> 系統設定
         </h2>
         {isAdmin && (
-          <button onClick={() => setIsAdmin(false)} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-black active:scale-95">
+          <button onClick={() => setIsAdmin(false)} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-black active:scale-95 transition-all hover:bg-red-100">
             登出後台
           </button>
         )}
@@ -171,6 +203,120 @@ const SettingsTab = ({
                 <button onClick={handleSaveCampus} className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl font-black text-sm active:scale-95">儲存</button>
                 <button onClick={() => setEditingCampus(false)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-2xl font-black text-sm active:scale-95">取消</button>
               </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 自定義連結管理 */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Link size={16} className="text-emerald-600" />
+            <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">自定義快捷連結</h3>
+          </div>
+          <button 
+            onClick={() => setIsAddingLink(!isAddingLink)}
+            className={`p-2 transition-all active:scale-90 rounded-xl ${isAddingLink ? 'bg-red-50 text-red-500 rotate-45' : 'bg-emerald-50 text-emerald-600'}`}
+          >
+            <Plus size={20} />
+          </button>
+        </div>
+
+        {isAddingLink && (
+          <div className="bg-emerald-50/50 backdrop-blur-xl p-5 rounded-[28px] border border-emerald-100 animate-apple-linear overflow-hidden">
+            <h4 className="text-[14px] font-black text-emerald-800 mb-4 flex items-center gap-2">
+              <Plus size={16} /> 新增快捷連結
+            </h4>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-emerald-600/50 uppercase ml-2">連結名稱</label>
+                <input 
+                  type="text" 
+                  value={newLinkTitle} 
+                  onChange={e => setNewLinkTitle(e.target.value)}
+                  placeholder="例如：我的 Github"
+                  className="w-full bg-white border border-emerald-100 px-5 py-3.5 rounded-2xl text-[14px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-black text-emerald-600/50 uppercase ml-2">網址 (URL)</label>
+                <input 
+                  type="text" 
+                  value={newLinkUrl} 
+                  onChange={e => setNewLinkUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full bg-white border border-emerald-100 px-5 py-3.5 rounded-2xl text-[14px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                />
+              </div>
+              <button 
+                onClick={handleAddCustomLink}
+                className="w-full bg-emerald-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all hover:bg-emerald-700"
+              >
+                儲存設置
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white/80 backdrop-blur-2xl p-2 rounded-[32px] border border-white/60 shadow-soft">
+          {customLinks.length === 0 && !isAddingLink ? (
+            <div className="p-8 text-center flex flex-col items-center gap-3">
+              <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
+                <Link size={24} />
+              </div>
+              <p className="text-sm font-black text-gray-300">目前尚無自定義連結<br/><span className="text-[10px]">點擊右上角新增</span></p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {customLinks.map((link) => (
+                <div key={link.id} className="p-2 border-b border-gray-50 last:border-none">
+                  {editingLink?.id === link.id ? (
+                    <div className="p-3 bg-gray-50 rounded-2xl space-y-3 animate-fadeIn">
+                      <input 
+                        className="w-full bg-white px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100"
+                        value={editingLink.title} 
+                        onChange={e => setEditingLink({...editingLink, title: e.target.value})}
+                      />
+                      <input 
+                        className="w-full bg-white px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100"
+                        value={editingLink.url} 
+                        onChange={e => setEditingLink({...editingLink, url: e.target.value})}
+                      />
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveEdit} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-xs font-black">儲存</button>
+                        <button onClick={() => setEditingLink(null)} className="flex-1 bg-gray-200 text-gray-600 py-2 rounded-xl text-xs font-black">取消</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-2 pl-3 hover:bg-gray-50/50 transition-colors rounded-2xl group">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
+                          <Globe size={20} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[14px] font-black text-gray-800 truncate">{link.title}</div>
+                          <div className="text-[10px] font-bold text-gray-400 truncate">{link.url}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <button 
+                          onClick={() => setEditingLink(link)}
+                          className="p-2.5 text-gray-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                        >
+                          <Edit3 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleRemoveLink(link.id, link.title)}
+                          className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

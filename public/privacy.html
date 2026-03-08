@@ -11,9 +11,12 @@
         ul { padding-left: 20px; }
         li { margin-bottom: 10px; }
         .footer { margin-top: 50px; font-size: 0.8em; color: #999; text-align: center; }
+        .back-btn { position: fixed; top: 20px; right: 20px; background: #10B981; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; text-decoration: none; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); transition: transform 0.2s; z-index: 1000; }
+        .back-btn:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
+    <button class="back-btn" onclick="window.close(); if(!window.opener) window.location.href='/';">返回 App</button>
     <h1>GSAT Pro 隱私權政策</h1>
     <p>最後更新日期：2024年3月8日</p>
 

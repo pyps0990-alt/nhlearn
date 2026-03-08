@@ -29,6 +29,18 @@ import {
 const MainApp = () => {
   // ─── State ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [previousTab, setPreviousTab] = useState('dashboard');
+  const contentRef = useRef(null);
+
+  // ─── 切換分頁並自動置頂 ───────────────────────────────────────
+  const navTo = (tabId) => {
+    if (tabId === activeTab) return;
+    setPreviousTab(activeTab);
+    setActiveTab(tabId);
+    if (contentRef.current) {
+      contentRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  };
   const [isAdmin, setIsAdmin] = useState(false);
   const [notification, setNotification] = useState({ show: false, title: '', message: '' });
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -40,8 +52,8 @@ const MainApp = () => {
   });
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gsat_gemini_key') || '');
   const [appPhase, setAppPhase] = useState(() => {
-    if (!localStorage.getItem('gsat_onboarding_done')) return 'welcome';
-    if (!localStorage.getItem('gsat_google_token')) return 'auth';
+    // 優先順序：驗證 -> 歡迎 -> App
+    if (!localStorage.getItem('gsat_onboarding_done')) return 'auth';
     return 'app';
   });
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -59,6 +71,9 @@ const MainApp = () => {
   const [subjects, setSubjects] = useState(() => {
     try { return JSON.parse(localStorage.getItem('gsat_subjects')) || SUBJECTS_LIST; } catch { return SUBJECTS_LIST; }
   });
+  const [customLinks, setCustomLinks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('gsat_custom_links')) || []; } catch { return []; }
+  });
 
   // Refs
   const notifiedSet = useRef(new Set());
@@ -74,6 +89,7 @@ const MainApp = () => {
   useEffect(() => { localStorage.setItem('gsat_contact_book', JSON.stringify(contactBook)); }, [contactBook]);
   useEffect(() => { localStorage.setItem('gsat_notes', JSON.stringify(notes)); }, [notes]);
   useEffect(() => { localStorage.setItem('gsat_subjects', JSON.stringify(subjects)); }, [subjects]);
+  useEffect(() => { localStorage.setItem('gsat_custom_links', JSON.stringify(customLinks)); }, [customLinks]);
 
   // ─── Notifications ────────────────────────────────────────────────────────
   const triggerNativeNotification = async (title, message) => {
@@ -82,7 +98,7 @@ const MainApp = () => {
       new Notification(String(title), { body: String(message), icon: '/favicon.ico' });
     } catch (e) {
       if (navigator.serviceWorker) {
-        try { (await navigator.serviceWorker.ready).showNotification(String(title), { body: String(message) }); } catch {}
+        try { (await navigator.serviceWorker.ready).showNotification(String(title), { body: String(message) }); } catch { }
       }
     }
   };
@@ -201,11 +217,11 @@ const MainApp = () => {
               setIsGoogleConnected(true);
               await fetchUserInfo();
               triggerNotification('Google 登入成功', '已啟用雲端備份！');
-              setShowPrivacyModal(true);
+              setAppPhase('welcome');
             }
           });
         }
-      } catch {}
+      } catch { }
     };
     init();
   }, [fetchUserInfo, triggerNotification]);
@@ -282,58 +298,43 @@ const MainApp = () => {
   const getTabName = id => navItems.find(n => n.id === id)?.label || 'GSAT Pro';
 
   // ─── Phases ───────────────────────────────────────────────────────────────
-  if (appPhase === 'welcome') {
-    return <WelcomeScreen onFinishWelcome={() => {
-      const isLoggedIn = !!localStorage.getItem('gsat_google_token');
-      setAppPhase(isLoggedIn ? 'app' : 'auth');
-    }} requestPushPermission={requestPushPermission} />;
+  if (appPhase === 'auth') {
+    return (
+      <AuthScreen
+        onLogin={handleAuthClick}
+        onSkip={() => setAppPhase('welcome')}
+      />
+    );
   }
-  if (appPhase === 'auth' && !showPrivacyModal) return <AuthScreen onLogin={handleAuthClick} />;
+
+  if (appPhase === 'welcome') {
+    return (
+      <WelcomeScreen
+        isFirstTime={!localStorage.getItem('gsat_legal_accepted')}
+        onFinishWelcome={() => {
+          localStorage.setItem('gsat_onboarding_done', 'true');
+          setAppPhase('app');
+        }}
+        requestPushPermission={requestPushPermission}
+      />
+    );
+  }
 
   return (
     <>
       {showPrivacyModal && <PrivacyModal onAccept={() => { setShowPrivacyModal(false); setAppPhase('app'); }} />}
       <IosNotification notification={notification} />
 
-      {/* Header */}
-      <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-b border-white/50 dark:border-white/10 px-5 pt-[calc(env(safe-area-inset-top)+12px)] pb-4 flex justify-between items-center shadow-soft">
-        <div className="relative">
-          <button
-            onClick={() => setIsNavOpen(prev => !prev)}
-            className="flex items-center gap-2 text-xl font-black text-emerald-600 active:scale-95 transition-transform"
-          >
-            <Menu size={24} />
-            {getTabName(activeTab)}
-          </button>
-          {isNavOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsNavOpen(false)} />
-              <div className="absolute top-full left-0 mt-3 w-56 bg-white/90 backdrop-blur-2xl rounded-3xl shadow-float border border-white/60 overflow-hidden z-50 animate-pop-in origin-top-left">
-                {navItems.map((item, idx) => (
-                  <button
-                    key={item.id}
-                    style={{ animationDelay: `${idx * 40}ms`, animationFillMode: 'both' }}
-                    onClick={() => { setActiveTab(item.id); setSelectedSubject(null); setIsNavOpen(false); }}
-                    className={`nav-item-animate w-full flex items-center gap-3 px-4 py-3.5 text-left font-bold transition-all duration-300 ${activeTab === item.id ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'}`}
-                  >
-                    <item.icon size={18} className={activeTab === item.id ? 'text-emerald-600' : 'text-gray-400'} />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        <button
-          onClick={() => setActiveTab('settings')}
-          className={`p-2.5 bg-white/60 backdrop-blur-md rounded-full active:scale-90 transition-all shadow-sm border border-white/50 hover:bg-white hover:shadow-md ${activeTab === 'settings' ? 'text-emerald-500 scale-110' : 'text-gray-500'}`}
-        >
-          <Settings size={20} />
-        </button>
+      {/* Header - 僅保留標題 */}
+      <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-b border-white/50 dark:border-white/10 px-5 pt-[calc(env(safe-area-inset-top)+12px)] pb-4 flex justify-center items-center shadow-soft">
+        <h1 className="text-xl font-black text-emerald-600">{getTabName(activeTab)}</h1>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto scroll-smooth w-full px-4 pt-4 pb-8 touch-pan-y scrollbar-hide bg-transparent">
+      <div
+        ref={contentRef}
+        className="flex-1 overflow-y-auto w-full px-4 pt-4 pb-32 touch-pan-y scrollbar-hide bg-transparent scroll-smooth"
+      >
         {activeTab === 'dashboard' && (
           <DashboardTab
             weeklySchedule={weeklySchedule}
@@ -345,6 +346,7 @@ const MainApp = () => {
             setSettingsOpen={() => setActiveTab('settings')}
             isGoogleConnected={isGoogleConnected}
             contactBook={contactBook}
+            customLinks={customLinks}
           />
         )}
         {activeTab === 'english' && <VocabularyTab userProfile={userProfile} isAdmin={isAdmin} theme={theme} geminiKey={geminiKey} />}
@@ -377,11 +379,71 @@ const MainApp = () => {
             testAiConnection={testAiConnection}
             geminiKey={geminiKey}
             setGeminiKey={setGeminiKey}
-            setActiveTab={setActiveTab}
+            setActiveTab={navTo}
+            previousTab={previousTab}
+            customLinks={customLinks}
+            setCustomLinks={setCustomLinks}
           />
         )}
-        {activeTab === 'legal' && <LegalTab onBack={() => setActiveTab('settings')} />}
+        {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
       </div>
+
+      {/* 固定底欄 (Bottom Navigation & Legal) */}
+      {appPhase === 'app' && (
+        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white/80 dark:bg-slate-900/80 backdrop-blur-3xl border-t border-gray-200/50 dark:border-white/10 px-6 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] flex items-center justify-between shadow-[0_-15px_50px_rgba(0,0,0,0.1)]">
+          {/* 選單區域 */}
+          <div className="relative">
+            <button
+              onClick={() => setIsNavOpen(!isNavOpen)}
+              className={`flex items-center gap-2.5 px-5 py-2.5 rounded-2xl transition-all active:scale-95 duration-200 ${isNavOpen ? 'bg-emerald-600 text-white shadow-xl' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10'}`}
+            >
+              <Menu size={20} className="transition-transform duration-300" style={{ transform: isNavOpen ? 'rotate(90deg)' : 'none' }} />
+              <span className="text-sm font-black">{getTabName(activeTab)}</span>
+            </button>
+
+            {isNavOpen && (
+              <>
+                <div className="fixed inset-0 z-[-1] bg-black/5 animate-fadeIn" onClick={() => setIsNavOpen(false)} />
+                <div className="absolute bottom-full left-0 mb-4 w-60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-[60px] rounded-[32px] shadow-[0_24px_80px_rgba(0,0,0,0.25)] border border-white/60 dark:border-white/10 overflow-hidden z-[70] animate-apple-linear origin-bottom-left">
+                  <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/10">
+                    <span className="text-[15px] font-black text-gray-400 uppercase tracking-[0.2em]">功能選單</span>
+                  </div>
+                  <div className="p-2 max-h-[60vh] overflow-y-auto scrollbar-hide space-y-1">
+                    {navItems.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => { navTo(item.id); setIsNavOpen(false); }}
+                        className={`w-full flex items-center gap-3.5 px-4 py-3.5 text-left rounded-2xl transition-all ${activeTab === item.id ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-600'}`}
+                      >
+                        <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} className={activeTab === item.id ? 'text-emerald-600' : 'text-gray-400'} />
+                        <span className="text-[15px] font-bold">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 法律與設定區域 */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-gray-100/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-gray-200/50 dark:border-white/5">
+              <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest px-1">Privacy</a>
+              <span className="text-gray-300 dark:text-white/10 mx-1">|</span>
+              <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest px-1">Terms</a>
+            </div>
+            <button
+              onClick={() => {
+                if (activeTab === 'settings') navTo(previousTab);
+                else navTo('settings');
+              }}
+              className={`p-2.5 rounded-2xl transition-all active:scale-90 ${activeTab === 'settings' ? 'bg-emerald-600 text-white shadow-lg rotate-180' : 'bg-gray-100/50 dark:bg-white/5 text-gray-400 border border-gray-200/50 dark:border-white/5'}`}
+            >
+              <Settings size={20} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };

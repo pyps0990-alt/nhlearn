@@ -13,6 +13,28 @@ const getGreeting = () => {
   return '晚安 🌙';
 };
 
+// --- 快顯時鐘元件解決頻繁重繪問題 ---
+const LiveClock = () => {
+  const [time, setTime] = React.useState(new Date());
+  React.useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <span className="text-white text-[24px] font-black font-mono">
+      {time.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+    </span>
+  );
+};
+
+const ENCOURAGEMENTS = [
+  "辛苦了！今天的學習非常有價值 🚀",
+  "太棒了，離夢想又進了一步 ✨",
+  "深呼吸，給努力的自己一個讚 👍",
+  "今日份的努力已打卡，好好休息吧 🛌",
+  "學會休息，是為了走更長遠的路 🌿"
+];
+
 const timeToMins = (timeStr) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(':').map(Number);
@@ -124,21 +146,33 @@ const SchoolNewsWidget = () => {
 };
 
 // === 儀表板主元件 ===
-const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNotification, contactBook, isAfter4PM }) => {
+const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNotification, customLinks, contactBook }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  // 每分鐘更新一次主狀態即可，秒數由 LiveClock 負責
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [editDayTab, setEditDayTab] = useState(new Date().getDay());
   const [uploadLoading, setUploadLoading] = useState(false);
   const [previewSchedule, setPreviewSchedule] = useState(null);
+  const displaySchedule = previewSchedule || weeklySchedule;
+  const isAfter4PM = currentTime.getHours() >= 16;
 
-  useEffect(() => {
-    let timeoutId;
-    const tick = () => {
-      setCurrentTime(new Date());
-      timeoutId = setTimeout(tick, 1000 - (Date.now() % 1000));
-    };
-    tick();
-    return () => clearTimeout(timeoutId);
+  // --- 校園外部連結與自定義功能 ---
+  const DEFAULT_LINKS = [
+    { title: "校園官網", url: "https://www.nhsh.tp.edu.tw/", icon: Globe, color: "text-blue-500", bg: "hover:bg-blue-50 hover:border-blue-100" },
+    { title: "學分殊死戰", url: "https://ldap.tp.edu.tw/login", icon: GraduationCap, color: "text-purple-500", bg: "hover:bg-purple-50 hover:border-purple-100" },
+    { title: "COOC平台", url: "https://cooc.tp.edu.tw/auth/login", icon: Cloud, color: "text-cyan-500", bg: "hover:bg-cyan-50 hover:border-cyan-100" },
+    { title: "外食名單", url: "https://forms.gle/gJyuP7ZEBjdo2MFK9", icon: Utensils, color: "text-orange-500", bg: "hover:bg-orange-50 hover:border-orange-100" }
+  ];
+
+  const encouragement = useMemo(() => {
+    const seed = new Date().toDateString();
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+    return ENCOURAGEMENTS[Math.abs(hash) % ENCOURAGEMENTS.length];
   }, []);
 
   const { currentClass, currentProgress } = useMemo(() => {
@@ -266,7 +300,6 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
     }
   };
 
-  const displaySchedule = previewSchedule || weeklySchedule;
 
   const liveStatus = useMemo(() => {
     if (!displaySchedule) return null;
@@ -302,52 +335,60 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
 
   return (
     <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade px-1">
-      {/* 即時動態橫幅 */}
-      {liveStatus && (
-        <div className="bg-white/80 backdrop-blur-2xl p-4 rounded-[28px] shadow-soft border border-emerald-100 flex items-center justify-between animate-fadeIn border-l-4 border-l-emerald-500">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${liveStatus.type === 'ongoing' ? 'bg-emerald-100 text-emerald-600 animate-pulse-live' : 'bg-gray-100 text-gray-500'}`}>
-              {liveStatus.type === 'ongoing' ? <Sparkles size={20} /> : <Clock size={20} />}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1">
-                {liveStatus.type === 'ongoing' ? '• 進行中課程' : '• 下一堂預告'}
-              </span>
-              <h4 className="text-[15px] font-black text-gray-900 leading-none">
-                {liveStatus.item.subject} <span className="text-[12px] text-gray-400 font-bold ml-1">@{liveStatus.item.location || '教室'}</span>
-              </h4>
-            </div>
-          </div>
-          <div className="flex flex-col items-end">
-            <span className="text-[18px] font-black text-emerald-600 leading-none">{liveStatus.type === 'ongoing' ? liveStatus.remaining : liveStatus.countdown}</span>
-            <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter mt-1">MIN {liveStatus.type === 'ongoing' ? 'LEFT' : 'TO START'}</span>
-          </div>
-        </div>
-      )}
-
       {/* 頂部歡迎區塊 */}
       <div className="bg-gradient-to-br from-emerald-400 to-teal-600 rounded-[36px] p-6 md:p-8 text-white shadow-soft border border-white/20 relative transition-all duration-scale hover:scale-[1.01] overflow-hidden">
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-4">
             <h2 className="text-3xl font-black">{getGreeting()}</h2>
             <div className="flex flex-col items-end">
-              <span className="text-emerald-50 text-[11px] font-black opacity-80 uppercase">Time</span>
-              <span className="text-white text-[24px] font-black font-mono">
-                {`${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}:${String(currentTime.getSeconds()).padStart(2, '0')}`}
-              </span>
+              <span className="text-emerald-50 text-[11px] font-black opacity-80 uppercase tracking-widest">Current Time</span>
+              <LiveClock />
             </div>
           </div>
+          
           <div className="flex flex-col gap-2">
             <div className="flex justify-between items-end flex-wrap gap-x-4">
               <span className="text-emerald-50 text-[12px] font-black opacity-90">今日課程進度</span>
               <span className="text-white text-[18px] font-black animate-bounce-soft">{Math.round(currentProgress)}%</span>
             </div>
-            <div className="progress-bar-track">
+            <div className="progress-bar-track overflow-hidden">
               <div className="progress-bar-fill" style={{ width: `${currentProgress}%` }} />
             </div>
           </div>
+
+          {/* 整合式課程動態 */}
+          {(liveStatus || currentProgress >= 100) && (
+            <div className="mt-6 bg-white/20 backdrop-blur-xl rounded-[24px] p-4 border border-white/30 animate-fadeIn flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${ (liveStatus?.type === 'ongoing') ? 'bg-white text-emerald-600 animate-pulse-live' : (currentProgress >= 100 ? 'bg-orange-400 text-white' : 'bg-blue-400 text-white') }`}>
+                  { (liveStatus?.type === 'ongoing') ? <Sparkles size={22} /> : (currentProgress >= 100 ? <Utensils size={22} /> : <Clock size={22} />) }
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest bg-black/10 px-1.5 py-0.5 rounded">
+                      { (liveStatus?.type === 'ongoing') ? 'Live Now' : (currentProgress >= 100 ? 'Finished' : 'Upcoming') }
+                    </span>
+                  </div>
+                  <h4 className="text-[14px] font-black text-white leading-tight">
+                    { currentProgress >= 100 ? '今日課程已全部結束' : liveStatus?.item.subject }
+                  </h4>
+                  <p className="text-[11px] font-bold text-emerald-50 mt-0.5 opacity-90">
+                    { currentProgress >= 100 ? encouragement : (liveStatus?.item.location || '教室') }
+                  </p>
+                </div>
+              </div>
+              {liveStatus && (
+                <div className="flex flex-col items-end bg-black/10 px-3 py-1.5 rounded-xl border border-white/10">
+                  <span className="text-[16px] font-black text-white leading-none">{liveStatus.type === 'ongoing' ? liveStatus.remaining : liveStatus.countdown}</span>
+                  <span className="text-[8px] font-black text-emerald-100 uppercase tracking-tighter mt-1">
+                    {liveStatus.type === 'ongoing' ? 'MIN LEFT' : 'MINS TO'}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        <Sparkles className="absolute -right-4 -bottom-4 text-white opacity-10 w-40 h-40" />
+        <Sparkles className="absolute -right-4 -bottom-4 text-white opacity-10 w-40 h-40 pointer-events-none" />
       </div>
 
       <SchoolNewsWidget />
@@ -438,13 +479,17 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
                       const subjectIcon = '📚';
 
                       return (
-                        <div key={item.id} className={`p-6 rounded-[32px] border transition-all duration-500 relative overflow-hidden ${isActive ? 'bg-white border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)] scale-[1.03] z-10 animate-pulse-live' : 'bg-white/60 border-white/50 shadow-sm opacity-90 hover:scale-[1.01]'}`}>
+                        <div key={item.id} className={`p-6 rounded-[32px] border transition-all duration-500 relative overflow-hidden ${isActive ? 'bg-white border-emerald-500 shadow-[0_15px_40px_rgba(16,185,129,0.15)] scale-[1.03] z-10' : 'bg-white/60 border-white/50 shadow-sm opacity-90 hover:scale-[1.01]'}`}>
                           {isActive && (
-                            <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-black px-3 py-1 rounded-bl-xl flex items-center gap-1 shadow-sm animate-pulse">
-                              <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
-                              LIVE
+                            <div className="absolute top-0 right-0 bg-emerald-600 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-2xl flex items-center gap-2 shadow-lg animate-fadeIn z-20">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                              </span>
+                              進行中
                             </div>
                           )}
+                          {isActive && <div className="absolute inset-0 bg-emerald-50/30 animate-pulse pointer-events-none" />}
                           <div className="flex items-center gap-4 mb-4">
                             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-inner ${isActive ? 'bg-emerald-50 animate-bounce-soft' : 'bg-gray-50'}`}>
                               {subjectIcon}
@@ -475,31 +520,29 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
       </div>
 
       {/* 外部連結 */}
-      <div className="bg-white/80 backdrop-blur-2xl p-5 md:p-6 rounded-[32px] shadow-soft border border-white/60 flex flex-col gap-4 mb-4">
-        <h3 className="text-[17px] font-black text-gray-950 flex items-center gap-2">
-          <Globe className="text-emerald-500" size={20} /> 校園快速連結
-        </h3>
+      <div className="bg-white/80 backdrop-blur-2xl p-5 md:p-6 rounded-[36px] shadow-soft border border-white/60 flex flex-col gap-4 mb-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[17px] font-black text-gray-950 flex items-center gap-2">
+            <Globe className="text-emerald-500" size={20} /> 外部連結
+          </h3>
+        </div>
+        
         <div className="grid grid-cols-2 gap-3">
-          <a href="https://www.nhsh.tp.edu.tw/" target="_blank" rel="noreferrer"
-            className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-2xl active:scale-95 transition-all duration-300 ease-spring border border-gray-100 hover:bg-blue-50 hover:border-blue-100 hover:-translate-y-1 hover:shadow-float">
-            <Globe size={24} className="text-blue-500" />
-            <span className="text-[13px] font-black text-gray-700 text-center">點我去學校喔</span>
-          </a>
-          <a href="https://ldap.tp.edu.tw/login" target="_blank" rel="noreferrer"
-            className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-2xl active:scale-95 transition-all duration-300 ease-spring border border-gray-100 hover:bg-purple-50 hover:border-purple-100 hover:-translate-y-1 hover:shadow-float">
-            <GraduationCap size={24} className="text-purple-500" />
-            <span className="text-[13px] font-black text-gray-700 text-center">學分殊死戰</span>
-          </a>
-          <a href="https://cooc.tp.edu.tw/auth/login" target="_blank" rel="noreferrer"
-            className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-2xl active:scale-95 transition-all duration-300 ease-spring border border-gray-100 hover:bg-cyan-50 hover:border-cyan-100 hover:-translate-y-1 hover:shadow-float">
-            <Cloud size={24} className="text-cyan-500" />
-            <span className="text-[13px] font-black text-gray-700 text-center">COOC平台</span>
-          </a>
-          <a href="https://forms.gle/gJyuP7ZEBjdo2MFK9" target="_blank" rel="noreferrer"
-            className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-2xl active:scale-95 transition-all duration-300 ease-spring border border-gray-100 hover:bg-orange-50 hover:border-orange-100 hover:-translate-y-1 hover:shadow-float">
-            <Utensils size={24} className="text-orange-500" />
-            <span className="text-[13px] font-black text-gray-700 text-center">內中必備外食單</span>
-          </a>
+          {DEFAULT_LINKS.map((link, idx) => (
+            <a key={idx} href={link.url} target="_blank" rel="noreferrer"
+              className={`flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-2xl active:scale-95 transition-all duration-300 ease-spring border border-gray-100 ${link.bg} hover:-translate-y-1 hover:shadow-float`}>
+              <link.icon size={24} className={link.color} />
+              <span className="text-[13px] font-black text-gray-700 text-center">{link.title}</span>
+            </a>
+          ))}
+          
+          {customLinks.map((link) => (
+            <a key={link.id} href={link.url} target="_blank" rel="noreferrer"
+              className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-2xl active:scale-95 transition-all duration-300 ease-spring border border-gray-100 hover:bg-emerald-50 hover:border-emerald-100 hover:-translate-y-1 hover:shadow-float">
+              <Globe size={24} className="text-emerald-500" />
+              <span className="text-[13px] font-black text-gray-700 text-center truncate w-full px-1">{link.title}</span>
+            </a>
+          ))}
         </div>
       </div>
 

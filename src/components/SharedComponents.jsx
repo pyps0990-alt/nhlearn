@@ -54,9 +54,10 @@ export const PrivacyModal = ({ onAccept, title = "隱私權聲明與使用條款
   </div>
 );
 
-export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission }) => {
+export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstTime }) => {
   const [grantedLocation, setGrantedLocation] = useState(false);
   const [grantedNotif, setGrantedNotif] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   const handleLocation = () => {
     if (navigator.geolocation) {
@@ -70,40 +71,83 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 animate-fadeIn text-left">
-      <div className="w-full max-w-sm space-y-8 flex flex-col items-center">
-        <div className="w-32 h-32 bg-emerald-500 rounded-[40px] flex items-center justify-center animate-bounce shadow-2xl">
-          <Sparkles size={60} className="text-white" />
+    <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 animate-fadeIn text-left pt-[env(safe-area-inset-top)]">
+      <div className="w-full max-w-sm space-y-6 flex flex-col items-center">
+        <div className="w-24 h-24 bg-emerald-500 rounded-[32px] flex items-center justify-center animate-bounce-soft shadow-2xl">
+          <Sparkles size={48} className="text-white" />
         </div>
         <div className="text-center">
-          <h1 className="text-4xl font-black text-gray-900">GSAT Pro</h1>
-          <p className="text-gray-400 font-bold">您的個人化升學管家</p>
+          <h1 className="text-3xl font-black text-gray-900">歡迎來到 GSAT Pro</h1>
+          <p className="text-gray-400 font-bold mt-1">讓我們開始這段學習旅程吧！</p>
         </div>
-        <div className="w-full space-y-4 bg-gray-50 p-6 rounded-[32px] border border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${grantedLocation ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-gray-400 border border-gray-100'}`}><MapPin size={24} /></div>
-            <div className="flex-1 text-[13px] font-black text-gray-800">定位權限<br/><span className="text-[11px] text-gray-400 font-bold">尋找附近 YouBike 站點</span></div>
-            {!grantedLocation ? <button onClick={handleLocation} className="px-5 py-2.5 bg-emerald-600 text-white text-xs font-black rounded-xl">開啟</button> : <CheckCircle2 size={24} className="text-emerald-500" />}
+
+        <div className="w-full space-y-3 bg-gray-50 p-5 rounded-[28px] border border-gray-100">
+          <h3 className="text-[12px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">權限設定</h3>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${grantedLocation ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-gray-400 border border-gray-100'}`}><MapPin size={20} /></div>
+            <div className="flex-1 text-[12px] font-black text-gray-800">定位<br/><span className="text-[10px] text-gray-400 font-bold">尋找附近的 YouBike</span></div>
+            {!grantedLocation ? <button onClick={handleLocation} className="px-4 py-2 bg-emerald-600 text-white text-[10px] font-black rounded-lg">開啟</button> : <CheckCircle2 size={20} className="text-emerald-500" />}
           </div>
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${grantedNotif ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-gray-400 border border-gray-100'}`}><Bell size={24} /></div>
-            <div className="flex-1 text-[13px] font-black text-gray-800">通知權限<br/><span className="text-[11px] text-gray-400 font-bold">重要日程與上課提醒</span></div>
-            {!grantedNotif ? <button onClick={handleNotif} className="px-5 py-2.5 bg-emerald-600 text-white text-xs font-black rounded-xl">開啟</button> : <CheckCircle2 size={24} className="text-emerald-500" />}
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${grantedNotif ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-gray-400 border border-gray-100'}`}><Bell size={20} /></div>
+            <div className="flex-1 text-[12px] font-black text-gray-800">通知<br/><span className="text-[10px] text-gray-400 font-bold">重要日程與提醒</span></div>
+            {!grantedNotif ? <button onClick={handleNotif} className="px-4 py-2 bg-emerald-600 text-white text-[10px] font-black rounded-lg">開啟</button> : <CheckCircle2 size={20} className="text-emerald-500" />}
           </div>
         </div>
-        <button onClick={() => { localStorage.setItem('gsat_onboarding_done', 'true'); onFinishWelcome(); }} className="w-full bg-gray-900 text-white font-black py-4.5 rounded-[24px] shadow-2xl flex items-center justify-center gap-3">開始體驗 <ChevronRight size={24} /></button>
+
+        {isFirstTime && (
+          <div className="w-full space-y-3 px-1">
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="w-5 h-5 rounded-lg border-2 border-gray-200 text-emerald-500 focus:ring-emerald-500" />
+              <div className="text-[13px] font-bold text-gray-500 group-hover:text-gray-700 transition-colors">
+                我已閱讀並同意 
+                <a href="/privacy.html" target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-emerald-600 underline mx-1 hover:text-emerald-700">隱私權政策</a> 
+                與 
+                <a href="/terms.html" target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-emerald-600 underline mx-1 hover:text-emerald-700">服務條款</a>
+              </div>
+            </label>
+          </div>
+        )}
+
+        <button 
+          onClick={() => { 
+            if (isFirstTime && !agreed) return alert('請先勾選同意條款');
+            localStorage.setItem('gsat_legal_accepted', 'true');
+            onFinishWelcome(); 
+          }} 
+          className={`w-full font-black py-4.5 rounded-[24px] shadow-2xl flex items-center justify-center gap-3 transition-all ${(!isFirstTime || agreed) ? 'bg-gray-900 text-white scale-100' : 'bg-gray-200 text-gray-400 scale-95 cursor-not-allowed'}`}
+        >
+          {isFirstTime ? '同意並進入系統' : '開始使用'} <ChevronRight size={24} />
+        </button>
       </div>
     </div>
   );
 };
 
-export const AuthScreen = ({ onLogin }) => (
-  <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 animate-fadeIn text-left">
+export const AuthScreen = ({ onLogin, onSkip }) => (
+  <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 animate-fadeIn text-left pt-[env(safe-area-inset-top)]">
     <div className="w-full max-w-sm space-y-8 flex flex-col items-center">
-      <div className="w-24 h-24 bg-emerald-100 rounded-[32px] flex items-center justify-center shadow-inner mb-2 animate-pulse"><Lock className="text-emerald-600" size={48} /></div>
-      <div className="text-center"><h2 className="text-3xl font-black text-gray-900">需要登入</h2><p className="text-gray-500 font-bold">請登入 Google 帳號以啟用雲端備份</p></div>
-      <button onClick={onLogin} className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 text-gray-700 font-black py-5 rounded-[24px] shadow-sm text-xl"><Globe size={28} className="text-blue-500" /> 使用 Google 登入</button>
-      <p className="text-[12px] text-gray-400 font-bold text-center">我們會將您的筆記與自定義數據備份至 Google Drive，確保您的學習進度永不遺失。</p>
+      <div className="w-24 h-24 bg-emerald-50 rounded-[32px] flex items-center justify-center shadow-inner mb-2 border border-emerald-100"><Lock className="text-emerald-600" size={40} /></div>
+      <div className="text-center">
+        <h2 className="text-3xl font-black text-gray-900">需要登入</h2>
+        <p className="text-gray-500 font-bold mt-1 px-4">請連接 Google 帳號以啟用雲端備份與完整功能</p>
+      </div>
+      
+      <div className="w-full space-y-3">
+        <button onClick={onLogin} className="w-full flex items-center justify-center gap-4 bg-white border-2 border-gray-100 text-gray-800 font-black py-5 rounded-[24px] shadow-sm text-xl active:scale-95 transition-all">
+          <Globe size={28} className="text-blue-500" /> 使用 Google 登入
+        </button>
+        
+        <button onClick={onSkip} className="w-full bg-gray-50 text-gray-600 font-bold py-4 rounded-[20px] text-sm active:scale-95 transition-all">
+          無須登入直接體驗
+        </button>
+      </div>
+
+      <div className="bg-orange-50/50 p-5 rounded-[24px] border border-orange-100/50">
+        <p className="text-[12px] text-gray-500 font-bold leading-relaxed text-center">
+          如果你想體驗但卻不想分享資訊，請點選「無須登入」開始使用。我們僅會將數據存於您的裝置中。
+        </p>
+      </div>
     </div>
   </div>
 );
