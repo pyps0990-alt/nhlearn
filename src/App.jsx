@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Menu, Settings, LayoutDashboard, BookOpen, Notebook,
-  Library, Store, Bus, HelpCircle
+  Library, Store, Bus, HelpCircle, ShieldCheck
 } from 'lucide-react';
 import './App.css';
 
@@ -21,6 +21,7 @@ import StoresTab from './components/StoresTab';
 import TrafficTab from './components/TrafficTab';
 import TutorialTab from './components/TutorialTab';
 import SettingsTab from './components/SettingsTab';
+import LegalTab from './components/LegalTab';
 import {
   IosNotification, WelcomeScreen, AuthScreen, PrivacyModal
 } from './components/SharedComponents';
@@ -275,6 +276,7 @@ const MainApp = () => {
     { id: 'stores', icon: Store, label: '特約商店' },
     { id: 'traffic', icon: Bus, label: '交通與 YouBike' },
     { id: 'help', icon: HelpCircle, label: '如何使用' },
+    { id: 'legal', icon: ShieldCheck, label: '法律資訊' },
   ];
 
   const getTabName = id => navItems.find(n => n.id === id)?.label || 'GSAT Pro';
@@ -375,8 +377,10 @@ const MainApp = () => {
             testAiConnection={testAiConnection}
             geminiKey={geminiKey}
             setGeminiKey={setGeminiKey}
+            setActiveTab={setActiveTab}
           />
         )}
+        {activeTab === 'legal' && <LegalTab onBack={() => setActiveTab('settings')} />}
       </div>
     </>
   );

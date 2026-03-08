@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Settings, User, Monitor, Sun, Moon, Edit3,
   Bell, Sparkles, Cloud, BrainCircuit, RefreshCw,
-  CheckCircle2, X, Store, Trash2, Lock
+  CheckCircle2, X, Store, Trash2, Lock, MapPin
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -11,7 +11,7 @@ const SettingsTab = ({
   isAdmin, setIsAdmin, triggerNotification, handleAuthClick,
   isGoogleConnected, handleSignoutClick, requestPushPermission,
   testPushNotification, theme, setTheme, aiTestStatus,
-  testAiConnection, geminiKey, setGeminiKey
+  testAiConnection, geminiKey, setGeminiKey, setActiveTab
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
   const [campusName, setCampusName] = useState(() => localStorage.getItem('gsat_campus_name') || '內湖高中');
@@ -32,6 +32,47 @@ const SettingsTab = ({
     name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '',
     operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: ''
   });
+
+  // 權限狀態
+  const [locPermission, setLocPermission] = useState('prompt');
+  const [notifPermission, setNotifPermission] = useState(Notification.permission);
+
+  useEffect(() => {
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'geolocation' }).then(status => {
+        setLocPermission(status.state);
+        status.onchange = () => setLocPermission(status.state);
+      });
+      navigator.permissions.query({ name: 'notifications' }).then(status => {
+        setNotifPermission(Notification.permission);
+        status.onchange = () => setNotifPermission(Notification.permission);
+      });
+    }
+  }, []);
+
+  const handleLocationRequest = () => {
+    if (locPermission === 'granted') {
+      triggerNotification('定位已開啟', '您的瀏覽器已允許定位存取');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        setLocPermission('granted');
+        triggerNotification('定位授權成功 📍', '現在可以使用附近的交通資訊了');
+      },
+      (err) => {
+        setLocPermission('denied');
+        triggerNotification('定位授權失敗', '請在瀏覽器設定中手動開啟定位');
+      }
+    );
+  };
+
+  const Switch = ({ enabled, onChange, colorClass = "bg-emerald-500" }) => (
+    <button onClick={(e) => { e.stopPropagation(); onChange(!enabled); }}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 outline-none ${enabled ? colorClass : 'bg-gray-200 dark:bg-gray-700'}`}>
+      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+    </button>
+  );
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -141,14 +182,42 @@ const SettingsTab = ({
           <Cloud size={16} className="text-blue-600" />
           <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">系統服務串接</h3>
         </div>
-        <div className="bg-white/80 backdrop-blur-2xl p-6 rounded-[32px] border border-white/60 shadow-soft">
-          <h4 className="text-[14px] font-black text-gray-800 mb-4 flex items-center gap-2"><Bell className="text-orange-500" size={16} /> 通知功能</h4>
-          <div className="flex gap-2">
-            <button onClick={requestPushPermission} className="flex-1 bg-orange-50 text-orange-600 px-4 py-3 rounded-2xl text-sm font-black flex justify-center items-center gap-2 active:scale-95 border border-orange-100">
-              <Bell size={16} /> 授權通知
-            </button>
-            <button onClick={testPushNotification} className="flex-1 bg-white text-gray-700 px-4 py-3 rounded-2xl text-sm font-black flex justify-center items-center gap-2 active:scale-95 border border-gray-200">
-              <Sparkles size={16} /> 測試推播
+        <div className="bg-white/80 backdrop-blur-2xl p-6 rounded-[32px] border border-white/60 shadow-soft space-y-5">
+          {/* 通知開關 */}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500"><Bell size={20} /></div>
+              <div>
+                <div className="text-sm font-black text-gray-900">推播通知</div>
+                <div className="text-[12px] font-bold text-gray-500">接收課程與作業提醒</div>
+              </div>
+            </div>
+            <Switch
+              enabled={notifPermission === 'granted'}
+              onChange={(val) => val ? requestPushPermission() : triggerNotification('資訊', '請至瀏覽器設定關閉權限')}
+              colorClass="bg-orange-500"
+            />
+          </div>
+
+          {/* 定位開關 */}
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500"><MapPin size={20} /></div>
+              <div>
+                <div className="text-sm font-black text-gray-900">即時定位</div>
+                <div className="text-[12px] font-bold text-gray-500">用於尋找附近 YouBike</div>
+              </div>
+            </div>
+            <Switch
+              enabled={locPermission === 'granted'}
+              onChange={(val) => val ? handleLocationRequest() : triggerNotification('資訊', '請至瀏覽器設定關閉權限')}
+              colorClass="bg-emerald-500"
+            />
+          </div>
+
+          <div className="pt-2 border-t border-gray-50 flex gap-2">
+            <button onClick={testPushNotification} className="flex-1 bg-gray-50 text-gray-700 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-gray-100 dark:bg-white/5">
+              <Sparkles size={14} /> 測試推播
             </button>
           </div>
         </div>
@@ -262,6 +331,26 @@ const SettingsTab = ({
             </div>
           </div>
         )}
+      </section>
+
+      {/* 底部法律資訊 */}
+      <section className="pt-4 pb-8 flex flex-col items-center gap-2">
+        <div className="flex gap-4">
+          <button 
+            onClick={() => setActiveTab('legal')} 
+            className="text-[11px] font-bold text-gray-400 hover:text-emerald-600 transition-colors"
+          >
+            隱私權政策
+          </button>
+          <span className="text-gray-200">|</span>
+          <button 
+            onClick={() => setActiveTab('legal')} 
+            className="text-[11px] font-bold text-gray-400 hover:text-emerald-600 transition-colors"
+          >
+            服務條款
+          </button>
+        </div>
+        <p className="text-[10px] font-bold text-gray-300">© 2024 GSAT Pro Team. All rights reserved.</p>
       </section>
     </div>
   );
