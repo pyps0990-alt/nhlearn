@@ -7,6 +7,7 @@ import {
 import {
   INITIAL_WEEKLY_SCHEDULE, WEEKDAYS, ICON_MAP
 } from '../utils/constants';
+import { fetchAI } from '../utils/helpers';
 
 // === 外部函式與常數 ===
 const getGreeting = () => {
@@ -267,21 +268,35 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
         "2": [], "3": [], "4": [], "5": [], "6": [], "0": []
       }`;
 
-      // 若您真實專案有定義 fetchAI，此處將會實際呼叫該函式
-      const summary = await window.fetchAI(prompt, {
+      // 呼叫 AI 進行 OCR 辨識
+      const summary = await fetchAI(prompt, {
         temperature: 0.1,
         responseJson: true,
         image: { mimeType: 'image/jpeg', data: base64Data }
       });
 
-      const parsedData = JSON.parse(summary.replace(/```json/gi, '').replace(/```/g, '').trim());
+      if (!summary) throw new Error('AI 未回傳資料');
+
+      // 提取 JSON 區塊
+      const jsonMatch = summary.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('無法解析 JSON 格式');
+      
+      const parsedData = JSON.parse(jsonMatch[0].trim());
       const newSchedule = { ...INITIAL_WEEKLY_SCHEDULE };
-      Object.keys(parsedData).forEach(day => {
-        newSchedule[day] = parsedData[day].map((item, index) => ({
-          id: Date.now() + parseInt(day) * 1000 + index,
-          ...item,
-          items: ''
-        }));
+      
+      Object.keys(parsedData).forEach(dayKey => {
+        const dayIndex = dayKey === '0' || dayKey === '7' ? 0 : parseInt(dayKey);
+        if (!isNaN(dayIndex) && dayIndex >= 0 && dayIndex <= 6) {
+          newSchedule[dayIndex] = (parsedData[dayKey] || []).map((item, index) => ({
+            id: Date.now() + dayIndex * 1000 + index,
+            subject: item.subject || '未命名課程',
+            startTime: item.startTime || '08:00',
+            endTime: item.endTime || '09:00',
+            location: item.location || '',
+            teacher: item.teacher || '',
+            items: ''
+          }));
+        }
       });
 
       setPreviewSchedule(newSchedule);
