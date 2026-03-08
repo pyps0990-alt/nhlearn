@@ -503,12 +503,6 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
         </div>
       </div>
 
-      {/* 法律資訊連結 (Google 驗證用) */}
-      <div className="px-1 mb-8 flex justify-center gap-4">
-        <a href="/privacy" target="_blank" rel="noreferrer" className="text-[11px] font-bold text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest">Privacy Policy</a>
-        <span className="text-gray-200">/</span>
-        <a href="/terms" target="_blank" rel="noreferrer" className="text-[11px] font-bold text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest">Terms of Service</a>
-      </div>
 
     </div>
   );
