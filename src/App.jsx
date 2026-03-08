@@ -7,7 +7,7 @@ import './App.css';
 
 // Utilities & Constants
 import {
-  INITIAL_WEEKLY_SCHEDULE, SUBJECTS_LIST,
+  INITIAL_WEEKLY_SCHEDULE, SUBJECTS_LIST, DEFAULT_LINKS, ICON_MAP,
   GOOGLE_CLIENT_ID, DRIVE_DISCOVERY_DOC, PEOPLE_DISCOVERY_DOC, SCOPES
 } from './utils/constants';
 import { timeToMins } from './utils/helpers';
@@ -72,7 +72,7 @@ const MainApp = () => {
     try { return JSON.parse(localStorage.getItem('gsat_subjects')) || SUBJECTS_LIST; } catch { return SUBJECTS_LIST; }
   });
   const [customLinks, setCustomLinks] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('gsat_custom_links')) || []; } catch { return []; }
+    try { return JSON.parse(localStorage.getItem('gsat_custom_links')) || DEFAULT_LINKS; } catch { return DEFAULT_LINKS; }
   });
 
   // Refs
@@ -390,15 +390,15 @@ const MainApp = () => {
 
       {/* 固定底欄 (Bottom Navigation & Legal) */}
       {appPhase === 'app' && (
-        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white/80 dark:bg-slate-900/80 backdrop-blur-3xl border-t border-gray-200/50 dark:border-white/10 px-6 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)] flex items-center justify-between shadow-[0_-15px_50px_rgba(0,0,0,0.1)]">
+        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white/80 dark:bg-slate-900/80 backdrop-blur-3xl border-t border-gray-200/50 dark:border-white/10 px-6 h-20 flex items-center justify-between shadow-[0_-15px_50px_rgba(0,0,0,0.1)] pb-[env(safe-area-inset-bottom)]">
           {/* 選單區域 */}
-          <div className="relative">
+          <div className="relative w-36">
             <button
               onClick={() => setIsNavOpen(!isNavOpen)}
-              className={`flex items-center gap-2.5 px-5 py-2.5 rounded-2xl transition-all active:scale-95 duration-200 ${isNavOpen ? 'bg-emerald-600 text-white shadow-xl' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10'}`}
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl transition-all active:scale-95 duration-200 w-full overflow-hidden ${isNavOpen ? 'bg-emerald-600 text-white shadow-xl' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10'}`}
             >
-              <Menu size={20} className="transition-transform duration-300" style={{ transform: isNavOpen ? 'rotate(90deg)' : 'none' }} />
-              <span className="text-sm font-black">{getTabName(activeTab)}</span>
+              <Menu size={20} className="transition-transform duration-300 shrink-0" style={{ transform: isNavOpen ? 'rotate(90deg)' : 'none' }} />
+              <span className="text-sm font-black truncate">{getTabName(activeTab)}</span>
             </button>
 
             {isNavOpen && (
@@ -426,8 +426,8 @@ const MainApp = () => {
           </div>
 
           {/* 法律與設定區域 */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-gray-100/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-gray-200/50 dark:border-white/5">
+          <div className="flex items-center gap-3 w-44 justify-end">
+            <div className="flex items-center bg-gray-100/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-gray-200/50 dark:border-white/5 shrink-0">
               <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest px-1">Privacy</a>
               <span className="text-gray-300 dark:text-white/10 mx-1">|</span>
               <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest px-1">Terms</a>
@@ -437,7 +437,7 @@ const MainApp = () => {
                 if (activeTab === 'settings') navTo(previousTab);
                 else navTo('settings');
               }}
-              className={`p-2.5 rounded-2xl transition-all active:scale-90 ${activeTab === 'settings' ? 'bg-emerald-600 text-white shadow-lg rotate-180' : 'bg-gray-100/50 dark:bg-white/5 text-gray-400 border border-gray-200/50 dark:border-white/5'}`}
+              className={`p-2.5 rounded-2xl transition-all active:scale-90 shrink-0 ${activeTab === 'settings' ? 'bg-emerald-600 text-white shadow-lg rotate-180' : 'bg-gray-100/50 dark:bg-white/5 text-gray-400 border border-gray-200/50 dark:border-white/5'}`}
             >
               <Settings size={20} strokeWidth={2.5} />
             </button>

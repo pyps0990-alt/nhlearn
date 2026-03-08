@@ -1,3 +1,13 @@
+import { 
+  BookText, Languages, Calculator, Zap, Beaker, Dna, 
+  History, Map, Scale, Library, Globe, GraduationCap, Cloud, Utensils
+} from 'lucide-react';
+
+export const ICON_MAP = {
+  BookText, Languages, Calculator, Zap, Beaker, Dna, 
+  History, Map, Scale, Library, Globe, GraduationCap, Cloud, Utensils
+};
+
 export const INITIAL_WEEKLY_SCHEDULE = {
   1: [{ id: 101, startTime: '08:00', endTime: '09:00', subject: '國文', location: '302 教室', teacher: '王老師', items: '國文講義' }],
   2: [], 3: [], 4: [], 5: [], 6: [], 0: []
@@ -9,16 +19,23 @@ export const WEEKDAYS = [
 ];
 
 export const SUBJECTS_LIST = [
-  { name: '國文', icon: '📝', color: 'text-red-600' },
-  { name: '英文', icon: '🔤', color: 'text-blue-600' },
-  { name: '數學', icon: '📐', color: 'text-orange-600' },
-  { name: '物理', icon: '⚡', color: 'text-purple-600' },
-  { name: '化學', icon: '🧪', color: 'text-cyan-600' },
-  { name: '生物', icon: '🧬', color: 'text-green-600' },
-  { name: '歷史', icon: '📜', color: 'text-amber-600' },
-  { name: '地理', icon: '🗺️', color: 'text-emerald-600' },
-  { name: '公民', icon: '⚖️', color: 'text-indigo-600' },
-  { name: '自習', icon: '📚', color: 'text-gray-600' }
+  { name: '國文', icon: 'BookText', color: 'text-red-500' },
+  { name: '英文', icon: 'Languages', color: 'text-blue-500' },
+  { name: '數學', icon: 'Calculator', color: 'text-orange-500' },
+  { name: '物理', icon: 'Zap', color: 'text-purple-500' },
+  { name: '化學', icon: 'Beaker', color: 'text-cyan-500' },
+  { name: '生物', icon: 'Dna', color: 'text-green-500' },
+  { name: '歷史', icon: 'History', color: 'text-amber-500' },
+  { name: '地理', icon: 'Map', color: 'text-emerald-500' },
+  { name: '公民', icon: 'Scale', color: 'text-indigo-500' },
+  { name: '自習', icon: 'Library', color: 'text-gray-500' }
+];
+
+export const DEFAULT_LINKS = [
+  { title: "校園官網", url: "https://www.nhsh.tp.edu.tw/", id: 'def-1', icon: 'Globe' },
+  { title: "學分殊死戰", url: "https://ldap.tp.edu.tw/login", id: 'def-2', icon: 'GraduationCap' },
+  { title: "COOC平台", url: "https://cooc.tp.edu.tw/auth/login", id: 'def-3', icon: 'Cloud' },
+  { title: "外食名單", url: "https://forms.gle/gJyuP7ZEBjdo2MFK9", id: 'def-4', icon: 'Utensils' }
 ];
 
 export const NOTE_CATEGORIES = ['課堂筆記', '錯題本', '重點摘要', '考前衝刺'];

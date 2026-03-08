@@ -2,8 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sparkles, Clock, BellRing, Calendar, RefreshCw,
   Image as ImageIcon, Trash2, MapPin, Plus,
-  Globe, GraduationCap, Cloud, Utensils, AlertCircle // 新增了 AlertCircle
+  Globe, AlertCircle, BookText, Utensils
 } from 'lucide-react';
+import {
+  INITIAL_WEEKLY_SCHEDULE, WEEKDAYS, ICON_MAP
+} from '../utils/constants';
 
 // === 外部函式與常數 ===
 const getGreeting = () => {
@@ -148,6 +151,17 @@ const SchoolNewsWidget = () => {
 // === 儀表板主元件 ===
 const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNotification, customLinks, contactBook }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  const getSubjectIcon = (name) => {
+    const s = subjects.find(s => s.name === name);
+    if (!s) return ICON_MAP.BookText;
+    return ICON_MAP[s.icon] || ICON_MAP.BookText;
+  };
+
+  const getLinkIcon = (iconName) => {
+    return ICON_MAP[iconName] || ICON_MAP.Globe;
+  };
+
   // 每分鐘更新一次主狀態即可，秒數由 LiveClock 負責
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -159,14 +173,6 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
   const [previewSchedule, setPreviewSchedule] = useState(null);
   const displaySchedule = previewSchedule || weeklySchedule;
   const isAfter4PM = currentTime.getHours() >= 16;
-
-  // --- 校園外部連結與自定義功能 ---
-  const DEFAULT_LINKS = [
-    { title: "校園官網", url: "https://www.nhsh.tp.edu.tw/", icon: Globe, color: "text-blue-500", bg: "hover:bg-blue-50 hover:border-blue-100" },
-    { title: "學分殊死戰", url: "https://ldap.tp.edu.tw/login", icon: GraduationCap, color: "text-purple-500", bg: "hover:bg-purple-50 hover:border-purple-100" },
-    { title: "COOC平台", url: "https://cooc.tp.edu.tw/auth/login", icon: Cloud, color: "text-cyan-500", bg: "hover:bg-cyan-50 hover:border-cyan-100" },
-    { title: "外食名單", url: "https://forms.gle/gJyuP7ZEBjdo2MFK9", icon: Utensils, color: "text-orange-500", bg: "hover:bg-orange-50 hover:border-orange-100" }
-  ];
 
   const encouragement = useMemo(() => {
     const seed = new Date().toDateString();
@@ -361,7 +367,10 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
             <div className="mt-6 bg-white/20 backdrop-blur-xl rounded-[24px] p-4 border border-white/30 animate-fadeIn flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${ (liveStatus?.type === 'ongoing') ? 'bg-white text-emerald-600 animate-pulse-live' : (currentProgress >= 100 ? 'bg-orange-400 text-white' : 'bg-blue-400 text-white') }`}>
-                  { (liveStatus?.type === 'ongoing') ? <Sparkles size={22} /> : (currentProgress >= 100 ? <Utensils size={22} /> : <Clock size={22} />) }
+                  { (liveStatus?.type === 'ongoing') ? 
+                    React.createElement(getSubjectIcon(liveStatus.item.subject), { size: 22 }) : 
+                    (currentProgress >= 100 ? React.createElement(ICON_MAP.Utensils, { size: 22 }) : React.createElement(ICON_MAP.Clock, { size: 22 })) 
+                  }
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
@@ -401,10 +410,15 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
           </h3>
           <div className="flex flex-col gap-3">
             {tomorrowsPrep.map((item) => (
-              <div key={item.id} className="bg-white/70 p-4 rounded-2xl border border-orange-100 shadow-sm">
-                <span className="text-[12px] font-black bg-orange-100 text-orange-700 px-2 py-0.5 rounded-lg mb-2 inline-block">{item.subject}</span>
-                {item.homeworkDeadline === tomorrowStr && <p className="text-[14px] font-bold text-gray-800">📝 {item.homework}</p>}
-                {item.examDeadline === tomorrowStr && <p className="text-[14px] font-bold text-gray-800 mt-1">💯 考試：{item.exam}</p>}
+              <div key={item.id} className="bg-white/70 p-4 rounded-2xl border border-orange-100 shadow-sm flex items-start gap-3">
+                <div className="p-2 bg-orange-100 rounded-xl text-orange-600">
+                  {React.createElement(getSubjectIcon(item.subject), { size: 20 })}
+                </div>
+                <div>
+                  <span className="text-[12px] font-black bg-orange-100 text-orange-700 px-2 py-0.5 rounded-lg mb-2 inline-block">{item.subject}</span>
+                  {item.homeworkDeadline === tomorrowStr && <p className="text-[14px] font-bold text-gray-800">📝 {item.homework}</p>}
+                  {item.examDeadline === tomorrowStr && <p className="text-[14px] font-bold text-gray-800 mt-1">💯 考試：{item.exam}</p>}
+                </div>
               </div>
             ))}
           </div>
@@ -528,18 +542,10 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
         </div>
         
         <div className="grid grid-cols-2 gap-3">
-          {DEFAULT_LINKS.map((link, idx) => (
-            <a key={idx} href={link.url} target="_blank" rel="noreferrer"
-              className={`flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-2xl active:scale-95 transition-all duration-300 ease-spring border border-gray-100 ${link.bg} hover:-translate-y-1 hover:shadow-float`}>
-              <link.icon size={24} className={link.color} />
-              <span className="text-[13px] font-black text-gray-700 text-center">{link.title}</span>
-            </a>
-          ))}
-          
           {customLinks.map((link) => (
             <a key={link.id} href={link.url} target="_blank" rel="noreferrer"
               className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-2xl active:scale-95 transition-all duration-300 ease-spring border border-gray-100 hover:bg-emerald-50 hover:border-emerald-100 hover:-translate-y-1 hover:shadow-float">
-              <Globe size={24} className="text-emerald-500" />
+              {React.createElement(getLinkIcon(link.icon), { size: 24, className: "text-emerald-500" })}
               <span className="text-[13px] font-black text-gray-700 text-center truncate w-full px-1">{link.title}</span>
             </a>
           ))}
