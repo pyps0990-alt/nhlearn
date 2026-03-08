@@ -38,25 +38,13 @@ const ENCOURAGEMENTS = [
   "學會休息，是為了走更長遠的路 🌿"
 ];
 
+
 const timeToMins = (timeStr) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
 };
 
-const WEEKDAYS = [
-  { id: 1, label: '一' },
-  { id: 2, label: '二' },
-  { id: 3, label: '三' },
-  { id: 4, label: '四' },
-  { id: 5, label: '五' },
-  { id: 6, label: '六' },
-  { id: 0, label: '日' }
-];
-
-const INITIAL_WEEKLY_SCHEDULE = {
-  0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: []
-};
 
 // === 校園新聞 Widget 元件 ===
 const SchoolNewsWidget = () => {
