@@ -63,10 +63,15 @@
     color-scheme: light;
   }
 
+  :root {
+    background-color: var(--bg-page);
+  }
+
   body {
     font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang TC', sans-serif !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: var(--bg-page);
   }
 
   /* Interactive micro-animations */
@@ -127,12 +132,20 @@
   background-color: var(--bg-page) !important;
 }
 
+.main-container {
+  background-color: var(--bg-app) !important;
+  transition: background-color 0.3s ease;
+}
+
 .dark .main-container {
   background-color: var(--bg-app) !important;
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.6) !important;
 }
 
-/* 將所有白色卡片映射為具備深度的 Slate 800 玻璃擬態 */
+/* 確保 Header 能夠完美覆蓋狀態欄 */
+.sticky.top-0 {
+  padding-top: env(safe-area-inset-top) !important;
+}
 .dark [class*="bg-white"] {
   background-color: var(--bg-card) !important;
   backdrop-filter: blur(28px) saturate(150%) !important;

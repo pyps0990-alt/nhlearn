@@ -296,7 +296,7 @@ const MainApp = () => {
       <IosNotification notification={notification} />
 
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-2xl border-b border-white/50 px-5 py-4 flex justify-between items-center shadow-soft">
+      <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-b border-white/50 dark:border-white/10 px-5 pt-[calc(env(safe-area-inset-top)+12px)] pb-4 flex justify-between items-center shadow-soft">
         <div className="relative">
           <button
             onClick={() => setIsNavOpen(prev => !prev)}
