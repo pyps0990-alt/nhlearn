@@ -1,15 +1,34 @@
-node_modules
-.env
-dist
+# --- 基礎專案設定 (Vite / React) ---
+node_modules/
+dist/
+dist-ssr/
+*.local
 
-# Android
+# --- 安全性與環境變數 (絕對不能上傳) ---
+.env
+.env.local
+.env.*.local
+*.keystore
+*.jks
+
+# --- 部署與快取 ---
+.vercel
+.eslintcache
+
+# --- Android / Capacitor 專屬雜訊 ---
 android/
 .gradle/
 build/
 *.apk
 *.aar
 local.properties
-*.keystore
-*.jks
 build_log.txt
 build_log_utf8.txt
+
+# --- 其他資產 ---
+
+image/
+
+# --- 系統檔案 ---
+.DS_Store
+Thumbs.db

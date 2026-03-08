@@ -1,16 +1,577 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@supports (padding-bottom: env(safe-area-inset-bottom)) { 
-  .pb-safe { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); } 
+/* ================= CSS Tokens & Variables ================= */
+@layer base {
+  :root {
+    --ease-spring-smooth: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-spring-bouncy: cubic-bezier(0.5, 2.5, 0.3, 0.8);
+    --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    /* --- User Defined Light Palette --- */
+    --light-primary-100: #10B981;
+    --light-primary-200: #059669;
+    --light-primary-300: #FFFFFF;
+    --light-accent-100: #F59E0B;
+    --light-accent-200: #FCD34D;
+    --light-text-100: #0F172A;
+    --light-text-200: #475569;
+    --light-bg-100: #E2E8F0;
+    --light-bg-200: #F1F5F9;
+    --light-bg-300: #F8FAFC;
+
+    /* --- User Defined Dark Palette --- */
+    --dark-primary-100: #10B981;
+    --dark-primary-200: #059669;
+    --dark-primary-300: #0F172A;
+    --dark-accent-100: #F59E0B;
+    --dark-accent-200: #D97706;
+    --dark-text-100: #F8FAFC;
+    --dark-text-200: #CBD5E1;
+    --dark-bg-100: #020617;
+    --dark-bg-200: #020617;
+    --dark-bg-300: #0F172A;
+
+    /* --- Light Mode Colors --- */
+    --bg-page: var(--light-bg-100);
+    --bg-app: var(--light-bg-200);
+    --bg-card: rgba(248, 250, 252, 0.88);
+    /* softer slate-50 */
+    --bg-card-solid: var(--light-bg-300);
+    --bg-input: rgba(241, 245, 249, 0.8);
+    --bg-muted: var(--light-bg-100);
+    --bg-nav: rgba(255, 255, 255, 0.9);
+
+    --text-primary: var(--light-text-100);
+    --text-secondary: var(--light-text-200);
+    --text-muted: var(--light-text-200);
+    --text-accent: var(--light-accent-100);
+
+    --border-card: rgba(0, 0, 0, 0.05);
+    --border-input: rgba(0, 0, 0, 0.1);
+    --border-subtle: rgba(0, 0, 0, 0.03);
+
+    --radius-xl: 32px;
+    --radius-lg: 24px;
+
+    --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.04);
+    --shadow-float: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
+
+    color-scheme: light;
+  }
+
+  body {
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang TC', sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Interactive micro-animations */
+  .card,
+  button,
+  .nav-item,
+  .tab-item {
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .card:hover {
+    transform: translateY(-2px) scale(1.005);
+    box-shadow: 0 12px 36px -12px rgba(0, 0, 0, 0.06);
+  }
+
+  .dark .card:hover {
+    box-shadow: 0 12px 36px -12px rgba(0, 0, 0, 0.4);
+  }
+
+  button:active {
+    transform: scale(0.96) !important;
+  }
+
+
+  /* --- Dark Mode Colors --- */
+  .dark {
+    --bg-page: var(--dark-bg-100);
+    --bg-app: var(--dark-bg-200);
+    --bg-card: rgba(15, 23, 42, 0.85);
+    /* rgba of #0F172A */
+    --bg-card-solid: var(--dark-bg-300);
+
+    --bg-input: rgba(15, 23, 42, 0.6);
+    --bg-muted: var(--dark-bg-100);
+    --bg-nav: rgba(2, 6, 23, 0.88);
+
+    --text-primary: var(--dark-text-100);
+    --text-secondary: var(--dark-text-200);
+    --text-muted: var(--dark-text-200);
+    --text-accent: var(--dark-accent-100);
+
+    --border-card: rgba(255, 255, 255, 0.08);
+    --border-input: rgba(255, 255, 255, 0.12);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+
+    --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.5);
+    --shadow-float: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+
+    color-scheme: dark;
+  }
 }
 
-@keyframes fadeIn { 
-  from { opacity: 0; transform: translateY(15px) scale(0.98); } 
-  to { opacity: 1; transform: translateY(0) scale(1); } 
+/* ================= 全局類別覆蓋與黑暗模式細化 ================= */
+
+/* 基礎頁面與容器背景強制翻轉 */
+.dark body,
+.dark html {
+  background-color: var(--bg-page) !important;
 }
 
-.animate-fadeIn { 
-  animation: fadeIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
+.dark .main-container {
+  background-color: var(--bg-app) !important;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* 將所有白色卡片映射為具備深度的 Slate 800 玻璃擬態 */
+.dark [class*="bg-white"] {
+  background-color: var(--bg-card) !important;
+  backdrop-filter: blur(28px) saturate(150%) !important;
+  border-color: var(--border-card) !important;
+}
+
+/* 所有卡片邊框統一為微光色 */
+.dark [class*="border-white"],
+.dark [class*="border-gray"] {
+  border-color: var(--border-card) !important;
+}
+
+/* 文字顏色重映射：極致乾淨 */
+.dark .text-gray-950,
+.dark .text-gray-900,
+.dark .text-gray-800 {
+  color: var(--text-primary) !important;
+}
+
+.dark .text-gray-700,
+.dark .text-gray-600 {
+  color: var(--text-secondary) !important;
+}
+
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: var(--text-muted) !important;
+}
+
+/* 陰影優化 */
+.dark .shadow-soft {
+  box-shadow: var(--shadow-soft) !important;
+}
+
+.dark .shadow-float {
+  box-shadow: var(--shadow-float) !important;
+}
+
+/* 首頁漸變卡片 (歡迎區) */
+.from-emerald-400 {
+  --tw-gradient-from: var(--light-primary-100) !important;
+}
+
+.to-teal-600 {
+  --tw-gradient-to: var(--light-primary-200) !important;
+}
+
+/* 修正：明日準備區 */
+.from-orange-50 {
+  --tw-gradient-from: var(--light-accent-200) !important;
+  color: var(--light-text-100);
+}
+
+.to-red-50 {
+  --tw-gradient-to: var(--light-accent-100) !important;
+}
+
+/* 首頁漸變卡片 (歡迎區) - 優雅的深邃配色 */
+.dark .from-emerald-400 {
+  --tw-gradient-from: var(--dark-primary-100) !important;
+}
+
+.dark .to-teal-600 {
+  --tw-gradient-to: var(--dark-primary-200) !important;
+}
+
+/* 互動元素：按鈕與輸入框 */
+.dark button.bg-white {
+  background-color: var(--dark-bg-300) !important;
+  color: var(--dark-text-100) !important;
+  border: 1px solid var(--border-card) !important;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-input) !important;
+}
+
+/* 導覽列與選單 */
+.dark .sticky.top-0 {
+  background-color: var(--bg-nav) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  backdrop-filter: blur(20px) !important;
+}
+
+.dark .bg-white\/90 {
+  background-color: var(--dark-bg-300) !important;
+  border: 1px solid var(--border-card) !important;
+}
+
+/* 修正：明日準備區 */
+.dark .from-orange-50 {
+  --tw-gradient-from: var(--dark-bg-300) !important;
+}
+
+.dark .to-red-50 {
+  --tw-gradient-to: var(--dark-bg-200) !important;
+}
+
+.dark .text-orange-800 {
+  color: #FB923C !important;
+}
+
+/* 單字分頁、空狀態與特定頁面的灰底全面映射為主容器深藍底 */
+.dark [class*="bg-[#f2f2f7]"],
+.dark [class*="bg-[#f8f8f9]"],
+.dark [class*="bg-gray-"],
+.dark [class*="bg-slate-"] {
+  background-color: var(--bg-app) !important;
+}
+
+/* 關閉所有發出白光或不自然光暈的客製化陰影 (如 tailwind.config 定義的 shadow-neo) */
+.dark .shadow-neo,
+.dark .shadow-2xl,
+.dark .shadow-xl {
+  box-shadow: var(--shadow-soft) !important;
+}
+
+/* 功能性配色標籤與按鈕：捕獲所有透明度變體，賦予優雅的深色發光晶瑩感 */
+.dark [class*="bg-emerald-50"],
+.dark [class*="bg-emerald-100"] {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #34D399 !important;
+  border-color: rgba(16, 185, 129, 0.1) !important;
+}
+
+.dark [class*="bg-blue-50"],
+.dark [class*="bg-blue-100"] {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #60A5FA !important;
+  border-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+.dark [class*="bg-orange-50"],
+.dark [class*="bg-orange-100"] {
+  background-color: rgba(249, 115, 22, 0.15) !important;
+  color: #FB923C !important;
+  border-color: rgba(249, 115, 22, 0.1) !important;
+}
+
+.dark [class*="bg-red-50"],
+.dark [class*="bg-red-100"] {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #F87171 !important;
+  border-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+.dark [class*="bg-purple-50"],
+.dark [class*="bg-purple-100"] {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: #C084FC !important;
+  border-color: rgba(168, 85, 247, 0.1) !important;
+}
+
+.dark [class*="bg-indigo-50"],
+.dark [class*="bg-indigo-100"] {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+  color: #818CF8 !important;
+  border-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+.dark [class*="bg-indigo-500"] {
+  background-color: rgba(99, 102, 241, 0.3) !important;
+  color: #A5B4FC !important;
+}
+
+/* 防止文字深色吃掉發光底 */
+.dark [class*="text-emerald-700"],
+.dark [class*="text-emerald-800"] {
+  color: #34D399 !important;
+}
+
+.dark [class*="text-blue-700"],
+.dark [class*="text-blue-800"] {
+  color: #60A5FA !important;
+}
+
+.dark [class*="text-orange-700"],
+.dark [class*="text-orange-800"] {
+  color: #FB923C !important;
+}
+
+.dark [class*="text-red-700"],
+.dark [class*="text-red-800"] {
+  color: #F87171 !important;
+}
+
+.dark [class*="text-purple-700"],
+.dark [class*="text-purple-800"] {
+  color: #C084FC !important;
+}
+
+.dark [class*="text-indigo-700"],
+.dark [class*="text-indigo-800"] {
+  color: #818CF8 !important;
+}
+
+/* 側邊欄與 Modal */
+.dark .bg-black\/60 {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(16px);
+}
+
+/* 捲軸美化 */
+.dark ::-webkit-scrollbar-track {
+  background: var(--dark-bg-100);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--dark-bg-300);
+  border-radius: 10px;
+  border: 3px solid var(--dark-bg-100);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ================= Custom Utility Classes (Missing Definitions) ================= */
+@layer utilities {
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-float {
+    box-shadow: var(--shadow-float);
+  }
+
+  .ease-spring-smooth {
+    transition-timing-function: var(--ease-spring-smooth);
+  }
+
+  .ease-spring-bouncy {
+    transition-timing-function: var(--ease-spring-bouncy);
+  }
+
+  .ease-spring {
+    transition-timing-function: var(--ease-spring);
+  }
+
+  .duration-scale {
+    transition-duration: 0.3s;
+  }
+}
+
+/* ================= Animations ================= */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px) scale(0.98);
+    filter: blur(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bounce-soft {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulse-live {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.animate-bounce-soft {
+  animation: bounce-soft 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-pulse-live {
+  animation: pulse-live 2s infinite;
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes float-slow {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-15px) rotate(2deg);
+  }
+}
+
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up-fade {
+  animation: slide-up-fade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 0.5s var(--ease-spring-smooth) forwards;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+}
+
+/* ================= 統一特調進度條 (Unified Progress Bar) ================= */
+@keyframes shimmer-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 14px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2px;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--light-primary-100), #34d399);
+  transition: width 1s var(--ease-spring-smooth);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.5) 50%,
+      transparent 100%);
+  animation: shimmer-slide 2s infinite linear;
+}
+
+@layer utilities {
+  .gpu-accelerated {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

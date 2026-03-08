@@ -1,49 +1,65 @@
-/* App.css */
-
-/* iOS 安全距離與基礎設定 */
-@supports (padding-bottom: env(safe-area-inset-bottom)) { 
-  .pb-safe { padding-bottom: max(2rem, env(safe-area-inset-bottom)); } 
+/* ===== Layout ===== */
+body, html { margin: 0; padding: 0; background-color: #E2E8F0; width: 100%; overscroll-behavior-y: none; }
+.main-container {
+  width: 100%; max-width: 1024px; margin: 0 auto; position: relative;
+  height: 100dvh; height: 100svh;
+  background-color: #F1F5F9;
+  box-shadow: 0 0 40px rgba(0,0,0,0.05);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+@media (max-width: 768px) {
+  .main-container { height: -webkit-fill-available; height: fill-available; }
+}
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
 }
 
-@keyframes fadeIn { 
-  from { opacity: 0; transform: translateY(15px); } 
-  to { opacity: 1; transform: translateY(0); } 
+/* ===== Shadows ===== */
+.shadow-soft { box-shadow: 0 4px 24px rgba(0,0,0,0.06) !important; }
+.shadow-float { box-shadow: 0 12px 40px rgba(0,0,0,0.12) !important; }
+.shadow-neo { box-shadow: 4px 4px 0px #000; }
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.93); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes floatUp {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
 }
 
-.animate-fadeIn { 
-  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+.animate-fadeIn        { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-slide-up-fade { animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-pop-in        { animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-float         { animation: floatUp 3s ease-in-out infinite; }
+.nav-item-animate      { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* ===== Hover float effect on cards ===== */
+.hover-float {
+  transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+}
+.hover-float:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.10) !important;
 }
 
+/* ===== Misc ===== */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 .font-black { font-weight: 900 !important; }
 * { -webkit-tap-highlight-color: transparent; }
+input, textarea { font-size: 16px !important; }
 
-/* =========================================
-   排版修正：確保畫面置中不往左跑
-========================================= */
-body, html {
-  margin: 0;
-  padding: 0;
-  background-color: #F7FBFA;
-  width: 100%;
-}
-
-#root {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: 100vh;
-  width: 100%;
-}
-
-/* 將所有內容鎖在中間，手機版滿版，電腦版限制寬度 */
-.main-container {
-  width: 100%;
-  max-width: 600px; /* 電腦上看也不會變形 */
-  margin: 0 auto;
-  position: relative;
-  height: 100dvh;
-  background-color: #F7FBFA;
-  box-shadow: 0 0 20px rgba(0,0,0,0.02);
-}
+/* ===== Dark mode card & schedule overrides ===== */
+.dark .bg-white\/60 { background-color: rgba(15,23,42,0.6) !important; }
+.dark .bg-white\/80 { background-color: rgba(15,23,42,0.8) !important; }
+.dark .bg-gray-50\/50 { background-color: rgba(15,23,42,0.3) !important; }
