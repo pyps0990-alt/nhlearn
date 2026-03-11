@@ -111,22 +111,22 @@ const YoubikeWidget = () => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
 
   return (
-    <div className="bg-white/80 backdrop-blur-2xl p-5 md:p-6 rounded-[32px] shadow-soft border border-white/60">
+    <div className="bg-[var(--bg-surface)] p-5 md:p-6 rounded-[32px] shadow-soft border border-[var(--border-color)] transition-all duration-500 glass-effect">
       {/* Header */}
       <div className="flex justify-between items-center mb-2">
-        <h3 className="text-[15px] font-black text-gray-800 flex items-center gap-2">
-          <Bike className="text-emerald-500" size={18} /> 附近 YouBike站點
+        <h3 className="text-[15px] font-black text-[var(--text-primary)] flex items-center gap-2">
+          <Bike className="text-emerald-500 shrink-0" size={18} /> 附近 YouBike站點
         </h3>
         <div className="flex items-center gap-3">
-          <span className="text-[18px] font-black text-gray-800 font-mono">
+          <span className="text-[18px] font-black text-[var(--text-primary)] font-mono">
             {currentTime.toLocaleTimeString('zh-TW', { hour12: false })}
           </span>
           <button
             onClick={fetchYoubike}
-            className="p-1.5 bg-gray-50 text-gray-400 rounded-lg active:scale-90 transition-transform hover:bg-gray-100"
+            className="p-1.5 bg-slate-50 dark:bg-white/10 text-slate-400 rounded-lg active:scale-90 transition-transform hover:bg-slate-100 dark:hover:bg-white/20 shrink-0"
             aria-label="重新整理"
           >
-            <RefreshCw size={14} className={loading && youbikeData.length ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={`shrink-0 ${loading && youbikeData.length ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -143,7 +143,7 @@ const YoubikeWidget = () => {
           }}
           className={`px-3 py-1.5 rounded-xl text-[11px] font-black flex-shrink-0 transition-all flex items-center gap-1 ${userLocation?.name === '目前位置' ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
         >
-          <Navigation size={12} /> 自動定位
+          <Navigation size={12} className="shrink-0" /> 自動定位
         </button>
         {LOCATION_PRESETS.map(loc => (
           <button
@@ -163,11 +163,11 @@ const YoubikeWidget = () => {
       <div className="flex items-center gap-2 mb-3">
         {locationError && userLocation?.name === '目前位置' ? (
           <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-100">
-            <AlertCircle size={11} /> 定位失敗，改用預設
+            <AlertCircle size={11} className="shrink-0" /> 定位失敗，改用預設
           </span>
         ) : userLocation ? (
           <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
-            <MapPin size={11} /> 基準點：{userLocation.name}
+            <MapPin size={11} className="shrink-0" /> 基準點：{userLocation.name}
           </span>
         ) : (
           <span className="text-[11px] font-bold text-gray-400">取得位置中...</span>
@@ -193,7 +193,7 @@ const YoubikeWidget = () => {
       {/* Error */}
       {error && (
         <div className="flex items-center gap-2 text-[12px] font-bold text-red-500 bg-red-50 p-3 rounded-2xl border border-red-100 mb-3">
-          <AlertCircle size={14} /> {error}
+          <AlertCircle size={14} className="shrink-0" /> {error}
         </div>
       )}
 
@@ -210,15 +210,15 @@ const YoubikeWidget = () => {
             return (
               <div
                 key={s.sno}
-                className={`p-4 rounded-2xl border flex flex-col gap-3 transition-all hover:shadow-md ${isElectric ? 'bg-orange-50/30 border-orange-100' : 'bg-gray-50 border-gray-100'}`}
+                className={`p-4 rounded-2xl border flex flex-col gap-3 transition-all hover:shadow-md ${isElectric ? 'bg-orange-50/30 dark:bg-orange-500/10 border-orange-100 dark:border-orange-500/20' : 'bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5'}`}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1 mr-2">
-                    <h4 className="text-[14px] font-black text-gray-900 leading-snug">{cleanName}</h4>
+                    <h4 className="text-[14px] font-black text-slate-900 dark:text-white leading-snug">{cleanName}</h4>
                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                       {isElectric ? (
                         <span className="text-[10px] font-black bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                          <Zap size={10} /> 電動版
+                          <Zap size={10} className="shrink-0" /> 電動版
                         </span>
                       ) : (
                         <span className="text-[10px] font-black bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded-md">一般</span>
@@ -231,18 +231,18 @@ const YoubikeWidget = () => {
                     className="p-2 bg-white rounded-xl shadow-sm text-blue-500 active:scale-90 border border-gray-100 hover:bg-blue-50 flex-shrink-0"
                     aria-label="導航至站點"
                   >
-                    <Navigation size={14} />
+                    <Navigation size={14} className="shrink-0" />
                   </button>
                 </div>
-                <div className="flex bg-white rounded-xl p-2 border border-gray-100/50 shadow-sm">
-                  <div className="flex-1 flex flex-col items-center justify-center border-r border-gray-100">
-                    <span className="text-[10px] font-bold text-gray-400 mb-0.5">可借</span>
+                <div className="flex bg-white dark:bg-slate-800 rounded-xl p-2 border border-slate-100 dark:border-white/10 shadow-sm">
+                  <div className="flex-1 flex flex-col items-center justify-center border-r border-gray-100 dark:border-white/5">
+                    <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-0.5">可借</span>
                     <span className={`text-[20px] font-black ${s.rent > 0 ? (isElectric ? 'text-orange-500' : 'text-emerald-600') : 'text-gray-300'}`}>
                       {s.rent}
                     </span>
                   </div>
                   <div className="flex-1 flex flex-col items-center justify-center">
-                    <span className="text-[10px] font-bold text-gray-400 mb-0.5">可還</span>
+                    <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-0.5">可還</span>
                     <span className={`text-[20px] font-black ${s.ret > 0 ? 'text-blue-500' : 'text-gray-300'}`}>
                       {s.ret}
                     </span>
@@ -255,13 +255,13 @@ const YoubikeWidget = () => {
       )}
 
       {!loading && youbikeData.length === 0 && !error && (
-        <p className="text-[13px] font-bold text-gray-500 text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+        <p className="text-[13px] font-bold text-slate-500 dark:text-gray-500 text-center py-6 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
           {RADIUS_M / 1000} km 內找不到 YouBike 站點
         </p>
       )}
 
       {!loading && filtered.length === 0 && youbikeData.length > 0 && (
-        <p className="text-[13px] font-bold text-gray-500 text-center py-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+        <p className="text-[13px] font-bold text-slate-500 dark:text-gray-500 text-center py-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
           附近沒有符合篩選的站點
         </p>
       )}
@@ -277,62 +277,62 @@ const TransportGuide = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* 捷運 - 霓虹靛藍 (深色優化) */}
-      <div className="bg-indigo-950/40 backdrop-blur-2xl p-6 rounded-[32px] border border-indigo-500/20 shadow-soft transition-all hover:border-indigo-500/40 group">
+      <div className="bg-indigo-50 dark:bg-indigo-950/40 p-6 rounded-[32px] border border-indigo-200 dark:border-indigo-500/20 shadow-md transition-all hover:border-indigo-500/40 group">
         <div className="flex items-center gap-3 mb-5">
-          <div className="p-2.5 bg-indigo-500/20 rounded-2xl text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
-            <TrainFront size={20} />
+          <div className="p-2.5 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-2xl text-indigo-700 dark:text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.1)] shrink-0">
+            <TrainFront size={20} className="shrink-0" />
           </div>
-          <h4 className="text-[17px] font-black text-indigo-100">捷運文湖線</h4>
+          <h4 className="text-[17px] font-black text-indigo-900 dark:text-indigo-100">捷運文湖線</h4>
         </div>
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.6)]"></span>
-            <p className="text-[14px] font-black text-indigo-50">文德站 2 號出口</p>
+            <span className="h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(129,140,248,0.6)]"></span>
+            <p className="text-[14px] font-black text-indigo-900 dark:text-indigo-50">文德站 2 號出口</p>
           </div>
-          <p className="text-[13px] font-bold text-indigo-200/60 leading-relaxed pl-4 border-l-2 border-indigo-500/20 ml-1">
-            出站後向左轉，沿內湖路步行約 <span className="text-indigo-400">3-5 分鐘</span> 即抵達校門。
+          <p className="text-[13px] font-bold text-slate-600 dark:text-indigo-200/60 leading-relaxed pl-4 border-l-2 border-indigo-500/20 ml-1">
+            出站後向左轉，沿內湖路步行約 <span className="text-emerald-600 dark:text-indigo-400">3-5 分鐘</span> 即抵達校門。
           </p>
         </div>
       </div>
 
       {/* 公車 - 暖陽琥珀 (深色優化) */}
-      <div className="bg-amber-950/30 backdrop-blur-2xl p-6 rounded-[32px] border border-amber-500/20 shadow-soft transition-all hover:border-amber-500/40">
+      <div className="bg-amber-50 dark:bg-amber-950/30 p-6 rounded-[32px] border border-amber-200 dark:border-amber-500/20 shadow-md transition-all hover:border-amber-500/40">
         <div className="flex items-center gap-3 mb-5">
-          <div className="p-2.5 bg-amber-500/20 rounded-2xl text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-            <Bus size={20} />
+          <div className="p-2.5 bg-amber-500/10 dark:bg-amber-500/20 rounded-2xl text-amber-700 dark:text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.1)] shrink-0">
+            <Bus size={20} className="shrink-0" />
           </div>
-          <h4 className="text-[17px] font-black text-amber-100">公車站點：內湖高中</h4>
+          <h4 className="text-[17px] font-black text-amber-900 dark:text-amber-100">公車站點：內湖高中</h4>
         </div>
         <div className="flex flex-wrap gap-2">
           {busLines.map(line => (
-            <span key={line} className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[11px] font-black text-amber-200 shadow-sm hover:bg-amber-500/20 transition-colors">
+            <span key={line} className="px-2.5 py-1 bg-white dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl text-[11px] font-black text-amber-700 dark:text-amber-200 shadow-sm hover:bg-amber-600 hover:text-white transition-all">
               {line}
             </span>
           ))}
         </div>
-        <div className="mt-5 p-3 bg-amber-500/5 rounded-2xl border border-amber-500/10">
-          <p className="text-[11px] font-bold text-amber-200/50 flex items-center gap-2">
-            <AlertCircle size={12} className="text-amber-500" /> 站牌位於校門口兩側，下車即抵達。
+        <div className="mt-5 p-3 bg-amber-100/50 dark:bg-amber-500/5 rounded-2xl border border-amber-200/50 dark:border-amber-500/10">
+          <p className="text-[11px] font-bold text-amber-800 dark:text-amber-200/50 flex items-center gap-2">
+            <AlertCircle size={12} className="text-amber-600 shrink-0" /> 站牌位於校門口兩側，下車即抵達。
           </p>
         </div>
       </div>
 
       {/* 地址 - 鈦金冷灰 (全寬) */}
-      <div className="md:col-span-2 bg-slate-900/60 backdrop-blur-2xl p-6 rounded-[32px] border border-white/10 shadow-soft flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="md:col-span-2 bg-slate-100 dark:bg-slate-900/60 backdrop-blur-2xl p-6 rounded-[32px] border border-slate-200 dark:border-white/10 shadow-soft flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-5 w-full md:w-auto">
-          <div className="p-3.5 bg-white/5 rounded-2xl shadow-inner text-slate-400 border border-white/10">
-            <MapPin size={26} />
+          <div className="p-3.5 bg-white dark:bg-white/5 rounded-2xl shadow-inner text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/10">
+            <MapPin size={26} className="shrink-0" />
           </div>
           <div>
-            <h4 className="text-[16px] font-black text-white">地理位置</h4>
-            <p className="text-[13px] font-bold text-slate-400 tracking-wide">台北市內湖區內湖路二段 314 號</p>
+            <h4 className="text-[16px] font-black text-slate-900 dark:text-white">地理位置</h4>
+            <p className="text-[13px] font-bold text-slate-500 dark:text-slate-400 tracking-wide">台北市內湖區內湖路二段 314 號</p>
           </div>
         </div>
         <button
           onClick={() => window.open('https://www.google.com/maps/search/?api=1&query=內湖高中', '_blank')}
-          className="w-full md:w-auto px-10 py-4 bg-white text-slate-950 rounded-[22px] text-[13px] font-black shadow-[0_10px_20px_rgba(255,255,255,0.1)] active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-slate-100"
+          className="w-full md:w-auto px-10 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-[22px] text-[13px] font-black shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-100"
         >
-          <Navigation size={14} fill="currentColor" /> 開啟地圖導航
+          <Navigation size={14} fill="currentColor" className="shrink-0" /> 開啟地圖導航
         </button>
       </div>
     </div>
@@ -343,8 +343,8 @@ const TransportGuide = () => {
 const TrafficTab = () => (
   <div className="space-y-8 flex flex-col w-full text-left animate-fadeIn mb-12">
     <div className="px-2">
-      <h2 className="text-3xl font-black text-gray-900 tracking-tight">交通資訊</h2>
-      <p className="text-[14px] font-bold text-gray-400 mt-1">前往內湖高中的即時接駁與路徑指引</p>
+      <h2 className="text-3xl font-black text-[var(--text-primary)] tracking-tight">交通資訊</h2>
+      <p className="text-[14px] font-bold text-slate-400 mt-1">前往內湖高中的即時接駁與路徑指引</p>
     </div>
 
     <section className="space-y-4">

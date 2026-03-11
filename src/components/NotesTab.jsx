@@ -210,8 +210,8 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
     return (
       <div className="space-y-6 flex flex-col w-full text-left mb-8">
         <div className="flex justify-between items-center px-1">
-          <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-2.5"><Library size={28} /> 知識筆記</h2>
-          <button onClick={() => setIsEditMode(!isEditMode)} className={`p-2.5 rounded-xl transition-all ${isEditMode ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'}`}>{isEditMode ? <CheckCircle2 size={20} /> : <Edit3 size={20} />}</button>
+          <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-2.5"><Library size={28} className="shrink-0 neon-glow-emerald" /> 知識筆記</h2>
+          <button onClick={() => setIsEditMode(!isEditMode)} className={`p-2.5 rounded-xl transition-all active:scale-95 duration-500 ${isEditMode ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-slate-50 dark:bg-white/10 text-slate-500 dark:text-gray-400 border border-slate-200 dark:border-white/10'}`}>{isEditMode ? <CheckCircle2 size={20} className="shrink-0" /> : <Edit3 size={20} className="shrink-0" />}</button>
         </div>
         {showAddSubject && (
           <div className="bg-white/80 p-5 rounded-[32px] border border-white/60 shadow-soft animate-slide-up-fade flex flex-col gap-3">
@@ -258,11 +258,11 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {subjects.map(s => (
             <div key={s.name} className="relative group animate-pop-in">
-              <button onClick={() => !isEditMode && setSelectedSubject(s)} className={`relative w-full aspect-square bg-white shadow-soft rounded-[36px] flex flex-col items-center justify-center gap-3 transition-all ${isEditMode ? 'opacity-50 grayscale' : 'hover:-translate-y-1'}`}>
-                <div className="text-4xl">{s.icon}</div>
-                <span className="text-[15px] font-black">{s.name}</span>
+              <button onClick={() => !isEditMode && setSelectedSubject(s)} className={`relative w-full aspect-square bg-[var(--bg-surface)] shadow-soft border border-[var(--border-color)] rounded-[36px] flex flex-col items-center justify-center gap-3 transition-all duration-500 glass-effect ${isEditMode ? 'opacity-50 grayscale' : 'hover:-translate-y-2'}`}>
+                <div className="text-4xl transform group-hover:scale-110 transition-transform duration-500">{s.icon}</div>
+                <span className="text-[15px] font-black text-[var(--text-primary)]">{s.name}</span>
               </button>
-              {isEditMode && <button onClick={() => handleDeleteSubject(s.name)} className="absolute -top-1 -right-1 bg-red-500 text-white p-2 rounded-full"><Trash2 size={14} /></button>}
+              {isEditMode && <button onClick={() => handleDeleteSubject(s.name)} className="absolute -top-1 -right-1 bg-red-500 text-white p-2 rounded-full shadow-lg active:scale-95 transition-all"><Trash2 size={14} className="shrink-0" /></button>}
             </div>
           ))}
           <button onClick={() => setShowAddSubject(true)} className="aspect-square border-2 border-dashed border-gray-200 rounded-[36px] flex flex-col items-center justify-center text-gray-400 hover:text-emerald-500 transition-all"><Plus size={32} /></button>
@@ -275,39 +275,39 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
   return (
     <div className="space-y-5 flex flex-col w-full text-left mb-8 pb-10 relative animate-slide-up-fade">
       <QuizModal isOpen={isQuizOpen} onClose={() => setIsQuizOpen(false)} quizData={quizData} subject={selectedSubject?.name} />
-      <div className="flex items-center justify-between border-b border-gray-100 pb-5">
+      <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-5">
         <div className="flex items-center gap-4">
-          <button onClick={() => setSelectedSubject(null)} className="p-3 bg-white/60 rounded-[20px] shadow-sm active:scale-95"><ArrowLeft size={20} /></button>
-          <div><h2 className="text-[20px] font-black text-emerald-600">{selectedSubject?.name}</h2><p className="text-[12px] font-bold text-gray-400">{sn.length} 則筆記</p></div>
+          <button onClick={() => setSelectedSubject(null)} className="p-3 bg-slate-50 dark:bg-white/10 rounded-[20px] shadow-sm active:scale-95 border border-slate-200 dark:border-white/10 shrink-0"><ArrowLeft size={20} className="shrink-0 text-slate-600 dark:text-gray-300" /></button>
+          <div><h2 className="text-[20px] font-black text-emerald-600">{selectedSubject?.name}</h2><p className="text-[12px] font-bold text-slate-400">{sn.length} 則筆記</p></div>
         </div>
-        <button onClick={handleGenerateQuiz} disabled={isGeneratingQuiz || sn.length === 0} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl text-[13px] font-black">{isGeneratingQuiz ? <RefreshCw className="animate-spin" size={16} /> : <Wand2 size={16} />} AI 出題</button>
+        <button onClick={handleGenerateQuiz} disabled={isGeneratingQuiz || sn.length === 0} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl text-[13px] font-black active:scale-95 transition-transform shrink-0 shadow-lg shadow-purple-500/20">{isGeneratingQuiz ? <RefreshCw className="animate-spin shrink-0" size={16} /> : <Wand2 size={16} className="shrink-0" />} AI 出題</button>
       </div>
-      <div className="bg-white/80 p-6 md:p-8 rounded-[36px] border border-white/60 shadow-soft space-y-4">
+      <div className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[36px] border border-[var(--border-color)] shadow-soft space-y-4 glass-effect transition-all duration-500 hover:shadow-float">
         <div className="flex flex-col sm:flex-row gap-2.5">
-          <select className="bg-gray-50 border border-gray-200 rounded-2xl px-3 py-3 sm:py-0 text-xs font-black outline-none h-auto sm:h-[56px]" value={newNote.category} onChange={e => setNewNote({ ...newNote, category: e.target.value })}>{NOTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select>
-          <input type="text" className="flex-1 min-w-0 bg-white border border-gray-100 rounded-[20px] px-5 py-4 font-black outline-none focus:border-emerald-400" placeholder="標題..." value={newNote.title} onChange={e => setNewNote({ ...newNote, title: e.target.value })} />
+          <select className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-3 sm:py-0 text-xs font-black text-[var(--text-primary)] outline-none h-auto sm:h-[56px]" value={newNote.category} onChange={e => setNewNote({ ...newNote, category: e.target.value })}>{NOTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select>
+          <input type="text" className="flex-1 min-w-0 bg-white dark:bg-black/20 border border-slate-100 dark:border-white/10 rounded-[20px] px-5 py-4 font-black text-[var(--text-primary)] outline-none focus:border-emerald-400" placeholder="標題..." value={newNote.title} onChange={e => setNewNote({ ...newNote, title: e.target.value })} />
         </div>
-        <textarea className="w-full bg-white border border-gray-100 rounded-[24px] p-5 font-bold min-h-[140px] outline-none focus:border-emerald-400" placeholder="內容..." value={newNote.content} onChange={e => setNewNote({ ...newNote, content: e.target.value })} />
+        <textarea className="w-full bg-white dark:bg-black/20 border border-slate-100 dark:border-white/10 rounded-[24px] p-5 font-bold text-[var(--text-primary)] min-h-[140px] outline-none focus:border-emerald-400" placeholder="內容..." value={newNote.content} onChange={e => setNewNote({ ...newNote, content: e.target.value })} />
         <div className="flex items-center justify-between gap-3 pt-2">
            <div className="flex gap-2 flex-grow">
-            <label className="flex-1 flex items-center justify-center gap-2 text-xs font-black text-emerald-700 bg-emerald-50 py-3.5 rounded-2xl cursor-pointer"><Upload size={18} /> 上傳 <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} /></label>
-            <button onClick={handleAiSummarize} disabled={isProcessingAI} className="flex-1 flex items-center justify-center gap-2 text-xs font-black bg-indigo-50 text-indigo-700 py-3.5 rounded-2xl">{isProcessingAI ? <RefreshCw size={18} className="animate-spin" /> : <Sparkles size={18} />} AI 摘要</button>
+            <label className="flex-1 flex items-center justify-center gap-2 text-xs font-black text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 py-3.5 rounded-2xl cursor-pointer active:scale-95 transition-transform"><Upload size={18} className="shrink-0" /> 上傳 <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileUpload} /></label>
+            <button onClick={handleAiSummarize} disabled={isProcessingAI} className="flex-1 flex items-center justify-center gap-2 text-xs font-black bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 py-3.5 rounded-2xl active:scale-95 transition-transform">{isProcessingAI ? <RefreshCw size={18} className="animate-spin shrink-0" /> : <Sparkles size={18} className="shrink-0" />} AI 摘要</button>
            </div>
-           <button onClick={handleSaveNote} className="w-14 h-14 bg-emerald-600 text-white rounded-2xl flex items-center justify-center active:scale-95 transition-all"><Save size={24} /></button>
+           <button onClick={handleSaveNote} className="w-14 h-14 bg-emerald-600 text-white rounded-2xl flex items-center justify-center active:scale-95 transition-all shadow-lg shadow-emerald-500/20"><Save size={24} className="shrink-0 neon-glow-emerald" /></button>
         </div>
       </div>
       <div className="space-y-4 mt-4">
         {sn.map(n => (
-          <div key={n.id} className="p-6 bg-white/80 rounded-[32px] border border-white/60 shadow-soft group">
+          <div key={n.id} className="p-6 bg-[var(--bg-surface)] rounded-[32px] border border-[var(--border-color)] shadow-soft group transition-all duration-500 hover:shadow-float glass-effect">
             <div className="flex justify-between items-start mb-4">
-              <span className={`px-3 py-1.5 ${n.category === '錯題本' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-800'} rounded-lg text-[10px] font-black`}>{n.category}</span>
+              <span className={`px-3 py-1.5 ${n.category === '錯題本' ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'} rounded-lg text-[10px] font-black`}>{n.category}</span>
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => handleBackupToDrive(n)} className="p-2 text-blue-500"><FolderPlus size={18} /></button>
-                <button onClick={() => handleDeleteNote(n.id)} className="p-2 text-gray-300 hover:text-red-500"><Trash2 size={18} /></button>
+                <button onClick={() => handleBackupToDrive(n)} className="p-2 text-blue-500 hover:scale-110 transition-transform"><FolderPlus size={18} className="shrink-0" /></button>
+                <button onClick={() => handleDeleteNote(n.id)} className="p-2 text-slate-300 dark:text-gray-600 hover:text-red-500 hover:scale-110 transition-transform"><Trash2 size={18} className="shrink-0" /></button>
               </div>
             </div>
-            <h4 className="font-black text-gray-900 text-lg mb-2">{n.title}</h4>
-            <p className="text-sm font-bold text-gray-700 whitespace-pre-wrap">{n.content}</p>
+            <h4 className="font-black text-[var(--text-primary)] text-lg mb-2">{n.title}</h4>
+            <p className="text-sm font-bold text-slate-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{n.content}</p>
           </div>
         ))}
       </div>

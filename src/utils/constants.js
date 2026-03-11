@@ -1,21 +1,23 @@
 import { 
   BookText, Languages, Calculator, Zap, Beaker, Dna, 
-  History, Map, Scale, Library, Globe, GraduationCap, Cloud, Utensils
+  History, Map, Scale, Library, Globe, GraduationCap, Cloud, Utensils,
+  Clock, Calendar
 } from 'lucide-react';
 
 export const ICON_MAP = {
   BookText, Languages, Calculator, Zap, Beaker, Dna, 
-  History, Map, Scale, Library, Globe, GraduationCap, Cloud, Utensils
+  History, Map, Scale, Library, Globe, GraduationCap, Cloud, Utensils,
+  Clock, Calendar
 };
 
 export const INITIAL_WEEKLY_SCHEDULE = {
   1: [{ id: 101, startTime: '08:00', endTime: '09:00', subject: '國文', location: '302 教室', teacher: '王老師', items: '國文講義' }],
-  2: [], 3: [], 4: [], 5: [], 6: [], 0: []
+  2: [], 3: [], 4: [], 5: []
 };
 
 export const WEEKDAYS = [
   { id: 1, label: '一' }, { id: 2, label: '二' }, { id: 3, label: '三' },
-  { id: 4, label: '四' }, { id: 5, label: '五' }, { id: 6, label: '六' }, { id: 0, label: '日' }
+  { id: 4, label: '四' }, { id: 5, label: '五' }
 ];
 
 export const SUBJECTS_LIST = [

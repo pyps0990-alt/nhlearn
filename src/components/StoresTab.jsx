@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Store, CreditCard, Clock, MapPin, Navigation, CheckCircle2 } from 'lucide-react';
+import { Store, CreditCard, Clock, MapPin, Navigation, CheckCircle2, Utensils, Coffee, CupSoda, PenTool } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
@@ -18,6 +18,16 @@ const StoresTab = ({ isAdmin }) => {
     });
     return () => unsub();
   }, []);
+
+  const getStoreCategoryIcon = (type) => {
+    switch (type) {
+      case '餐飲': return Utensils;
+      case '飲料': return CupSoda;
+      case '咖啡': return Coffee;
+      case '文具': return PenTool;
+      default: return Store;
+    }
+  };
 
   const handleNavigate = (storeName, address) => {
     const fullQuery = `${storeName} ${address || ''}`.trim();
@@ -39,7 +49,8 @@ const StoresTab = ({ isAdmin }) => {
     <div className="space-y-5 flex flex-col w-full text-left animate-slide-up-fade mb-8">
       <div className="flex justify-between items-center px-1">
         <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-3">
-          <Store size={28} /> 校園特約商店
+          <Store size={28} className="shrink-0 neon-glow-emerald" />
+          校園特約商店
         </h2>
       </div>
       <p className="text-[13px] font-bold text-gray-500 px-1 mb-2">
@@ -51,25 +62,25 @@ const StoresTab = ({ isAdmin }) => {
           <div
             key={store.id}
             style={{ animationDelay: `${idx * 80}ms` }}
-            className="bg-white/80 backdrop-blur-2xl p-6 rounded-[36px] shadow-soft border border-white/60 flex flex-col relative transition-all duration-300 ease-spring group hover:shadow-float hover:-translate-y-1 animate-slide-up-fade overflow-hidden"
+            className="bg-[var(--bg-surface)] p-6 rounded-[36px] shadow-soft border border-[var(--border-color)] flex flex-col relative transition-all duration-300 ease-spring group hover:shadow-float hover:-translate-y-1 animate-slide-up-fade overflow-hidden glass-effect"
           >
             {/* 標題與圖示區塊 */}
             <div className="flex items-center gap-4 mb-5">
               <div className="relative">
-                <div className="w-16 h-16 flex items-center justify-center text-3xl bg-emerald-50 border border-emerald-100 rounded-[24px] shadow-sm">
-                  {store.icon}
+                <div className="w-16 h-16 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-[24px] shadow-sm shrink-0">
+                  {React.createElement(getStoreCategoryIcon(store.type), { size: 32, className: "text-emerald-600 dark:text-emerald-400 shrink-0" })}
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-[3px] border-white flex items-center justify-center shadow-sm">
-                  <CheckCircle2 size={12} className="text-white" />
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-[3px] border-white dark:border-slate-800 flex items-center justify-center shadow-sm">
+                  <CheckCircle2 size={12} className="text-white shrink-0" />
                 </div>
               </div>
 
               <div className="flex flex-col">
-                <h4 className="text-[20px] font-black text-gray-900 tracking-tight leading-tight mb-2">
+                <h4 className="text-[20px] font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-2">
                   {store.name}
                 </h4>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-100 dark:border-emerald-500/20">
                     {store.type}
                   </span>
                   {store.deliveryStatus && (

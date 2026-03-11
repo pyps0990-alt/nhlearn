@@ -125,56 +125,56 @@ const TutorialTab = ({ onOpenFeedback }) => {
   ];
 
   return (
-    <div className="space-y-4 flex flex-col w-full text-left animate-slide-up-fade mb-12 pb-8">
+    <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade pb-12">
       {/* Header */}
       <div className="px-1 mb-2">
-        <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-3">
-          <Globe size={28} /> 使用指南
+        <h2 className="text-2xl font-black text-amber-500 flex items-center gap-3">
+          <Sparkles size={28} className="shrink-0 neon-glow-amber" /> 使用指南
         </h2>
-        <p className="text-[13px] font-bold text-gray-500 mt-1">點選各主題查看詳細說明</p>
+        <p className="text-[13px] font-bold text-slate-500 dark:text-gray-400 mt-1 ml-9">常見問題與功能完整說明</p>
       </div>
 
-      {/* 移至上方的 API Key shortcut */}
+      {/* Gemini API Link */}
       <a
         href="https://aistudio.google.com/app/apikey"
         target="_blank"
         rel="noreferrer"
         className="flex items-center gap-4 bg-gradient-to-r from-purple-600 to-indigo-600 p-5 rounded-[28px] text-white shadow-md active:scale-[0.98] transition-transform"
       >
-        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-          <Key size={24} />
+        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+          <Key size={24} className="shrink-0" />
         </div>
         <div>
           <div className="font-black text-[16px]">取得 Gemini API Key</div>
           <div className="text-[12px] font-bold opacity-80">免費取得 · 解鎖所有 AI 功能</div>
         </div>
-        <ChevronRight size={20} className="ml-auto opacity-70" />
+        <ChevronRight size={20} className="ml-auto opacity-70 shrink-0" />
       </a>
 
       {/* FAQ Accordion */}
       {sections.map((sec, idx) => (
-        <div key={idx} className="bg-white/80 backdrop-blur-2xl rounded-[28px] border border-white/60 shadow-soft overflow-hidden">
+        <div key={idx} className="bg-[var(--bg-surface)] rounded-[28px] border border-[var(--border-color)] shadow-soft overflow-hidden glass-effect">
           <button
             onClick={() => setOpenSection(openSection === idx ? null : idx)}
-            className="w-full flex justify-between items-center p-5 active:bg-gray-50 transition-colors"
+            className="w-full flex justify-between items-center p-5 active:bg-slate-50 dark:active:bg-white/5 transition-colors group"
           >
             <div className="flex items-center gap-3.5">
-              <div className={`w-10 h-10 ${sec.bg} rounded-2xl flex items-center justify-center`}>
-                <sec.icon size={20} className={sec.color} />
+              <div className={`w-10 h-10 ${sec.bg} dark:bg-opacity-10 rounded-2xl flex items-center justify-center shrink-0 border border-transparent dark:border-[var(--border-color)]`}>
+                <sec.icon size={20} className={`${sec.color} shrink-0`} />
               </div>
-              <span className="font-black text-gray-900 text-[15px]">{sec.title}</span>
+              <span className="font-black text-[var(--text-primary)] text-[15px] group-hover:translate-x-1 transition-transform">{sec.title.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/g, '')}</span>
             </div>
-            <ChevronRight size={18} className={`text-gray-400 transition-transform duration-300 ${openSection === idx ? 'rotate-90 text-emerald-500' : ''}`} />
+            <ChevronRight size={18} className={`text-slate-300 transition-transform duration-300 shrink-0 ${openSection === idx ? 'rotate-90 text-emerald-500' : 'group-hover:translate-x-1'}`} />
           </button>
           {openSection === idx && (
-            <div className="px-5 pb-5 space-y-4 border-t border-gray-50 pt-4 animate-fadeIn">
+            <div className="px-5 pb-5 space-y-4 border-t border-[var(--border-color)] pt-4 animate-fadeIn bg-slate-50/5">
               {sec.content.map((item, i) => (
                 <div key={i} className="space-y-1.5">
-                  <div className="text-[13px] font-black text-gray-500 flex items-start gap-2">
+                  <div className="text-[13px] font-black text-slate-500 flex items-start gap-2">
                     <span className="text-emerald-500 mt-0.5 shrink-0">Q</span>
                     {item.q}
                   </div>
-                  <div className="text-[14px] font-bold text-gray-700 whitespace-pre-line bg-gray-50/80 p-3.5 rounded-2xl leading-relaxed border border-gray-100">
+                  <div className="text-[14px] font-bold text-slate-700 dark:text-gray-300 whitespace-pre-line bg-white/50 dark:bg-black/20 p-3.5 rounded-2xl leading-relaxed border border-slate-100 dark:border-white/5">
                     {item.a}
                   </div>
                 </div>
@@ -185,16 +185,17 @@ const TutorialTab = ({ onOpenFeedback }) => {
       ))}
 
       {/* Feedback */}
-      <div className="bg-emerald-600 p-6 rounded-[28px] text-white">
-        <h3 className="font-black text-[16px] flex items-center gap-2 mb-2">
-          <MessageSquare size={18} /> 還有問題？
+      <div className="bg-emerald-600 p-6 rounded-[28px] text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden group">
+        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+        <h3 className="font-black text-[16px] flex items-center gap-2 mb-2 relative z-10">
+          <MessageSquare size={18} className="shrink-0" /> 還有問題？
         </h3>
-        <p className="text-[13px] font-bold opacity-90 mb-4">歡迎填寫回饋表單，幫助我們改進 GSAT Pro！</p>
+        <p className="text-[13px] font-bold opacity-90 mb-4 relative z-10">歡迎填寫回饋表單，幫助我們改進 GSAT Pro！</p>
         <button
           onClick={onOpenFeedback}
-          className="w-full py-3.5 bg-white text-emerald-600 rounded-2xl font-black text-[14px] active:scale-95 transition-transform shadow-sm"
+          className="w-full py-3.5 bg-white text-emerald-600 rounded-2xl font-black text-[14px] active:scale-95 transition-all shadow-sm hover:shadow-float relative z-10"
         >
-          📬 回饋問題 / 功能請求
+          回饋問題 / 功能請求
         </button>
       </div>
     </div>

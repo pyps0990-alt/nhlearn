@@ -9,12 +9,12 @@ const LegalTab = ({ onBack }) => {
   const renderPrivacy = () => (
     <div className="space-y-6 animate-slide-up-fade">
       <div className="flex items-center gap-4 mb-2">
-        <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
-          <Eye size={24} />
+        <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0">
+          <Eye size={24} className="shrink-0" />
         </div>
         <div>
-          <h3 className="text-xl font-black text-gray-900">隱私權政策</h3>
-          <p className="text-[12px] font-bold text-gray-400">最後更新：{lastUpdated}</p>
+          <h3 className="text-xl font-black text-[var(--text-primary)]">隱私權政策</h3>
+          <p className="text-[12px] font-bold text-slate-400">最後更新：{lastUpdated}</p>
         </div>
       </div>
 
@@ -65,12 +65,12 @@ const LegalTab = ({ onBack }) => {
   const renderTerms = () => (
     <div className="space-y-6 animate-slide-up-fade">
       <div className="flex items-center gap-4 mb-2">
-        <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
-          <Scale size={24} />
+        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">
+          <Scale size={24} className="shrink-0" />
         </div>
         <div>
-          <h3 className="text-xl font-black text-gray-900">服務條款</h3>
-          <p className="text-[12px] font-bold text-gray-400">最後更新：{lastUpdated}</p>
+          <h3 className="text-xl font-black text-[var(--text-primary)]">服務條款</h3>
+          <p className="text-[12px] font-bold text-slate-400">最後更新：{lastUpdated}</p>
         </div>
       </div>
 
@@ -117,65 +117,65 @@ const LegalTab = ({ onBack }) => {
   return (
     <div className="space-y-6 flex flex-col w-full text-left mb-8">
       {/* 頂部導航 */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 px-1">
         {view !== 'menu' && (
           <button 
             onClick={() => setView('menu')}
-            className="p-2 bg-white rounded-xl shadow-sm border border-gray-100 active:scale-90 transition-all"
+            className="p-3 bg-slate-50 dark:bg-white/10 rounded-xl shadow-sm border border-slate-200 dark:border-white/10 active:scale-90 transition-all shrink-0"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={20} className="shrink-0 text-slate-600 dark:text-gray-300" />
           </button>
         )}
-        <h2 className="text-2xl font-black text-gray-900">
+        <h2 className="text-2xl font-black text-[var(--text-primary)]">
           {view === 'menu' ? '法律資訊與服務' : view === 'privacy' ? '隱私保護' : '使用規範'}
         </h2>
       </div>
 
       {view === 'menu' ? (
-        <div className="grid grid-cols-1 gap-4 animate-slide-up-fade">
+        <div className="grid grid-cols-1 gap-4 animate-slide-up-fade px-1">
           <button 
             onClick={() => setView('privacy')}
-            className="group bg-white p-6 rounded-[32px] border border-white/60 shadow-soft hover:shadow-float transition-all text-left flex items-center justify-between"
+            className="group bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft hover:shadow-float transition-all duration-500 text-left flex items-center justify-between glass-effect"
           >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
-                <ShieldCheck size={24} />
+              <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0 border border-transparent dark:border-white/10 group-hover:scale-110 transition-transform">
+                <ShieldCheck size={24} className="shrink-0" />
               </div>
               <div>
-                <div className="text-[17px] font-black text-gray-900">隱私權政策</div>
-                <div className="text-[12px] font-bold text-gray-400">瞭解我們如何保護您的數據</div>
+                <div className="text-[17px] font-black text-[var(--text-primary)]">隱私權政策</div>
+                <div className="text-[12px] font-bold text-slate-400">瞭解我們如何保護您的數據</div>
               </div>
             </div>
-            <ChevronLeft size={20} className="text-gray-300 rotate-180" />
+            <ChevronLeft size={20} className="text-slate-300 rotate-180 shrink-0 transition-transform group-hover:translate-x-1" />
           </button>
 
           <button 
             onClick={() => setView('terms')}
-            className="group bg-white p-6 rounded-[32px] border border-white/60 shadow-soft hover:shadow-float transition-all text-left flex items-center justify-between"
+            className="group bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft hover:shadow-float transition-all duration-500 text-left flex items-center justify-between glass-effect"
           >
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                <FileText size={24} />
+              <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-600 shrink-0 border border-transparent dark:border-white/10 group-hover:scale-110 transition-transform">
+                <FileText size={24} className="shrink-0" />
               </div>
               <div>
-                <div className="text-[17px] font-black text-gray-900">服務條款</div>
-                <div className="text-[12px] font-bold text-gray-400">使用 GSAT Pro 的權利與義務</div>
+                <div className="text-[17px] font-black text-[var(--text-primary)]">服務條款</div>
+                <div className="text-[12px] font-bold text-slate-400">使用 GSAT Pro 的權利與義務</div>
               </div>
             </div>
-            <ChevronLeft size={20} className="text-gray-300 rotate-180" />
+            <ChevronLeft size={20} className="text-slate-300 rotate-180 shrink-0 transition-transform group-hover:translate-x-1" />
           </button>
 
-          <div className="bg-gray-50/80 p-6 rounded-[32px] border border-gray-100 mt-4">
-            <h4 className="text-[14px] font-black text-gray-800 mb-2 flex items-center gap-2">
-              <Globe size={16} className="text-gray-400" /> 資料合規性
+          <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] mt-4 glass-effect">
+            <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-2 flex items-center gap-2">
+              <Globe size={16} className="text-slate-400 shrink-0" /> 資料合規性
             </h4>
-            <p className="text-[12px] font-bold text-gray-500 leading-relaxed">
+            <p className="text-[12px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
               本程式嚴格遵守 Google API 使用者數據政策，所有機敏權限皆經過明確告知與授權。我們致力於打造一個安全、透明的學習環境。
             </p>
           </div>
         </div>
       ) : (
-        <div className="bg-white/80 backdrop-blur-2xl p-6 md:p-8 rounded-[36px] border border-white/60 shadow-soft max-h-[70vh] overflow-y-auto scrollbar-hide">
+        <div className="bg-[var(--bg-surface)] backdrop-blur-2xl p-6 md:p-8 rounded-[36px] border border-[var(--border-color)] shadow-soft max-h-[70vh] overflow-y-auto scrollbar-hide glass-effect">
           {view === 'privacy' ? renderPrivacy() : renderTerms()}
         </div>
       )}

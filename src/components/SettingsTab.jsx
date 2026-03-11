@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Settings, User, Monitor, Sun, Moon, Edit3,
-  Bell, Sparkles, Cloud, BrainCircuit, RefreshCw,
+  Bell, Sparkles, Cloud, BrainCircuit, RefreshCw, GraduationCap,
   CheckCircle2, X, Store, Trash2, Lock, MapPin, Globe, Plus, Link
 } from 'lucide-react';
 import { db } from '../firebase';
@@ -12,7 +12,9 @@ const SettingsTab = ({
   isGoogleConnected, handleSignoutClick, requestPushPermission,
   testPushNotification, theme, setTheme, aiTestStatus,
   testAiConnection, geminiKey, setGeminiKey,
-  customLinks, setCustomLinks
+  customLinks, setCustomLinks,
+  classID, setClassID, setIsEditingSchedule, navTo,
+  handleImport206Template
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
   const [campusName, setCampusName] = useState(() => localStorage.getItem('gsat_campus_name') || '內湖高中');
@@ -156,10 +158,10 @@ const SettingsTab = ({
     <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade mb-8">
       <div className="flex justify-between items-center px-1">
         <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-3">
-          <Settings size={28} /> 系統設定
+          <Settings size={28} className="shrink-0" /> 系統設定
         </h2>
         {isAdmin && (
-          <button onClick={() => setIsAdmin(false)} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-black active:scale-95 transition-all hover:bg-red-100">
+          <button onClick={() => setIsAdmin(false)} className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-black active:scale-95 transition-all hover:bg-red-100 dark:hover:bg-red-900/40">
             登出後台
           </button>
         )}
@@ -167,32 +169,40 @@ const SettingsTab = ({
 
       {/* 外觀設定 */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2 px-1">
-          <User size={16} className="text-emerald-600" />
-          <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">個人與外觀</h3>
+        <div className="flex items-center gap-2 px-1 text-[var(--text-secondary)]">
+          <Sparkles size={16} className="text-emerald-500 shrink-0" />
+          <h3 className="text-sm font-black uppercase tracking-wider">個人與外觀</h3>
         </div>
-        <div className="bg-white/80 backdrop-blur-2xl p-6 rounded-[32px] border border-white/60 shadow-soft">
-          <h4 className="text-[14px] font-black text-gray-800 mb-4">🎨 外觀主題</h4>
+        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect transition-all duration-500">
+          <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2">
+            <Monitor size={18} className="text-emerald-500 shrink-0" />
+            外觀主題
+          </h4>
           <div className="grid grid-cols-3 gap-2 mb-6">
             {themeOptions.map(opt => (
               <button key={opt.value} onClick={() => { setTheme(opt.value); localStorage.setItem('gsat_theme', opt.value); }}
-                className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all active:scale-95 ${theme === opt.value ? 'border-emerald-400 bg-emerald-50/50 shadow-sm' : 'border-transparent bg-gray-50 hover:bg-gray-100'}`}>
-                <opt.icon size={28} className={theme === opt.value ? 'text-emerald-600' : 'text-gray-500'} />
-                <span className={`text-[12px] font-black ${theme === opt.value ? 'text-emerald-700' : 'text-gray-600'}`}>{opt.label}</span>
+                className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all active:scale-95 ${theme === opt.value ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-500/10 shadow-sm' : 'border-transparent bg-slate-50 dark:bg-white/5 hover:bg-slate-100'}`}>
+                <opt.icon size={28} className={`shrink-0 ${theme === opt.value ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span className={`text-[12px] font-black ${theme === opt.value ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}>{opt.label}</span>
               </button>
             ))}
           </div>
-          <h4 className="text-[14px] font-black text-gray-800 mb-3">🏫 校園快速導覽</h4>
+          <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-3 flex items-center gap-2">
+            <GraduationCap size={18} className="text-emerald-500 shrink-0" />
+            校園快速導覽
+          </h4>
           {!editingCampus ? (
-            <div className="bg-emerald-50/80 rounded-[24px] border border-emerald-100 p-4 flex items-center gap-4">
-              <div className="w-12 h-12 shrink-0 bg-white rounded-[18px] shadow-sm flex items-center justify-center text-xl">🏫</div>
+            <div className="bg-emerald-50/80 dark:bg-emerald-500/10 rounded-[24px] border border-emerald-100 dark:border-emerald-500/20 p-4 flex items-center gap-4">
+              <div className="w-12 h-12 shrink-0 bg-white dark:bg-slate-800 rounded-[18px] shadow-sm flex items-center justify-center">
+                <MapPin size={24} className="text-emerald-500 shrink-0" />
+              </div>
               <div className="flex-1 min-w-0">
-                <div className="font-black text-gray-900">{campusName}</div>
-                <div className="text-[12px] font-bold text-gray-500 truncate">{campusAddress}</div>
+                <div className="font-black text-slate-900 dark:text-white">{campusName}</div>
+                <div className="text-[12px] font-bold text-slate-500 dark:text-slate-400 truncate">{campusAddress}</div>
               </div>
               <button onClick={() => { setTempName(campusName); setTempAddr(campusAddress); setEditingCampus(true); }}
                 className="p-2.5 bg-white rounded-xl shadow-sm border border-gray-100">
-                <Edit3 size={14} />
+                <Edit3 size={14} className="shrink-0" />
               </button>
             </div>
           ) : (
@@ -208,25 +218,72 @@ const SettingsTab = ({
         </div>
       </section>
 
+      {/* 班級與課表管理 */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 px-1">
+          <GraduationCap size={16} className="text-emerald-600 neon-glow-emerald" />
+          <h3 className="text-sm font-black text-[var(--text-secondary)] dark:text-gray-400 uppercase tracking-wider">班級與課表管理</h3>
+        </div>
+        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft space-y-4 transition-all duration-500 glass-effect">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">班級代碼 (用於同步雲端課表)</label>
+            <input 
+              type="text" 
+              placeholder="例如：302" 
+              value={classID} 
+              onChange={e => setClassID(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-5 py-3.5 rounded-2xl text-[15px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white"
+            />
+          </div>
+          
+          <button 
+            onClick={() => {
+              if (!classID.trim()) {
+                triggerNotification('提示', '請先輸入班級代碼');
+                return;
+              }
+              setIsEditingSchedule(true);
+              navTo('dashboard');
+            }}
+            className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all hover:bg-emerald-700 flex items-center justify-center gap-2"
+          >
+            <Edit3 size={18} className="shrink-0" /> 管理 / 編輯班級課表
+          </button>
+
+          {classID === '206' && (
+            <button 
+              onClick={handleImport206Template}
+              className="w-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 font-black py-4 rounded-2xl active:scale-[0.98] transition-all hover:bg-blue-100 dark:hover:bg-blue-900/40 flex items-center justify-center gap-2"
+            >
+              <RefreshCw size={18} className="shrink-0" /> 導入 206 班範例課表
+            </button>
+          )}
+          
+          <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
+            💡 輸入班級代碼後，系統會自動從雲端同步該班級的課表。編輯後的課表也將同步至雲端供同學查看。
+          </div>
+        </div>
+      </section>
+
       {/* 自定義連結管理 */}
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
-            <Link size={16} className="text-emerald-600" />
-            <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">自定義快捷連結</h3>
+            <Link size={16} className="text-emerald-600 neon-glow-emerald" />
+            <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">自定義快捷連結</h3>
           </div>
           <button 
             onClick={() => setIsAddingLink(!isAddingLink)}
-            className={`p-2 transition-all active:scale-90 rounded-xl ${isAddingLink ? 'bg-red-50 text-red-500 rotate-45' : 'bg-emerald-50 text-emerald-600'}`}
+            className={`p-2 transition-all active:scale-90 rounded-xl ${isAddingLink ? 'bg-red-50 text-red-500 rotate-45 shrink-0' : 'bg-emerald-50 text-emerald-600 shrink-0'}`}
           >
-            <Plus size={20} />
+            <Plus size={20} className="shrink-0" />
           </button>
         </div>
 
         {isAddingLink && (
           <div className="bg-emerald-50/50 backdrop-blur-xl p-5 rounded-[28px] border border-emerald-100 animate-apple-linear overflow-hidden">
-            <h4 className="text-[14px] font-black text-emerald-800 mb-4 flex items-center gap-2">
-              <Plus size={16} /> 新增快捷連結
+            <h4 className="text-[14px] font-black text-emerald-800 dark:text-emerald-400 mb-4 flex items-center gap-2">
+              <Plus size={16} className="shrink-0" /> 新增快捷連結
             </h4>
             <div className="space-y-4">
               <div className="space-y-1">
@@ -259,56 +316,56 @@ const SettingsTab = ({
           </div>
         )}
 
-        <div className="bg-white/80 backdrop-blur-2xl p-2 rounded-[32px] border border-white/60 shadow-soft">
+        <div className="bg-[var(--bg-surface)] p-2 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
           {customLinks.length === 0 && !isAddingLink ? (
             <div className="p-8 text-center flex flex-col items-center gap-3">
-              <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-300">
-                <Link size={24} />
+              <div className="w-12 h-12 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-300 dark:text-gray-700 shrink-0">
+                <Link size={24} className="shrink-0" />
               </div>
-              <p className="text-sm font-black text-gray-300">目前尚無自定義連結<br/><span className="text-[10px]">點擊右上角新增</span></p>
+              <p className="text-sm font-black text-slate-300">目前尚無自定義連結<br/><span className="text-[10px]">點擊右上角新增</span></p>
             </div>
           ) : (
             <div className="space-y-1">
               {customLinks.map((link) => (
-                <div key={link.id} className="p-2 border-b border-gray-50 last:border-none">
+                <div key={link.id} className="p-2 border-b border-slate-50 dark:border-white/5 last:border-none">
                   {editingLink?.id === link.id ? (
-                    <div className="p-3 bg-gray-50 rounded-2xl space-y-3 animate-fadeIn">
+                    <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl space-y-3 animate-fadeIn">
                       <input 
-                        className="w-full bg-white px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100"
+                        className="w-full bg-white dark:bg-slate-800 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100 dark:border-emerald-500/20 text-slate-900 dark:text-white"
                         value={editingLink.title} 
                         onChange={e => setEditingLink({...editingLink, title: e.target.value})}
                       />
                       <input 
-                        className="w-full bg-white px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100"
+                        className="w-full bg-white dark:bg-slate-800 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100 dark:border-emerald-500/20 text-slate-900 dark:text-white"
                         value={editingLink.url} 
                         onChange={e => setEditingLink({...editingLink, url: e.target.value})}
                       />
                       <div className="flex gap-2">
                         <button onClick={handleSaveEdit} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-xs font-black">儲存</button>
-                        <button onClick={() => setEditingLink(null)} className="flex-1 bg-gray-200 text-gray-600 py-2 rounded-xl text-xs font-black">取消</button>
+                        <button onClick={() => setEditingLink(null)} className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-2 rounded-xl text-xs font-black">取消</button>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between p-2 pl-3 hover:bg-gray-50/50 transition-colors rounded-2xl group">
+                    <div className="flex items-center justify-between p-2 pl-3 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors rounded-2xl group text-slate-900 dark:text-white">
                       <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
-                          <Globe size={20} />
+                        <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                          <Globe size={20} className="shrink-0" />
                         </div>
                         <div className="min-w-0">
-                          <div className="text-[14px] font-black text-gray-800 truncate">{link.title}</div>
-                          <div className="text-[10px] font-bold text-gray-400 truncate">{link.url}</div>
+                          <div className="text-[14px] font-black truncate">{link.title}</div>
+                          <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">{link.url}</div>
                         </div>
                       </div>
                       <div className="flex items-center">
                         <button 
                           onClick={() => setEditingLink(link)}
-                          className="p-2.5 text-gray-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all"
+                          className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl transition-all"
                         >
                           <Edit3 size={18} />
                         </button>
                         <button 
                           onClick={() => handleRemoveLink(link.id, link.title)}
-                          className="p-2.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                          className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -328,14 +385,14 @@ const SettingsTab = ({
           <Cloud size={16} className="text-blue-600" />
           <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">系統服務串接</h3>
         </div>
-        <div className="bg-white/80 backdrop-blur-2xl p-6 rounded-[32px] border border-white/60 shadow-soft space-y-5">
+        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft space-y-5 glass-effect">
           {/* 通知開關 */}
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500"><Bell size={20} /></div>
+              <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500 shrink-0"><Bell size={20} className="shrink-0" /></div>
               <div>
-                <div className="text-sm font-black text-gray-900">推播通知</div>
-                <div className="text-[12px] font-bold text-gray-500">接收課程與作業提醒</div>
+                <div className="text-sm font-black text-slate-900 dark:text-white">推播通知</div>
+                <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">接收課程與作業提醒</div>
               </div>
             </div>
             <Switch
@@ -348,10 +405,10 @@ const SettingsTab = ({
           {/* 定位開關 */}
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500"><MapPin size={20} /></div>
+              <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 shrink-0"><MapPin size={20} className="shrink-0" /></div>
               <div>
-                <div className="text-sm font-black text-gray-900">即時定位</div>
-                <div className="text-[12px] font-bold text-gray-500">用於尋找附近 YouBike</div>
+                <div className="text-sm font-black text-slate-900 dark:text-white">即時定位</div>
+                <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">用於尋找附近 YouBike</div>
               </div>
             </div>
             <Switch
@@ -361,21 +418,21 @@ const SettingsTab = ({
             />
           </div>
 
-          <div className="pt-2 border-t border-gray-50 flex gap-2">
-            <button onClick={testPushNotification} className="flex-1 bg-gray-50 text-gray-700 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-gray-100 dark:bg-white/5">
-              <Sparkles size={14} /> 測試推播
+          <div className="pt-2 border-t border-slate-50 dark:border-white/5 flex gap-2">
+            <button onClick={testPushNotification} className="flex-1 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-slate-100 dark:border-white/5">
+              <Sparkles size={14} className="shrink-0" /> 測試推播
             </button>
           </div>
         </div>
-        <div className="bg-white/80 backdrop-blur-2xl p-6 rounded-[32px] border border-white/60 shadow-soft">
-          <h4 className="text-[14px] font-black text-gray-800 mb-4 flex items-center gap-2"><Cloud className="text-blue-500" size={16} /> Google 服務</h4>
-          <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl">
+        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+          <h4 className="text-[14px] font-black text-slate-900 dark:text-white mb-4 flex items-center gap-2"><Cloud className="text-blue-500" size={16} /> Google 服務</h4>
+          <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-4 rounded-2xl">
             <div>
-              <div className="text-sm font-black text-gray-900">Google 帳號備份</div>
-              <div className="text-[12px] font-bold text-gray-500 mt-1">備份筆記至 Drive</div>
+              <div className="text-sm font-black text-slate-900 dark:text-white">Google 帳號備份</div>
+              <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-1">備份筆記至 Drive</div>
             </div>
             {isGoogleConnected ? (
-              <button onClick={handleSignoutClick} className="px-4 py-2 rounded-xl text-xs font-black bg-red-50 text-red-600 border border-red-200 active:scale-90">登出</button>
+              <button onClick={handleSignoutClick} className="px-4 py-2 rounded-xl text-xs font-black bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/30 active:scale-90">登出</button>
             ) : (
               <button onClick={handleAuthClick} className="px-4 py-2 rounded-xl text-xs font-black bg-blue-600 text-white active:scale-90">登入</button>
             )}
@@ -386,21 +443,21 @@ const SettingsTab = ({
       {/* AI 設定 */}
       <section className="space-y-4">
         <div className="flex items-center gap-2 px-1">
-          <BrainCircuit size={16} className="text-purple-600" />
-          <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">AI 引擎設定</h3>
+          <BrainCircuit size={16} className="text-purple-600 shrink-0" />
+          <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">AI 引擎設定</h3>
         </div>
-        <div className="bg-white/80 backdrop-blur-2xl p-6 rounded-[32px] border border-white/60 shadow-soft">
-          <h4 className="text-[14px] font-black text-gray-800 mb-4 flex items-center gap-2"><Sparkles className="text-purple-500" size={16} /> API 金鑰管理</h4>
+        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+          <h4 className="text-[14px] font-black text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Sparkles className="text-purple-500" size={16} /> API 金鑰管理</h4>
           <div className="space-y-4">
             <div>
               <div className="flex justify-between items-end mb-2">
-                <label className="text-[12px] font-black text-gray-400">GEMINI KEY {!geminiKey && <span className="text-amber-500">未設定</span>}</label>
+                <label className="text-[12px] font-black text-slate-400 dark:text-gray-500">GEMINI KEY {!geminiKey && <span className="text-amber-500">未設定</span>}</label>
                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[11px] font-black text-purple-600 hover:underline">🔗 取得金鑰</a>
               </div>
               <div className="flex gap-2">
                 <input type="password" placeholder="貼上您的 API Key" value={geminiKey}
                   onChange={e => { setGeminiKey(e.target.value); localStorage.setItem('gsat_gemini_key', e.target.value); }}
-                  className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 text-sm font-black outline-none focus:border-purple-400 focus:bg-white" />
+                  className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 text-sm font-black outline-none focus:border-purple-400 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white" />
                 <button onClick={testAiConnection} disabled={aiTestStatus === 'testing'}
                   className={`px-4 rounded-2xl font-black text-xs active:scale-95 flex items-center gap-2 ${aiTestStatus === 'success' ? 'bg-emerald-500 text-white' : aiTestStatus === 'error' ? 'bg-red-500 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'}`}>
                   {aiTestStatus === 'testing' ? <RefreshCw size={14} className="animate-spin" /> : aiTestStatus === 'success' ? <CheckCircle2 size={14} /> : aiTestStatus === 'error' ? <X size={14} /> : '測試'}
@@ -408,7 +465,7 @@ const SettingsTab = ({
                 </button>
               </div>
             </div>
-            <div className="p-4 bg-purple-50/80 rounded-2xl border border-purple-100 text-[11px] font-bold text-gray-500 leading-relaxed">
+            <div className="p-4 bg-purple-50/80 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
               💡 使用 Gemini 2.5 Flash 模型，金鑰僅存在您的瀏覽器中。
             </div>
           </div>
@@ -422,20 +479,20 @@ const SettingsTab = ({
           <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">管理/學生會專區</h3>
         </div>
         {!isAdmin ? (
-          <div className="bg-white/80 backdrop-blur-2xl p-8 rounded-[32px] border border-white/60 shadow-soft flex flex-col items-center max-w-sm mx-auto w-full">
-            <div className="bg-emerald-100 p-4 rounded-[24px] mb-4 text-emerald-600"><Store size={32} /></div>
-            <h4 className="text-[17px] font-black text-gray-900 mb-1">特約商店管理</h4>
-            <p className="text-[12px] font-bold text-gray-500 mb-5 text-center">進入後台以管理商店資料</p>
+          <div className="bg-[var(--bg-surface)] p-8 rounded-[32px] border border-[var(--border-color)] shadow-soft flex flex-col items-center max-w-sm mx-auto w-full glass-effect">
+            <div className="bg-emerald-100 dark:bg-emerald-500/10 p-4 rounded-[24px] mb-4 text-emerald-600 dark:text-emerald-400"><Store size={32} /></div>
+            <h4 className="text-[17px] font-black text-slate-900 dark:text-white mb-1">特約商店管理</h4>
+            <p className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mb-5 text-center">進入後台以管理商店資料</p>
             <div className="w-full flex flex-col gap-3">
               <input type="password" placeholder="管理員密碼" value={adminPassword}
                 onChange={e => setAdminPassword(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
-                className="w-full p-3 rounded-2xl border border-gray-200 outline-none text-sm font-bold text-center focus:border-emerald-400" />
+                className="w-full p-3 rounded-2xl border border-slate-200 dark:border-white/10 outline-none text-sm font-bold text-center focus:border-emerald-400 bg-white dark:bg-white/5 text-slate-900 dark:text-white" />
               <button onClick={handleAdminLogin} className="w-full bg-emerald-600 text-white font-black py-3 rounded-2xl active:scale-95 shadow-md">解鎖後台</button>
             </div>
           </div>
         ) : (
-          <div className="bg-white/80 backdrop-blur-2xl p-6 rounded-[32px] border border-emerald-500/30 shadow-lg">
+          <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-emerald-500/30 shadow-lg glass-effect">
             <h4 className="text-[14px] font-black text-gray-800 mb-4">🏪 特約商店管理（已授權）</h4>
             <div className="bg-emerald-50/80 p-5 rounded-[24px] border border-emerald-100 flex flex-col gap-3 mb-6">
               <h5 className="text-sm font-black text-emerald-800 flex justify-between items-center">
@@ -457,15 +514,17 @@ const SettingsTab = ({
                 {editingStore ? '儲存變更' : '新增商店'}
               </button>
             </div>
-            <div className="space-y-3">
-              <h5 className="text-[13px] font-bold text-gray-500">現有商店：{stores.length} 間</h5>
+            <div className="space-y-3 pt-2">
+              <h5 className="text-[12px] font-black text-slate-400 uppercase tracking-widest px-1">現有商店：{stores.length} 間</h5>
               {stores.map(store => (
-                <div key={store.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                <div key={store.id} className="flex justify-between items-center bg-slate-50/50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-xl">{store.icon || '🏪'}</div>
+                    <div className="w-11 h-11 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-white/10 shrink-0">
+                      {React.createElement(getStoreCategoryIcon(store.type), { size: 24, className: "text-emerald-500 shrink-0" })}
+                    </div>
                     <div>
-                      <div className="font-bold text-gray-900 text-sm">{store.name}</div>
-                      <div className="text-xs text-gray-400">{store.discount}</div>
+                      <div className="font-black text-slate-900 dark:text-white text-sm leading-tight">{store.name}</div>
+                      <div className="text-[11px] font-bold text-slate-400 mt-0.5">{store.discount}</div>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -480,23 +539,23 @@ const SettingsTab = ({
       </section>
 
       {/* 底部法律資訊 */}
-      <section className="pt-4 pb-8 flex flex-col items-center gap-2">
-        <div className="flex gap-4">
+      <section className="pt-12 pb-10 flex flex-col items-center gap-3">
+        <div className="flex gap-4 items-center">
           <button 
-            onClick={() => setActiveTab('legal')} 
-            className="text-[11px] font-bold text-gray-400 hover:text-emerald-600 transition-colors"
+            onClick={() => navTo('legal')} 
+            className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 transition-colors border-b border-slate-200 dark:border-slate-800"
           >
             隱私權政策
           </button>
-          <span className="text-gray-200">|</span>
+          <div className="w-[1px] h-2 bg-slate-200 dark:bg-slate-800" />
           <button 
-            onClick={() => setActiveTab('legal')} 
-            className="text-[11px] font-bold text-gray-400 hover:text-emerald-600 transition-colors"
+            onClick={() => navTo('legal')} 
+            className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 transition-colors border-b border-slate-200 dark:border-slate-800"
           >
             服務條款
           </button>
         </div>
-        <p className="text-[10px] font-bold text-gray-300">© 2024 GSAT Pro Team. All rights reserved.</p>
+        <p className="text-[9px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-tighter">© 2024 GSAT Pro Team · Windows & iOS Optimized</p>
       </section>
     </div>
   );

@@ -2,19 +2,21 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sparkles, Clock, BellRing, Calendar, RefreshCw,
   Image as ImageIcon, Trash2, MapPin, Plus,
-  Globe, AlertCircle, BookText, Utensils
+  Globe, AlertCircle, BookText, Utensils, Bell,
+  Sun, Moon, Coffee, ChevronRight
 } from 'lucide-react';
 import {
   INITIAL_WEEKLY_SCHEDULE, WEEKDAYS, ICON_MAP
 } from '../utils/constants';
 import { fetchAI } from '../utils/helpers';
+// Firestore moved to App.jsx for global sync
 
 // === 外部函式與常數 ===
 const getGreeting = () => {
   const h = new Date().getHours();
-  if (h < 12) return '早安 ☀️';
-  if (h < 18) return '午安 ☕';
-  return '晚安 🌙';
+  if (h < 12) return { text: '早安', icon: Sun };
+  if (h < 18) return { text: '午安', icon: Coffee };
+  return { text: '晚安', icon: Moon };
 };
 
 // --- 快顯時鐘元件解決頻繁重繪問題 ---
@@ -32,11 +34,11 @@ const LiveClock = () => {
 };
 
 const ENCOURAGEMENTS = [
-  "辛苦了！今天的學習非常有價值 🚀",
-  "太棒了，離夢想又進了一步 ✨",
-  "深呼吸，給努力的自己一個讚 👍",
-  "今日份的努力已打卡，好好休息吧 🛌",
-  "學會休息，是為了走更長遠的路 🌿"
+  "辛苦了！今天的學習非常有價值",
+  "太棒了，離夢想又進了一步",
+  "深呼吸，給努力的自己一個讚",
+  "今日份的努力已打卡，好好休息吧",
+  "學會休息，是為了走更長遠的路"
 ];
 
 
@@ -44,6 +46,27 @@ const timeToMins = (timeStr) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
+};
+
+const getSubjectIcon = (subjectName) => {
+  if (!subjectName) return ICON_MAP.Library;
+  if (subjectName.includes('國')) return ICON_MAP.BookText;
+  if (subjectName.includes('英')) return ICON_MAP.Languages;
+  if (subjectName.includes('數')) return ICON_MAP.Calculator;
+  if (subjectName.includes('物')) return ICON_MAP.Zap;
+  if (subjectName.includes('化')) return ICON_MAP.Beaker;
+  if (subjectName.includes('生')) return ICON_MAP.Dna;
+  if (subjectName.includes('地')) return ICON_MAP.Map;
+  if (subjectName.includes('歷')) return ICON_MAP.History;
+  if (subjectName.includes('公')) return ICON_MAP.Scale;
+  if (subjectName.includes('訊')) return ICON_MAP.Cloud;
+  if (subjectName.includes('自')) return ICON_MAP.Library;
+  if (subjectName.includes('飯') || subjectName.includes('午')) return ICON_MAP.Utensils;
+  return ICON_MAP.Library;
+};
+
+const getLinkIcon = (iconName) => {
+  return ICON_MAP[iconName] || ICON_MAP.Globe;
 };
 
 
@@ -74,9 +97,7 @@ const SchoolNewsWidget = () => {
           throw new Error('沒有資料');
         }
       } catch (err) {
-        console.error("即時新聞載入失敗:", err);
         setError(true);
-        // 錯誤時顯示一組引導 UI
         setNews([
           { title: "目前無法取得最新公告，請點擊跳轉官網查看", date: "系統通知" }
         ]);
@@ -89,20 +110,20 @@ const SchoolNewsWidget = () => {
   }, []);
 
   return (
-    <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 mt-5">
+    <div className="bg-white dark:bg-white/5 p-6 rounded-[32px] shadow-sm border border-gray-100 dark:border-white/5 mt-5">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-[16px] font-black text-gray-800 flex items-center gap-2">
-          <MapPin className={error ? "text-orange-400" : "text-blue-500"} size={20} />
+        <h3 className="text-[16px] font-black text-slate-800 dark:text-gray-100 flex items-center gap-2">
+          <MapPin className={error ? "text-orange-400 shrink-0" : "text-blue-500 shrink-0"} size={20} />
           {error ? "官網連線中" : "最新公告"}
         </h3>
-        <a href={NEWS_PAGE_URL} target="_blank" rel="noreferrer" className="text-[12px] font-black text-blue-600 hover:underline">
+        <a href={NEWS_PAGE_URL} target="_blank" rel="noreferrer" className="text-[12px] font-black text-blue-600 dark:text-blue-400 hover:underline">
           查看更多
         </a>
       </div>
 
       {loading ? (
         <div className="flex justify-center p-4">
-          <RefreshCw size={20} className="text-gray-200 animate-spin" />
+          <RefreshCw size={20} className="text-gray-200 dark:text-gray-700 animate-spin shrink-0" />
         </div>
       ) : (
         <div className="space-y-3">
@@ -112,20 +133,20 @@ const SchoolNewsWidget = () => {
               href={item.link || NEWS_PAGE_URL}
               target="_blank"
               rel="noreferrer"
-              className="block p-3.5 bg-gray-50/50 hover:bg-blue-50/50 border border-gray-100 rounded-2xl transition-all duration-300 ease-spring group active:scale-[0.98] hover:-translate-y-1 hover:shadow-float relative z-10 bg-white/60 backdrop-blur-md"
+              className="block p-3.5 bg-gray-50/50 dark:bg-white/5 hover:bg-blue-50/50 dark:hover:bg-blue-500/10 border border-gray-100 dark:border-white/5 rounded-2xl transition-all duration-300 ease-spring group active:scale-[0.98] hover:-translate-y-1 hover:shadow-float relative z-10"
             >
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
-                  <div className={`text-[11px] font-black ${error ? 'text-orange-400' : 'text-blue-500/70'}`}>
+                  <div className={`text-[11px] font-black ${error ? 'text-orange-400' : 'text-blue-500/70 dark:text-blue-400/70'}`}>
                     {item.date}
                   </div>
                   {error ? (
-                    <AlertCircle size={12} className="text-orange-300" />
+                    <AlertCircle size={12} className="text-orange-300 shrink-0" />
                   ) : (
-                    <Plus size={12} className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                    <Plus size={12} className="text-gray-300 group-hover:text-blue-500 transition-colors shrink-0" />
                   )}
                 </div>
-                <div className="text-[13.5px] font-black text-gray-800 group-hover:text-blue-700 transition-colors leading-snug">
+                <div className="text-[13.5px] font-black text-slate-800 dark:text-gray-200 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors leading-snug">
                   {item.title}
                 </div>
               </div>
@@ -138,30 +159,44 @@ const SchoolNewsWidget = () => {
 };
 
 // === 儀表板主元件 ===
-const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNotification, customLinks, contactBook }) => {
+const DashboardTab = ({ 
+  weeklySchedule, setWeeklySchedule, subjects, triggerNotification, 
+  customLinks, contactBook, isEditingSchedule, setIsEditingSchedule, classID,
+  saveToFirestore, setSettingsOpen
+}) => {
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // --- Dashboard 狀態 ---
+  const [editDayTab, setEditDayTab] = useState(() => {
+    const today = new Date().getDay();
+    return (today === 0 || today === 6) ? 1 : today;
+  });
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [previewSchedule, setPreviewSchedule] = useState(null);
   
-  const getSubjectIcon = (name) => {
-    const s = subjects.find(s => s.name === name);
-    if (!s) return ICON_MAP.BookText;
-    return ICON_MAP[s.icon] || ICON_MAP.BookText;
-  };
+  // 檢查是否有課表資料 (排除 INITIAL_WEEKLY_SCHEDULE 的預設值)
+  const hasCloudData = useMemo(() => {
+    if (!weeklySchedule) return false;
+    return Object.values(weeklySchedule).some(dayArr => dayArr && dayArr.length > 0);
+  }, [weeklySchedule]);
 
-  const getLinkIcon = (iconName) => {
-    return ICON_MAP[iconName] || ICON_MAP.Globe;
-  };
+  const displaySchedule = previewSchedule || weeklySchedule;
+  const isAfter4PM = currentTime.getHours() >= 16;
 
-  // 每分鐘更新一次主狀態即可，秒數由 LiveClock 負責
+  // 定期更新時間
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
-  const [isEditingSchedule, setIsEditingSchedule] = useState(false);
-  const [editDayTab, setEditDayTab] = useState(new Date().getDay());
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [previewSchedule, setPreviewSchedule] = useState(null);
-  const displaySchedule = previewSchedule || weeklySchedule;
-  const isAfter4PM = currentTime.getHours() >= 16;
+
+  // 當編輯結束時自動儲存到雲端
+  const prevIsEditing = React.useRef(isEditingSchedule);
+  useEffect(() => {
+    if (prevIsEditing.current === true && isEditingSchedule === false) {
+      saveToFirestore(weeklySchedule);
+    }
+    prevIsEditing.current = isEditingSchedule;
+  }, [isEditingSchedule, weeklySchedule, saveToFirestore]);
 
   const encouragement = useMemo(() => {
     const seed = new Date().toDateString();
@@ -170,10 +205,40 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
     return ENCOURAGEMENTS[Math.abs(hash) % ENCOURAGEMENTS.length];
   }, []);
 
+  // --- 智慧日期與「20:00 預習」邏輯 ---
+  const { targetDay, isTomorrowMode, displayDate, targetDateStr } = useMemo(() => {
+    const now = new Date(currentTime);
+    const hours = now.getHours();
+    const isTomorrow = hours >= 20;
+    
+    let tDay = now.getDay();
+    let display = new Date(now);
+    
+    if (isTomorrow) {
+      tDay = (tDay + 1) % 7;
+      display.setDate(display.getDate() + 1);
+    }
+    
+    // 週末處理：若為週六 (6) 或週日 (0)，強化至週一 (1)
+    if (tDay === 0 || tDay === 6) {
+      const daysUntilMonday = tDay === 0 ? 1 : 2;
+      tDay = 1;
+      display.setDate(display.getDate() + daysUntilMonday);
+    }
+    
+    return { 
+      targetDay: tDay, 
+      isTomorrowMode: isTomorrow, 
+      displayDate: display.toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' }),
+      targetDateStr: display.toISOString().split('T')[0]
+    };
+  }, [currentTime]);
+
   const { currentClass, currentProgress } = useMemo(() => {
-    const day = currentTime.getDay();
+    // 進度條與當前課程始終顯示「今天」的真實狀態，不受預習模式影響
+    const realDay = currentTime.getDay();
     const currentMins = currentTime.getHours() * 60 + currentTime.getMinutes();
-    const todayList = (weeklySchedule && weeklySchedule[day]) || [];
+    const todayList = (weeklySchedule && weeklySchedule[realDay]) || [];
     let active = null;
     let prog = 0;
     let totalDuration = 0;
@@ -199,31 +264,27 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
     return { currentClass: active, currentProgress: prog };
   }, [currentTime, weeklySchedule]);
 
-  const tomorrowStr = useMemo(() => {
-    const d = new Date(currentTime);
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
-  }, [currentTime]);
-
   const tomorrowsPrep = useMemo(() => {
     if (!contactBook) return [];
     const allEntries = Object.values(contactBook).flat();
-    return allEntries.filter(entry => entry.homeworkDeadline === tomorrowStr || entry.examDeadline === tomorrowStr);
-  }, [contactBook, tomorrowStr]);
+    // 根據目標日期（可能是明天或下週一）過濾準備事項
+    return allEntries.filter(entry => entry.homeworkDeadline === targetDateStr || entry.examDeadline === targetDateStr);
+  }, [contactBook, targetDateStr]);
 
   const upcomingDaysSchedule = useMemo(() => {
+    // 這裡是底部的排程列表，應反映 targetDay
     const schedules = [];
-    const today = currentTime.getDay();
-    for (let i = 0; i < 3; i++) {
-      const targetDayText = i === 0 ? '今日' : i === 1 ? '明日' : '後天';
-      const targetDayIndex = (today + i) % 7;
-      const classes = (weeklySchedule && weeklySchedule[targetDayIndex]) || [];
-      if (classes.length > 0) {
-        schedules.push({ title: targetDayText, classes, dayOffset: i });
-      }
+    const classes = (weeklySchedule && weeklySchedule[targetDay]) || [];
+    if (classes.length > 0) {
+      schedules.push({ 
+        title: isTomorrowMode ? '明日預習模式' : '今日學習排程', 
+        subtitle: displayDate,
+        classes, 
+        dayOffset: 0 
+      });
     }
     return schedules;
-  }, [currentTime, weeklySchedule]);
+  }, [targetDay, weeklySchedule, isTomorrowMode, displayDate]);
 
   const updateSchedule = (id, field, value) => {
     const target = previewSchedule || weeklySchedule;
@@ -345,54 +406,61 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
   return (
     <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade px-1">
       {/* 頂部歡迎區塊 */}
-      <div className="bg-gradient-to-br from-emerald-400 to-teal-600 rounded-[36px] p-6 md:p-8 text-white shadow-soft border border-white/20 relative transition-all duration-scale hover:scale-[1.01] overflow-hidden">
+      <div className="bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-indigo-950 dark:via-emerald-950 dark:to-slate-950 rounded-[36px] p-6 md:p-8 text-slate-900 dark:text-white shadow-soft border border-emerald-100 dark:border-white/10 relative transition-all duration-scale hover:scale-[1.01] overflow-hidden glass-effect" style={{'--tw-text-opacity': '1'}}>
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-4">
-            <h2 className="text-3xl font-black">{getGreeting()}</h2>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+              {React.createElement(getGreeting().icon, { size: 32, className: "shrink-0", strokeWidth: 3 })}
+              <span>{getGreeting().text}</span>
+            </h2>
             <div className="flex flex-col items-end">
-              <span className="text-emerald-50 text-[11px] font-black opacity-80 uppercase tracking-widest">Current Time</span>
+              <span className="text-emerald-800 dark:text-emerald-100/80 text-[11px] font-black opacity-80 uppercase tracking-widest">Current Time</span>
               <LiveClock />
             </div>
           </div>
           
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <div className="flex justify-between items-end flex-wrap gap-x-4">
-              <span className="text-emerald-50 text-[12px] font-black opacity-90">今日課程進度</span>
-              <span className="text-white text-[18px] font-black animate-bounce-soft">{Math.round(currentProgress)}%</span>
+              <span className="text-emerald-800 dark:text-emerald-100/80 text-[13px] font-black opacity-90 tracking-widest uppercase">今日課程進度</span>
+              <span className="text-emerald-900 dark:text-white text-[20px] font-black">{Math.round(currentProgress)}%</span>
             </div>
-            <div className="progress-bar-track overflow-hidden">
-              <div className="progress-bar-fill" style={{ width: `${currentProgress}%` }} />
+            <div className="h-2.5 bg-emerald-200/50 dark:bg-black/20 rounded-full overflow-hidden backdrop-blur-sm border border-emerald-100/50 dark:border-white/5">
+              <div 
+                className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-1000 ease-out" 
+                style={{ width: `${currentProgress}%` }} 
+              />
             </div>
           </div>
 
           {/* 整合式課程動態 */}
           {(liveStatus || currentProgress >= 100) && (
-            <div className="mt-6 bg-white/20 backdrop-blur-xl rounded-[24px] p-4 border border-white/30 animate-fadeIn flex items-center justify-between">
+            <div className="mt-6 bg-emerald-50/80 dark:bg-white/10 backdrop-blur-xl rounded-[24px] p-4 border border-emerald-200 dark:border-white/30 animate-fadeIn flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${ (liveStatus?.type === 'ongoing') ? 'bg-white text-emerald-600 animate-pulse-live' : (currentProgress >= 100 ? 'bg-orange-400 text-white' : 'bg-blue-400 text-white') }`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 ${ (liveStatus?.type === 'ongoing') ? 'bg-emerald-600 text-white animate-pulse-live' : (currentProgress >= 100 ? 'bg-orange-400 text-white' : 'bg-blue-400 text-white') }`}>
                   { (liveStatus?.type === 'ongoing') ? 
-                    React.createElement(getSubjectIcon(liveStatus.item.subject), { size: 22 }) : 
-                    (currentProgress >= 100 ? React.createElement(ICON_MAP.Utensils, { size: 22 }) : React.createElement(ICON_MAP.Clock, { size: 22 })) 
+                    React.createElement(getSubjectIcon(liveStatus.item.subject), { size: 22, className: "shrink-0" }) : 
+                    (currentProgress >= 100 ? React.createElement(ICON_MAP.Utensils, { size: 22, className: "shrink-0" }) : React.createElement(ICON_MAP.Clock, { size: 22, className: "shrink-0" })) 
                   }
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[9px] font-black uppercase tracking-widest bg-black/10 px-1.5 py-0.5 rounded">
+                    <span className="text-[9px] font-black uppercase tracking-widest bg-emerald-600/10 dark:bg-white/10 px-1.5 py-0.5 rounded text-emerald-700 dark:text-emerald-400">
                       { (liveStatus?.type === 'ongoing') ? 'Live Now' : (currentProgress >= 100 ? 'Finished' : 'Upcoming') }
                     </span>
                   </div>
-                  <h4 className="text-[14px] font-black text-white leading-tight">
+                  <h4 className="text-[14px] font-black text-slate-900 dark:text-white leading-tight flex items-center gap-1.5">
+                    {liveStatus?.item.rescheduled && <span className="text-sm">🔔</span>}
                     { currentProgress >= 100 ? '今日課程已全部結束' : liveStatus?.item.subject }
                   </h4>
-                  <p className="text-[11px] font-bold text-emerald-50 mt-0.5 opacity-90">
-                    { currentProgress >= 100 ? encouragement : (liveStatus?.item.location || '教室') }
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-emerald-100/90 mt-0.5 opacity-90">
+                    { currentProgress >= 100 ? encouragement : (liveStatus?.item.location || '教室環境') }
                   </p>
                 </div>
               </div>
               {liveStatus && (
-                <div className="flex flex-col items-end bg-black/10 px-3 py-1.5 rounded-xl border border-white/10">
-                  <span className="text-[16px] font-black text-white leading-none">{liveStatus.type === 'ongoing' ? liveStatus.remaining : liveStatus.countdown}</span>
-                  <span className="text-[8px] font-black text-emerald-100 uppercase tracking-tighter mt-1">
+                <div className="flex flex-col items-end bg-emerald-600/10 dark:bg-black/10 px-3 py-1.5 rounded-xl border border-emerald-200/50 dark:border-white/10">
+                  <span className="text-[16px] font-black text-emerald-900 dark:text-white leading-none">{liveStatus.type === 'ongoing' ? liveStatus.remaining : liveStatus.countdown}</span>
+                  <span className="text-[8px] font-black text-emerald-700 dark:text-emerald-100 uppercase tracking-tighter mt-1">
                     {liveStatus.type === 'ongoing' ? 'MIN LEFT' : 'MINS TO'}
                   </span>
                 </div>
@@ -400,129 +468,175 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
             </div>
           )}
         </div>
-        <Sparkles className="absolute -right-4 -bottom-4 text-white opacity-10 w-40 h-40 pointer-events-none" />
+        <Sparkles className="absolute -right-4 -bottom-4 text-emerald-900 dark:text-white opacity-5 dark:opacity-10 w-40 h-40 pointer-events-none" />
       </div>
 
-      <SchoolNewsWidget />
 
-      {/* 明日準備事項 */}
-      {tomorrowsPrep.length > 0 && !isEditingSchedule && (
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 p-6 rounded-[36px] border border-orange-100 shadow-sm animate-pop-in">
-          <h3 className="text-[16px] font-black text-orange-800 flex items-center gap-2 mb-4">
-            <BellRing size={20} className="text-orange-500" /> 明日準備事項
-          </h3>
-          <div className="flex flex-col gap-3">
-            {tomorrowsPrep.map((item) => (
-              <div key={item.id} className="bg-white/70 p-4 rounded-2xl border border-orange-100 shadow-sm flex items-start gap-3">
-                <div className="p-2 bg-orange-100 rounded-xl text-orange-600">
-                  {React.createElement(getSubjectIcon(item.subject), { size: 20 })}
-                </div>
-                <div>
-                  <span className="text-[12px] font-black bg-orange-100 text-orange-700 px-2 py-0.5 rounded-lg mb-2 inline-block">{item.subject}</span>
-                  {item.homeworkDeadline === tomorrowStr && <p className="text-[14px] font-bold text-gray-800">📝 {item.homework}</p>}
-                  {item.examDeadline === tomorrowStr && <p className="text-[14px] font-bold text-gray-800 mt-1">💯 考試：{item.exam}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
+
 
       {/* 學習排程區塊 */}
-      <div className="bg-white/80 backdrop-blur-2xl p-6 md:p-8 rounded-[36px] border border-white/60 shadow-soft">
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
+      <div id="schedule-section" className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[40px] border border-[var(--border-color)] shadow-soft relative overflow-hidden transition-all duration-500">
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <Calendar className="text-emerald-500" size={24} />
-            <h3 className="text-[19px] font-black text-emerald-600">
-              {isEditingSchedule ? '編輯排程' : (isAfter4PM ? '16:00 預習模式' : '今日學習排程')}
-            </h3>
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+              <Calendar className="text-emerald-500 shrink-0" size={22} />
+            </div>
+            <div>
+              <h3 className="text-[20px] font-black text-slate-900 dark:text-white">
+                {isEditingSchedule ? '管理班級課表' : (isTomorrowMode ? '明日預習模式' : '今日學習排程')}
+              </h3>
+              {!isEditingSchedule && (
+                <p className="text-[11px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">
+                  {displayDate}
+                </p>
+              )}
+            </div>
           </div>
-          <button onClick={() => setIsEditingSchedule(!isEditingSchedule)} className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-sm font-black active:scale-95 transition-all">
-            {isEditingSchedule ? '完成' : '編輯'}
-          </button>
+          {isEditingSchedule && (
+            <button 
+              onClick={() => setIsEditingSchedule(false)} 
+              className="px-5 py-2 bg-emerald-600 text-white rounded-2xl text-sm font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20"
+            >
+              完成並儲存
+            </button>
+          )}
         </div>
 
         {isEditingSchedule ? (
           <div className="flex flex-col gap-4">
             {!previewSchedule && (
-              <label className="border-2 border-dashed border-emerald-200 rounded-2xl p-6 flex flex-col items-center gap-2 cursor-pointer hover:bg-emerald-50 transition-all">
-                {uploadLoading ? <RefreshCw className="animate-spin text-emerald-500" /> : <ImageIcon className="text-emerald-400" />}
-                <span className="text-emerald-600 font-black">{uploadLoading ? 'AI 解析中...' : '點擊上傳課表照片'}</span>
+              <label className="border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 rounded-3xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-500/5 transition-all group">
+                {uploadLoading ? <RefreshCw className="animate-spin text-emerald-500" size={32} /> : <ImageIcon className="text-emerald-400 group-hover:scale-110 transition-transform" size={32} />}
+                <div className="text-center">
+                  <span className="block text-emerald-600 dark:text-emerald-400 font-black text-lg">{uploadLoading ? 'AI 解析中...' : '上傳課表照片'}</span>
+                  <span className="text-xs text-emerald-600/60 dark:text-emerald-400/40 font-bold">由 AI 自動辨識課程與時間</span>
+                </div>
                 <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
               </label>
             )}
             {previewSchedule && (
-              <div className="flex gap-2">
-                <button onClick={() => setPreviewSchedule(null)} className="flex-1 py-3 bg-red-50 text-red-600 rounded-xl font-black">放棄</button>
-                <button onClick={() => { setWeeklySchedule(previewSchedule); setPreviewSchedule(null); setIsEditingSchedule(false); }} className="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-black">一鍵儲存</button>
+              <div className="flex gap-3">
+                <button onClick={() => setPreviewSchedule(null)} className="flex-1 py-4 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-2xl font-black active:scale-95 transition-all">放棄重測</button>
+                <button onClick={() => { setWeeklySchedule(previewSchedule); setPreviewSchedule(null); setIsEditingSchedule(false); }} className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">儲存結果</button>
               </div>
             )}
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {WEEKDAYS.map(d => (
-                <button key={d.id} onClick={() => setEditDayTab(d.id)} className={`px-5 py-3 rounded-xl font-black whitespace-nowrap ${editDayTab === d.id ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-500'}`}>{d.label}</button>
+                <button key={d.id} onClick={() => setEditDayTab(d.id)} className={`px-5 py-3 rounded-2xl font-black whitespace-nowrap transition-all ${editDayTab === d.id ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'}`}>{d.label}</button>
               ))}
             </div>
             <div className="space-y-4">
               {(displaySchedule[editDayTab] || []).map(item => (
-                <div key={item.id} className="p-5 bg-gray-50 rounded-3xl border border-gray-100 relative">
-                  <input type="text" value={item.subject} onChange={e => updateSchedule(item.id, 'subject', e.target.value)} className="w-full bg-transparent font-black text-lg outline-none mb-3" placeholder="課程名稱" />
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <input type="text" value={item.teacher} onChange={e => updateSchedule(item.id, 'teacher', e.target.value)} className="p-2.5 bg-white rounded-xl text-sm font-bold border border-gray-100" placeholder="老師" />
-                    <input type="text" value={item.location} onChange={e => updateSchedule(item.id, 'location', e.target.value)} className="p-2.5 bg-white rounded-xl text-sm font-bold border border-gray-100" placeholder="地點" />
+                <div key={item.id} className="p-6 bg-gray-50 dark:bg-white/5 rounded-[32px] border border-gray-100 dark:border-white/5 relative group">
+                  <input type="text" value={item.subject} onChange={e => updateSchedule(item.id, 'subject', e.target.value)} className="w-full bg-transparent font-black text-xl text-gray-900 dark:text-white outline-none mb-4" placeholder="課程名稱" />
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">授課教師</span>
+                      <input type="text" value={item.teacher} onChange={e => updateSchedule(item.id, 'teacher', e.target.value)} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl text-sm font-bold border border-gray-100 dark:border-white/5" placeholder="老師" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">上課地點</span>
+                      <input type="text" value={item.location} onChange={e => updateSchedule(item.id, 'location', e.target.value)} className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl text-sm font-bold border border-gray-100 dark:border-white/5" placeholder="地點" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-gray-100">
-                    <Clock size={16} className="text-gray-400" />
-                    <input type="time" value={item.startTime} onChange={e => updateSchedule(item.id, 'startTime', e.target.value)} className="bg-transparent font-mono outline-none flex-1 text-center" />
-                    <span className="text-gray-300">-</span>
-                    <input type="time" value={item.endTime} onChange={e => updateSchedule(item.id, 'endTime', e.target.value)} className="bg-transparent font-mono outline-none flex-1 text-center" />
+                  <div className="flex items-center gap-3 bg-white dark:bg-slate-800 p-3 rounded-2xl border border-gray-100 dark:border-white/5">
+                    <Clock size={16} className="text-emerald-500" />
+                    <div className="flex-1 flex items-center justify-between px-2">
+                       <input type="time" value={item.startTime} onChange={e => updateSchedule(item.id, 'startTime', e.target.value)} className="bg-transparent font-mono font-bold text-gray-700 dark:text-gray-300 outline-none w-[70px]" />
+                       <span className="text-gray-200 dark:text-gray-700">➜</span>
+                       <input type="time" value={item.endTime} onChange={e => updateSchedule(item.id, 'endTime', e.target.value)} className="bg-transparent font-mono font-bold text-gray-700 dark:text-gray-300 outline-none w-[70px]" />
+                    </div>
                   </div>
-                  <button onClick={() => deleteSchedule(item.id)} className="absolute top-4 right-4 text-red-400 p-2"><Trash2 size={18} /></button>
+                  
+                  {/* Rescheduled Toggle */}
+                  <div className="mt-4 flex items-center justify-between px-2">
+                    <span className="text-[12px] font-black text-gray-500 flex items-center gap-2">
+                      <Bell size={14} className={item.rescheduled ? 'text-orange-500' : 'text-gray-300'} /> 調課通知模式
+                    </span>
+                    <button 
+                      onClick={() => updateSchedule(item.id, 'rescheduled', !item.rescheduled)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 outline-none ${item.rescheduled ? 'bg-orange-500' : 'bg-gray-200 dark:bg-gray-700'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300 ${item.rescheduled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                  <button onClick={() => deleteSchedule(item.id)} className="absolute top-4 right-4 text-red-400/50 hover:text-red-500 p-2 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={20} /></button>
                 </div>
               ))}
-              <button onClick={() => setWeeklySchedule(prev => ({ ...prev, [editDayTab]: [...(prev[editDayTab] || []), { id: Date.now(), subject: '', startTime: '08:00', endTime: '09:00', location: '', teacher: '' }] }))} className="w-full py-4 border-2 border-dashed border-gray-200 rounded-3xl text-gray-400 font-black">+ 新增課程</button>
+              <button 
+                onClick={() => setWeeklySchedule(prev => ({ ...prev, [editDayTab]: [...(prev[editDayTab] || []), { id: Date.now(), subject: '', startTime: '08:00', endTime: '09:00', location: '', teacher: '' }] }))} 
+                className="w-full py-5 border-2 border-dashed border-gray-100 dark:border-white/5 rounded-[32px] text-gray-400 dark:text-gray-600 font-black hover:border-emerald-200 dark:hover:border-emerald-900/30 hover:text-emerald-500 transition-all active:scale-[0.98]"
+              >
+                + 新增課程內容
+              </button>
             </div>
           </div>
-        )
-          :
-          (
-            <div className="space-y-6">
-              {upcomingDaysSchedule.length === 0 && <p className="text-gray-400 text-center py-6 font-bold">未來幾天沒有排程喔！</p>}
-              {upcomingDaysSchedule.map((group, gIdx) => (
-                <div key={gIdx} className="space-y-4">
-                  <h4 className="text-sm font-black text-emerald-800 border-l-4 border-emerald-500 pl-3">{group.title}排程</h4>
+        ) : (
+          <div className="relative pl-8">
+            {/* Timeline Vertical Line - Extending to full height */}
+            <div className="absolute left-[3px] top-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-500/40 via-emerald-500/20 to-transparent dark:from-emerald-500/30 dark:via-emerald-500/10 rounded-full" />
+            
+            <div className="space-y-10">
+              {(!classID || !hasCloudData) && !isEditingSchedule ? (
+                <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-pulse-slow">
+                  <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-3xl flex items-center justify-center mb-4 border border-blue-100 dark:border-blue-900/30">
+                    <Calendar size={32} className="text-blue-500" />
+                  </div>
+                  <h4 className="text-[17px] font-black text-gray-900 dark:text-white mb-2">尚未建立班級課表</h4>
+                  <p className="text-[13px] font-bold text-gray-500 dark:text-gray-400 leading-relaxed mb-6">
+                    請點擊右上角「設定」進入班級設定進行初始化<br/>並同步雲端課表。
+                  </p>
+                  <button 
+                    onClick={() => setSettingsOpen()}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-[14px] shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+                  >
+                    前往設定分頁
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {upcomingDaysSchedule.length === 0 && <p className="text-gray-400 text-center py-6 font-bold">未來幾天沒有排程喔！</p>}
+                  {upcomingDaysSchedule.map((group, gIdx) => ( group.dayOffset === 0 && (
+                <div key={gIdx} className="space-y-6">
                   <div className="space-y-4">
                     {group.classes.map((item) => {
-                      const isActive = group.dayOffset === 0 && currentClass?.id === item.id;
-                      const subjectIcon = '📚';
+                      const isActive = currentClass?.id === item.id;
+                      const IconComp = getSubjectIcon(item.subject);
 
                       return (
-                        <div key={item.id} className={`p-6 rounded-[32px] border transition-all duration-500 relative overflow-hidden ${isActive ? 'bg-white border-emerald-500 shadow-[0_15px_40px_rgba(16,185,129,0.15)] scale-[1.03] z-10' : 'bg-white/60 border-white/50 shadow-sm opacity-90 hover:scale-[1.01]'}`}>
-                          {isActive && (
-                            <div className="absolute top-0 right-0 bg-emerald-600 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-2xl flex items-center gap-2 shadow-lg animate-fadeIn z-20">
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                              </span>
-                              進行中
+                        <div key={item.id} className="relative group">
+                          {/* Timeline Node - Added Glow effect for active state */}
+                          <div className={`absolute -left-[33px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-[3px] transition-all duration-500 z-10 ${isActive ? 'bg-emerald-500 border-emerald-200 dark:border-emerald-800 scale-125 neon-glow-emerald shadow-[0_0_15px_#10b981]' : 'bg-gray-300 dark:bg-slate-700 border-white dark:border-slate-900 group-hover:border-emerald-500/50'}`} />
+                          
+                          {/* Pill Card - Refined padding, border and perfect rounding */}
+                          <div className={`flex items-center gap-4 px-6 py-4 rounded-full border transition-all duration-500 ${isActive ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white border-white/20 shadow-[0_15px_40px_rgba(16,185,129,0.3)] scale-[1.03]' : item.rescheduled ? 'bg-orange-50/20 dark:bg-orange-950/20 border-orange-500/60 shadow-[0_0_20px_rgba(255,152,0,0.15)]' : 'bg-white dark:bg-white/10 shadow-sm dark:shadow-none border-gray-100 dark:border-white/5 hover:bg-gray-50 dark:hover:bg-white/10 hover:border-emerald-500/30'}`} style={item.rescheduled && !isActive ? { border: '2px solid #ff9800', boxShadow: '0 0 15px rgba(255, 152, 0, 0.3)' } : {}}>
+                            <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-transform duration-500 ${isActive ? 'bg-white/20 scale-110' : item.rescheduled ? 'bg-orange-500/20 text-orange-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                              <IconComp size={22} className="shrink-0" />
                             </div>
-                          )}
-                          {isActive && <div className="absolute inset-0 bg-emerald-50/30 animate-pulse pointer-events-none" />}
-                          <div className="flex items-center gap-4 mb-4">
-                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-inner ${isActive ? 'bg-emerald-50 animate-bounce-soft' : 'bg-gray-50'}`}>
-                              {subjectIcon}
+                            
+                            <div className="flex-1 flex items-center justify-between gap-4 overflow-hidden">
+                              <div className="flex flex-col min-w-0">
+                                <span className={`text-[15.5px] font-black truncate flex items-center gap-1.5 ${isActive ? 'text-white' : 'text-slate-800 dark:text-gray-100'}`}>
+                                  {item.rescheduled && <span className="text-lg">🔔</span>}
+                                  {item.subject}
+                                </span>
+                                <span className={`text-[11.5px] font-bold truncate transition-opacity ${isActive ? 'text-white/70' : 'text-slate-500 dark:text-gray-500 opacity-80'}`}>
+                                  {item.teacher || '自主進度'} {item.location && ` @ ${item.location}`}
+                                </span>
+                              </div>
+                              
+                              {item.startTime !== item.endTime && (
+                                <div className={`shrink-0 px-1 py-1 text-[11.5px] font-mono font-black transition-colors ${isActive ? 'text-white/90' : 'text-gray-400'}`}>
+                                  {item.startTime} - {item.endTime}
+                                </div>
+                              )}
                             </div>
-                            <div>
-                              <div className={`text-xl font-black ${isActive ? 'text-emerald-600' : 'text-gray-900'}`}>{item.subject}</div>
-                              <div className="text-sm font-bold text-gray-400">{item.teacher || '自主進度'}</div>
-                            </div>
-                          </div>
-                          <div className={`flex justify-between items-center p-3 rounded-2xl transition-colors ${isActive ? 'bg-emerald-50/50' : 'bg-gray-50/50'}`}>
-                            <div className={`flex items-center gap-2 font-mono text-sm font-black ${isActive ? 'text-emerald-700' : 'text-gray-500'}`}>
-                              <Clock size={16} /> {item.startTime} - {item.endTime}
-                            </div>
-                            {item.location && (
-                              <div className={`text-xs font-black px-3 py-1 rounded-full ${isActive ? 'bg-emerald-600 text-white shadow-sm' : 'bg-emerald-50 text-emerald-600'}`}>
-                                {item.location}
+
+                            {isActive && (
+                              <div className="absolute -top-1 -right-1 flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
                               </div>
                             )}
                           </div>
@@ -531,29 +645,60 @@ const DashboardTab = ({ weeklySchedule, setWeeklySchedule, subjects, triggerNoti
                     })}
                   </div>
                 </div>
-              ))}
+                  )))}
+                </>
+              )}
             </div>
-          )}
+          </div>
+        )}
       </div>
 
       {/* 外部連結 */}
-      <div className="bg-white/80 backdrop-blur-2xl p-5 md:p-6 rounded-[36px] shadow-soft border border-white/60 flex flex-col gap-4 mb-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[17px] font-black text-gray-950 flex items-center gap-2">
-            <Globe className="text-emerald-500" size={20} /> 外部連結
-          </h3>
+      <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl p-6 md:p-8 rounded-[40px] border border-white/20 dark:border-white/5 shadow-soft">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center">
+            <Globe className="text-blue-500" size={22} />
+          </div>
+          <h3 className="text-[20px] font-black text-gray-900 dark:text-white">外部連結</h3>
         </div>
         
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           {customLinks.map((link) => (
             <a key={link.id} href={link.url} target="_blank" rel="noreferrer"
-              className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-2xl active:scale-95 transition-all duration-300 ease-spring border border-gray-100 hover:bg-emerald-50 hover:border-emerald-100 hover:-translate-y-1 hover:shadow-float">
-              {React.createElement(getLinkIcon(link.icon), { size: 24, className: "text-emerald-500" })}
-              <span className="text-[13px] font-black text-gray-700 text-center truncate w-full px-1">{link.title}</span>
+              className="flex flex-col items-center gap-3 p-5 bg-white/50 dark:bg-white/5 rounded-[28px] active:scale-95 transition-all duration-300 ease-spring border border-white/20 dark:border-white/5 hover:bg-white/80 dark:hover:bg-white/10 hover:-translate-y-1 hover:shadow-float group">
+              <div className="p-3 bg-blue-500/10 rounded-2xl group-hover:scale-110 transition-transform duration-300 shrink-0">
+                {React.createElement(getLinkIcon(link.icon), { size: 26, className: "text-blue-500 shrink-0" })}
+              </div>
+              <span className="text-[14px] font-black text-slate-800 dark:text-gray-200 text-center truncate w-full px-1">{link.title}</span>
             </a>
           ))}
         </div>
       </div>
+
+      <SchoolNewsWidget />
+
+      {/* 明日準備事項 */}
+      {tomorrowsPrep.length > 0 && !isEditingSchedule && (
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 p-6 rounded-[36px] border border-orange-100 dark:border-orange-900/30 shadow-sm animate-pop-in">
+          <h3 className="text-[16px] font-black text-orange-800 dark:text-orange-400 flex items-center gap-2 mb-4">
+            <BellRing size={20} className="text-orange-500" /> 明日準備事項
+          </h3>
+          <div className="flex flex-col gap-3">
+            {tomorrowsPrep.map((item) => (
+              <div key={item.id} className="bg-white/70 dark:bg-slate-800/40 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/20 shadow-sm flex items-start gap-3">
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/40 rounded-xl text-orange-600 dark:text-orange-400">
+                  {React.createElement(getSubjectIcon(item.subject), { size: 20 })}
+                </div>
+                <div>
+                  <span className="text-[12px] font-black bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-lg mb-2 inline-block">{item.subject}</span>
+                  {item.homeworkDeadline === targetDateStr && <p className="text-[14px] font-bold text-slate-800 dark:text-gray-200">📝 {item.homework}</p>}
+                  {item.examDeadline === targetDateStr && <p className="text-[14px] font-bold text-slate-800 dark:text-gray-200 mt-1">💯 考試：{item.exam}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
 
     </div>

@@ -10,7 +10,11 @@ import {
   INITIAL_WEEKLY_SCHEDULE, SUBJECTS_LIST, DEFAULT_LINKS, ICON_MAP,
   GOOGLE_CLIENT_ID, DRIVE_DISCOVERY_DOC, PEOPLE_DISCOVERY_DOC, SCOPES
 } from './utils/constants';
+import { SCHEDULE_206_TEMPLATE } from './utils/templates';
 import { timeToMins } from './utils/helpers';
+import { db } from './firebase';
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit } from 'firebase/firestore';
+import toast, { Toaster } from 'react-hot-toast';
 
 // Components
 import DashboardTab from './components/DashboardTab';
@@ -26,7 +30,9 @@ import {
   IosNotification, WelcomeScreen, AuthScreen, PrivacyModal
 } from './components/SharedComponents';
 
-const MainApp = () => {
+const MainApp = ({ forcedTheme, setForcedTheme }) => {
+  const theme = forcedTheme;
+  const setTheme = setForcedTheme;
   // ─── State ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('dashboard');
   const [previousTab, setPreviousTab] = useState('dashboard');
@@ -46,7 +52,6 @@ const MainApp = () => {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
-  const [theme, setTheme] = useState(() => localStorage.getItem('gsat_theme') || 'system');
   const [userProfile, setUserProfile] = useState(() => {
     try { return JSON.parse(localStorage.getItem('gsat_user_profile')) || null; } catch { return null; }
   });
@@ -58,6 +63,9 @@ const MainApp = () => {
   });
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [aiTestStatus, setAiTestStatus] = useState('idle');
+  const [classID, setClassID] = useState(() => localStorage.getItem('gsat_class_id') || '');
+  const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+  const [notices, setNotices] = useState([]);
 
   const [weeklySchedule, setWeeklySchedule] = useState(() => {
     try { return JSON.parse(localStorage.getItem('gsat_schedule')) || INITIAL_WEEKLY_SCHEDULE; } catch { return INITIAL_WEEKLY_SCHEDULE; }
@@ -90,6 +98,168 @@ const MainApp = () => {
   useEffect(() => { localStorage.setItem('gsat_notes', JSON.stringify(notes)); }, [notes]);
   useEffect(() => { localStorage.setItem('gsat_subjects', JSON.stringify(subjects)); }, [subjects]);
   useEffect(() => { localStorage.setItem('gsat_custom_links', JSON.stringify(customLinks)); }, [customLinks]);
+  useEffect(() => { localStorage.setItem('gsat_class_id', classID); }, [classID]);
+
+  // 全域自動置頂
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (contentRef.current) contentRef.current.scrollTo({ top: 0, behavior: 'auto' });
+      window.scrollTo(0, 0);
+    }, 10);
+    return () => clearTimeout(timer);
+  }, [activeTab]);
+
+  // Firestore Sync
+  useEffect(() => {
+    if (!classID) return;
+    const docRef = doc(db, 'classes', classID);
+    const unsub = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const cloudData = docSnap.data().schedule;
+        if (Array.isArray(cloudData)) {
+          // 轉換回物件結構 { 1: [], 2: [], ... }
+          const transformed = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+          cloudData.forEach((item, idx) => {
+            if (transformed[item.day]) {
+              transformed[item.day].push({
+                id: item.id || Date.now() + idx,
+                subject: item.course || item.subject,
+                teacher: item.teacher || '',
+                startTime: item.startTime || '08:00',
+                endTime: item.endTime || '09:00',
+                location: item.location || '',
+                rescheduled: item.rescheduled || false
+              });
+            }
+          });
+          setWeeklySchedule(transformed);
+        }
+      }
+    }, (err) => {
+      console.error("Firestore sync error:", err);
+    });
+    return () => unsub();
+  }, [classID]);
+
+  // Notice System Sync
+  useEffect(() => {
+    if (!classID) return;
+    const noticesRef = collection(db, 'classes', classID, 'notices');
+    const q = query(noticesRef, orderBy('timestamp', 'desc'), limit(5));
+    
+    const unsub = onSnapshot(q, (snapshot) => {
+      const newNotices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setNotices(newNotices);
+      
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const data = change.doc.data();
+          toast.success(`新公告: ${data.title || '學務系統通知'}`, {
+            icon: '🔔',
+            style: { borderRadius: '20px', background: '#333', color: '#fff' }
+          });
+          
+          // 自動連動調課邏輯
+          if (data.type === "COURSE" || (data.content && data.content.includes("調課"))) {
+            setWeeklySchedule(prev => {
+              const updated = { ...prev };
+              let changed = false;
+              Object.keys(updated).forEach(day => {
+                updated[day] = updated[day].map(course => {
+                  if (data.targetCourse && course.subject.includes(data.targetCourse)) {
+                    changed = true;
+                    return { ...course, rescheduled: true };
+                  }
+                  return course;
+                });
+              });
+              return changed ? updated : prev;
+            });
+          }
+        }
+      });
+    }, (err) => {
+      if (err.code === 'permission-denied') {
+        console.error("Firestore Permission Denied (Notices)");
+      }
+    });
+    return () => unsub();
+  }, [classID]);
+
+  const saveToFirestore = async (newSchedule) => {
+    if (!classID) return;
+    try {
+      // 轉換為扁平陣列結構 [{ day, course, ... }]
+      const flatSchedule = [];
+      Object.keys(newSchedule).forEach(dayKey => {
+        const day = parseInt(dayKey);
+        if (day >= 1 && day <= 5) {
+          (newSchedule[dayKey] || []).forEach(item => {
+            flatSchedule.push({
+              id: item.id,
+              day: day,
+              course: item.subject,
+              teacher: item.teacher || '',
+              startTime: item.startTime,
+              endTime: item.endTime,
+              location: item.location || '',
+              rescheduled: item.rescheduled || false
+            });
+          });
+        }
+      });
+
+      await setDoc(doc(db, 'classes', classID), {
+        schedule: flatSchedule,
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
+    } catch (e) {
+      console.error("Firestore save error:", e);
+    }
+  };
+
+  const handleImport206Template = async () => {
+    if (!classID || classID !== '206') {
+      triggerNotification('提示', '請先將班級代碼設定為 206');
+      return;
+    }
+    
+    const transformed = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+    SCHEDULE_206_TEMPLATE.forEach((item, idx) => {
+      if (transformed[item.day]) {
+        transformed[item.day].push({
+          id: Date.now() + idx,
+          subject: item.course,
+          teacher: item.teacher,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          location: '',
+          rescheduled: false
+        });
+      }
+    });
+
+    setWeeklySchedule(transformed);
+    
+    // 寫入 206 完整資訊
+    await setDoc(doc(db, 'classes', '206'), {
+      className: "206",
+      school: "內湖高中",
+      schedule: SCHEDULE_206_TEMPLATE.map((item, idx) => ({
+        id: Date.now() + idx,
+        day: item.day,
+        course: item.course,
+        teacher: item.teacher,
+        startTime: item.startTime,
+        endTime: item.endTime,
+        location: '',
+        rescheduled: false
+      })),
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
+
+    triggerNotification('導入成功', '內中 206 班課表已導入並同步至雲端！');
+  };
 
   // ─── Notifications ────────────────────────────────────────────────────────
   const triggerNativeNotification = async (title, message) => {
@@ -325,15 +495,93 @@ const MainApp = () => {
       {showPrivacyModal && <PrivacyModal onAccept={() => { setShowPrivacyModal(false); setAppPhase('app'); }} />}
       <IosNotification notification={notification} />
 
-      {/* Header - 僅保留標題 */}
-      <div className="sticky top-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-b border-white/50 dark:border-white/10 px-5 pt-[calc(env(safe-area-inset-top)+12px)] pb-4 flex justify-center items-center shadow-soft">
-        <h1 className="text-xl font-black text-emerald-600">{getTabName(activeTab)}</h1>
-      </div>
+      {/* Fixed Top Navigation & Legal */}
+      {appPhase === 'app' && (
+        <div className="fixed top-0 left-0 right-0 z-[1000] glass-effect px-6 h-20 flex items-center justify-between shadow-soft pt-[env(safe-area-inset-top)] border-b border-white/10 transition-all duration-300">
+          {/* 選單區域 */}
+          <div className="relative w-40">
+            <button
+              onClick={() => setIsNavOpen(!isNavOpen)}
+              className={`flex items-center gap-2.5 px-5 py-3 rounded-2xl transition-all active:scale-95 duration-300 w-full overflow-hidden ${isNavOpen ? 'bg-emerald-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.3)]' : 'bg-emerald-50/80 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20'}`}
+            >
+              <Menu size={18} strokeWidth={3} className="transition-transform duration-500 shrink-0" style={{ transform: isNavOpen ? 'rotate(90deg)' : 'none' }} />
+              <span className="text-[15px] font-black truncate tracking-wide">{getTabName(activeTab)}</span>
+            </button>
+
+            {isNavOpen && (
+              <>
+                <div className="fixed inset-0 z-[-1] bg-black/5 animate-fadeIn" onClick={() => setIsNavOpen(false)} />
+                <div className="absolute top-full left-0 mt-4 w-60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-[60px] rounded-[32px] shadow-[0_24px_80px_rgba(0,0,0,0.25)] border border-white/60 dark:border-white/10 overflow-hidden z-[1010] animate-apple-linear origin-top-left">
+                  <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 bg-slate-50/50 dark:bg-gray-50/10">
+                    <span className="text-[12px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-[0.2em]">功能選單</span>
+                  </div>
+                  <div className="p-2 max-h-[60vh] overflow-y-auto scrollbar-hide space-y-1">
+                    {navItems.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => { navTo(item.id); setIsNavOpen(false); }}
+                        className={`w-full flex items-center gap-3.5 px-4 py-3.5 text-left rounded-2xl transition-all ${activeTab === item.id ? 'bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-500/10 dark:text-emerald-400' : 'text-slate-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-600'}`}
+                      >
+                        <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} className={`shrink-0 ${activeTab === item.id ? 'text-emerald-600 neon-glow-emerald' : 'text-slate-400'}`} />
+                        <span className="text-[15px] font-bold">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 法律與設定區域 */}
+          <div className="flex items-center gap-4 w-44 justify-end">
+            <div className="hidden md:flex items-center bg-gray-100/40 dark:bg-white/5 px-4 py-2 rounded-2xl border border-gray-200/50 dark:border-white/10 shrink-0 glass-effect">
+              <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-500 transition-colors uppercase tracking-[0.15em] px-1">Privacy</a>
+              <span className="text-gray-300 dark:text-white/10 mx-1">|</span>
+              <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-500 transition-colors uppercase tracking-[0.15em] px-1">Terms</a>
+            </div>
+            <button
+              onClick={() => {
+                if (activeTab === 'settings') navTo(previousTab);
+                else navTo('settings');
+              }}
+              className={`p-3 rounded-2xl transition-all active:scale-90 shadow-soft shrink-0 ${activeTab === 'settings' ? 'bg-emerald-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.3)] rotate-180' : 'bg-gray-100/50 dark:bg-white/5 text-gray-400 border border-gray-200/50 dark:border-white/10'}`}
+            >
+                <Settings size={20} strokeWidth={2.5} className={`shrink-0 ${activeTab === 'settings' ? 'neon-glow-emerald' : ''}`} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <Toaster position="bottom-center" toastOptions={{ duration: 4000, style: { fontSize: '14px', fontWeight: '900', borderRadius: '24px', padding: '16px 24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' } }} />
+
+      {/* Notice Banner - Fixed below Header */}
+      {notices.length > 0 && activeTab === 'dashboard' && (
+        <div className="fixed top-[68px] left-0 w-full z-[990] bg-orange-500/95 border-b border-white/20 backdrop-blur-xl animate-fadeIn">
+          <div className="max-w-screen-xl mx-auto px-6 py-3 flex items-center gap-4">
+            <div className="shrink-0 flex items-center justify-center w-8 h-8 bg-white/20 rounded-full animate-pulse">
+              <BellRing size={16} className="text-white shrink-0" />
+            </div>
+            <div className="flex-1 overflow-hidden relative">
+              <div className="flex gap-12 whitespace-nowrap animate-notice-slide">
+                <span className="text-[14px] font-black text-white tracking-wider flex items-center gap-2">
+                  <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">NEW</span>
+                  {notices[0].title}：{notices[0].content}
+                </span>
+                {/* Duplicate for seamless effect */}
+                <span className="text-[14px] font-black text-white tracking-wider flex items-center gap-2">
+                  <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">HOT</span>
+                  {notices[0].title}：{notices[0].content}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div
         ref={contentRef}
-        className="flex-1 overflow-y-auto w-full px-4 pt-4 pb-32 touch-pan-y scrollbar-hide bg-transparent scroll-smooth"
+        className="flex-1 overflow-y-auto w-full px-4 ios-safe-pt ios-safe-pb touch-pan-y scrollbar-hide bg-transparent scroll-smooth transition-all duration-300"
       >
         {activeTab === 'dashboard' && (
           <DashboardTab
@@ -343,10 +591,14 @@ const MainApp = () => {
             triggerNotification={triggerNotification}
             requestPushPermission={requestPushPermission}
             testPushNotification={testPushNotification}
-            setSettingsOpen={() => setActiveTab('settings')}
+            setSettingsOpen={() => navTo('settings')}
             isGoogleConnected={isGoogleConnected}
             contactBook={contactBook}
             customLinks={customLinks}
+            isEditingSchedule={isEditingSchedule}
+            setIsEditingSchedule={setIsEditingSchedule}
+            classID={classID}
+            saveToFirestore={saveToFirestore}
           />
         )}
         {activeTab === 'english' && <VocabularyTab userProfile={userProfile} isAdmin={isAdmin} theme={theme} geminiKey={geminiKey} />}
@@ -379,80 +631,37 @@ const MainApp = () => {
             testAiConnection={testAiConnection}
             geminiKey={geminiKey}
             setGeminiKey={setGeminiKey}
-            setActiveTab={navTo}
+            navTo={navTo}
             previousTab={previousTab}
             customLinks={customLinks}
             setCustomLinks={setCustomLinks}
+            classID={classID}
+            setClassID={setClassID}
+            setIsEditingSchedule={setIsEditingSchedule}
+            handleImport206Template={handleImport206Template}
           />
         )}
         {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
       </div>
 
-      {/* 固定底欄 (Bottom Navigation & Legal) */}
-      {appPhase === 'app' && (
-        <div className="fixed bottom-0 left-0 right-0 z-[60] bg-white/80 dark:bg-slate-900/80 backdrop-blur-3xl border-t border-gray-200/50 dark:border-white/10 px-6 h-20 flex items-center justify-between shadow-[0_-15px_50px_rgba(0,0,0,0.1)] pb-[env(safe-area-inset-bottom)]">
-          {/* 選單區域 */}
-          <div className="relative w-36">
-            <button
-              onClick={() => setIsNavOpen(!isNavOpen)}
-              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl transition-all active:scale-95 duration-200 w-full overflow-hidden ${isNavOpen ? 'bg-emerald-600 text-white shadow-xl' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10'}`}
-            >
-              <Menu size={20} className="transition-transform duration-300 shrink-0" style={{ transform: isNavOpen ? 'rotate(90deg)' : 'none' }} />
-              <span className="text-sm font-black truncate">{getTabName(activeTab)}</span>
-            </button>
-
-            {isNavOpen && (
-              <>
-                <div className="fixed inset-0 z-[-1] bg-black/5 animate-fadeIn" onClick={() => setIsNavOpen(false)} />
-                <div className="absolute bottom-full left-0 mb-4 w-60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-[60px] rounded-[32px] shadow-[0_24px_80px_rgba(0,0,0,0.25)] border border-white/60 dark:border-white/10 overflow-hidden z-[70] animate-apple-linear origin-bottom-left">
-                  <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 bg-gray-50/10">
-                    <span className="text-[15px] font-black text-gray-400 uppercase tracking-[0.2em]">功能選單</span>
-                  </div>
-                  <div className="p-2 max-h-[60vh] overflow-y-auto scrollbar-hide space-y-1">
-                    {navItems.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => { navTo(item.id); setIsNavOpen(false); }}
-                        className={`w-full flex items-center gap-3.5 px-4 py-3.5 text-left rounded-2xl transition-all ${activeTab === item.id ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-600'}`}
-                      >
-                        <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} className={activeTab === item.id ? 'text-emerald-600' : 'text-gray-400'} />
-                        <span className="text-[15px] font-bold">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* 法律與設定區域 */}
-          <div className="flex items-center gap-3 w-44 justify-end">
-            <div className="flex items-center bg-gray-100/50 dark:bg-white/5 px-4 py-2 rounded-2xl border border-gray-200/50 dark:border-white/5 shrink-0">
-              <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest px-1">Privacy</a>
-              <span className="text-gray-300 dark:text-white/10 mx-1">|</span>
-              <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-600 transition-colors uppercase tracking-widest px-1">Terms</a>
-            </div>
-            <button
-              onClick={() => {
-                if (activeTab === 'settings') navTo(previousTab);
-                else navTo('settings');
-              }}
-              className={`p-2.5 rounded-2xl transition-all active:scale-90 shrink-0 ${activeTab === 'settings' ? 'bg-emerald-600 text-white shadow-lg rotate-180' : 'bg-gray-100/50 dark:bg-white/5 text-gray-400 border border-gray-200/50 dark:border-white/5'}`}
-            >
-              <Settings size={20} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
-      )}
     </>
   );
 };
 
 export default function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('gsat_theme') || 'system');
+  
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  useEffect(() => {
+    localStorage.setItem('gsat_theme', theme);
+  }, [theme]);
+
+  // 我們需要在一個元件裡同步 theme 狀態
   return (
-    <div className="w-full min-h-[100dvh] bg-gray-100 flex justify-center font-sans overflow-hidden">
+    <div className={`w-full min-h-[100dvh] bg-[var(--bg-main)] flex justify-center font-sans overflow-hidden transition-colors duration-500 ${isDark ? 'dark' : ''}`}>
       <div className="main-container">
-        <MainApp />
+        <MainApp forcedTheme={theme} setForcedTheme={setTheme} />
       </div>
     </div>
   );

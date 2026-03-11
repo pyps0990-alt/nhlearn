@@ -39,28 +39,28 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects }) => {
     <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade mb-8 pb-10">
       <div className="flex flex-col gap-1 px-1">
         <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-3">
-          <Notebook size={28} /> 電子聯絡簿
+          <Notebook size={28} className="shrink-0 neon-glow-emerald" /> 電子聯絡簿
         </h2>
-        <p className="text-[13px] font-bold text-gray-500 ml-9">紀錄每日作業與重要考試內容</p>
+        <p className="text-[13px] font-bold text-slate-500 ml-9">紀錄每日作業與重要考試內容</p>
       </div>
 
-      <div className="bg-white/80 backdrop-blur-2xl p-4 rounded-[36px] shadow-soft border border-white/60 flex items-center justify-between transition-all duration-300 hover:shadow-float">
-        <button onClick={() => changeDate(-1)} className="p-4 bg-white/60 hover:bg-white/80 backdrop-blur-md rounded-[24px] active:scale-90 text-gray-600 transition-all duration-300 shadow-sm border border-white/50 hover:-translate-y-0.5">
-          <ChevronLeft size={20} />
+      <div className="bg-[var(--bg-surface)] p-4 rounded-[36px] shadow-soft border border-[var(--border-color)] flex items-center justify-between transition-all duration-500 hover:shadow-float glass-effect">
+        <button onClick={() => changeDate(-1)} className="p-4 bg-slate-50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 rounded-[24px] active:scale-90 text-slate-600 dark:text-gray-300 transition-all duration-300 shadow-sm border border-slate-200 dark:border-white/10 shrink-0">
+          <ChevronLeft size={20} className="shrink-0" />
         </button>
         <div className="flex flex-col items-center">
           <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-0.5">SELECTED DATE</span>
-          <span className="text-[17px] font-black text-gray-900">{getFormattedDate(selectedDate)}</span>
+          <span className="text-[17px] font-black text-slate-900 dark:text-white">{getFormattedDate(selectedDate)}</span>
         </div>
-        <button onClick={() => changeDate(1)} className="p-4 bg-white/60 hover:bg-white/80 backdrop-blur-md rounded-[24px] active:scale-90 text-gray-600 transition-all duration-300 shadow-sm border border-white/50 hover:-translate-y-0.5">
-          <ChevronRight size={20} />
+        <button onClick={() => changeDate(1)} className="p-4 bg-slate-50 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 rounded-[24px] active:scale-90 text-slate-600 dark:text-gray-300 transition-all duration-300 shadow-sm border border-slate-200 dark:border-white/10 shrink-0">
+          <ChevronRight size={20} className="shrink-0" />
         </button>
       </div>
 
-      <div className="bg-white/80 backdrop-blur-2xl p-6 md:p-8 rounded-[36px] shadow-soft border border-white/60 overflow-hidden relative group transition-all duration-500 hover:shadow-float">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-full -mr-12 -mt-12 opacity-40 group-hover:scale-125 transition-transform duration-1000"></div>
-        <h3 className="text-[14px] font-black text-gray-800 mb-4 flex items-center gap-2 relative z-10">
-          <Plus size={18} className="text-emerald-500" /> 新增事項
+      <div className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[36px] shadow-soft border border-[var(--border-color)] overflow-hidden relative group transition-all duration-500 hover:shadow-float glass-effect">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 dark:bg-emerald-500/10 rounded-full -mr-12 -mt-12 opacity-40 group-hover:scale-125 transition-transform duration-1000"></div>
+        <h3 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2 relative z-10">
+          <Plus size={18} className="text-emerald-500 shrink-0" /> 新增事項
         </h3>
         <div className="flex flex-col gap-4 relative z-10">
           <div className="relative">
@@ -71,7 +71,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects }) => {
             >
               {subjects.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
             </select>
-            <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none shrink-0" />
           </div>
 
           <div className="flex flex-col gap-3">
@@ -131,13 +131,13 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects }) => {
           entriesForDate.map((entry, idx) => {
             const subjectInfo = subjects.find(s => s.name === entry.subject) || { icon: '📝', color: 'text-gray-500' };
             return (
-              <div key={entry.id} style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'both' }} className="group p-6 bg-white/80 backdrop-blur-2xl rounded-[32px] shadow-soft border border-white/60 relative text-left hover:shadow-float transition-all duration-500 animate-slide-up-fade hover:-translate-y-1">
-                <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-4">
+              <div key={entry.id} style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'both' }} className="group p-6 bg-[var(--bg-surface)] rounded-[32px] shadow-soft border border-[var(--border-color)] relative text-left hover:shadow-float transition-all duration-500 animate-slide-up-fade hover:-translate-y-1 glass-effect">
+                <div className="flex justify-between items-center mb-4 border-b border-[var(--border-color)] pb-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl ${subjectInfo.color.replace('text', 'bg-').replace('500', '50')} flex items-center justify-center text-xl`}>
-                      {React.createElement(ICON_MAP[subjectInfo.icon] || ICON_MAP.BookText, { size: 20, className: subjectInfo.color })}
+                    <div className={`w-10 h-10 rounded-xl ${subjectInfo.color.replace('text', 'bg-').replace('500', '50')} dark:bg-emerald-500/10 flex items-center justify-center text-xl shrink-0`}>
+                      {React.createElement(ICON_MAP[subjectInfo.icon] || ICON_MAP.BookText, { size: 20, className: `${subjectInfo.color} shrink-0` })}
                     </div>
-                    <span className="text-[16px] font-black text-gray-900">{entry.subject}</span>
+                    <span className="text-[16px] font-black text-[var(--text-primary)]">{entry.subject}</span>
                   </div>
                   <button onClick={() => handleDeleteEntry(entry.id)} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90">
                     <Trash2 size={18} />
