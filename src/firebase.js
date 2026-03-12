@@ -1,9 +1,12 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
+// 1. 取得環境變數
 const firebaseConfig = {
   apiKey: "AIzaSyDFFtn4Sn5l9LKBV4vpmDohknwr-C42TuY",
   authDomain: "gsat-pro.firebaseapp.com",
+  databaseURL: "https://gsat-pro-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "gsat-pro",
   storageBucket: "gsat-pro.firebasestorage.app",
   messagingSenderId: "288124052978",
@@ -11,5 +14,26 @@ const firebaseConfig = {
   measurementId: "G-BFLEWM3GSX"
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+// 2. 在最外層宣告變數，確保 export 抓得到它們
+let app = null;
+let db = null;
+let auth = null;
+let firebaseError = null; // 👈 關鍵：必須在這裡先定義！
+
+try {
+  // 檢查 API Key 是否存在
+  if (!firebaseConfig.apiKey) {
+    throw new Error("環境變數 VITE_FIREBASE_API_KEY 遺失，請檢查 .env.local");
+  }
+
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
+  console.log("✅ Firebase 初始化成功");
+} catch (error) {
+  console.error("❌ Firebase 初始化失敗:", error);
+  firebaseError = error.message; // 這裡賦值給外層變數
+}
+
+// 3. 正式導出
+export { db, auth, firebaseError };

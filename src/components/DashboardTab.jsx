@@ -234,6 +234,19 @@ const DashboardTab = ({
     };
   }, [currentTime]);
 
+  // --- 倒數計時邏輯 (Countdowns) ---
+  const countdowns = useMemo(() => {
+    const calculateDays = (targetDate) => {
+      const diff = new Date(targetDate) - new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate());
+      return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    };
+
+    return {
+      gsat116: calculateDays('2027-01-20'),
+      midterm2: calculateDays('2026-05-12')
+    };
+  }, [currentTime]);
+
   const { currentClass, currentProgress } = useMemo(() => {
     // 進度條與當前課程始終顯示「今天」的真實狀態，不受預習模式影響
     const realDay = currentTime.getDay();

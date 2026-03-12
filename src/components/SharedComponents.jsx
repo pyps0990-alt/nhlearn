@@ -13,7 +13,7 @@ export const IosNotification = ({ notification }) => {
       className={`fixed left-0 right-0 z-[160] flex justify-center transition-all duration-[500ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] pointer-events-none px-4`}
       style={{ top: notification.show ? topPos : '-120px', opacity: notification.show ? 1 : 0, transform: notification.show ? 'scale(1)' : 'scale(0.95)' }}
     >
-      <div className="w-full max-w-[360px] bg-[#f8f8f9]/95 backdrop-blur-2xl p-4 rounded-[24px] shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col gap-1.5 pointer-events-auto">
+      <div className="w-full max-w-[360px] bg-[#f8f8f9]/95 backdrop-blur-2xl p-4 rounded-[24px] shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col gap-1.5 pointer-events-auto transition-transform active:scale-95">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <div className="bg-emerald-500 rounded-[8px] p-1.5 shadow-sm shrink-0"><Bell size={14} className="text-white shrink-0" /></div>
@@ -48,7 +48,7 @@ export const PrivacyModal = ({ onAccept, title = "隱私權聲明與使用條款
         </div>
       </div>
       <div className="p-8 pt-4">
-        <button onClick={onAccept} className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-lg">我已閱讀並同意</button>
+        <button onClick={onAccept} className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg hover:brightness-110 active:scale-95 transition-all text-lg">我已閱讀並同意</button>
       </div>
     </div>
   </div>

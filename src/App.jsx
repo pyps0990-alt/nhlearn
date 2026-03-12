@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Menu, Settings, LayoutDashboard, BookOpen, Notebook,
-  Library, Store, Bus, HelpCircle, ShieldCheck
+  Library, Store, Bus, HelpCircle, ShieldCheck,
+  BellRing, Bell, AlertCircle, RefreshCw
 } from 'lucide-react';
 import './App.css';
 
@@ -12,9 +13,11 @@ import {
 } from './utils/constants';
 import { SCHEDULE_206_TEMPLATE } from './utils/templates';
 import { timeToMins } from './utils/helpers';
-import { db } from './firebase';
-import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit } from 'firebase/firestore';
+import { db, auth, firebaseError } from './firebase';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import toast, { Toaster } from 'react-hot-toast';
+
 
 // Components
 import DashboardTab from './components/DashboardTab';
@@ -29,6 +32,33 @@ import LegalTab from './components/LegalTab';
 import {
   IosNotification, WelcomeScreen, AuthScreen, PrivacyModal
 } from './components/SharedComponents';
+
+const MaintenanceView = ({ error }) => (
+  <div style={{
+    position: 'fixed', inset: 0, backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center', padding: '2rem', textAlign: 'center', zIndex: 9999, fontFamily: 'sans-serif'
+  }}>
+    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚠️</div>
+    <h1 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#1e293b', marginBottom: '1rem' }}>系統連線異常</h1>
+    <p style={{ color: '#64748b', fontWeight: 'bold', lineHeight: '1.6', marginBottom: '2rem', maxWidth: '300px' }}>
+      無法連線至雲端資料庫。請檢查環境變數 (VITE_FIREBASE_API_KEY) 與網路連線。
+    </p>
+    <div style={{ backgroundColor: '#ffffff', padding: '1rem', borderRadius: '1rem', border: '1px solid #e2e8f0', width: '100%', maxWidth: '320px' }}>
+      <p style={{ fontSize: '10px', color: '#94a3b8', wordBreak: 'break-all', textTransform: 'uppercase' }}>
+        Debug: {error || 'INITIALIZATION_FAILED'}
+      </p>
+    </div>
+    <button
+      onClick={() => window.location.reload()}
+      style={{
+        marginTop: '2rem', backgroundColor: '#059669', color: 'white', border: 'none',
+        padding: '1rem 2rem', borderRadius: '1rem', fontWeight: '900', cursor: 'pointer', boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.2)'
+      }}
+    >
+      重新整理
+    </button>
+  </div>
+);
 
 const MainApp = ({ forcedTheme, setForcedTheme }) => {
   const theme = forcedTheme;
@@ -111,13 +141,14 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
 
   // Firestore Sync
   useEffect(() => {
-    if (!classID) return;
+    // 🛡️ 關鍵修正：如果 db 沒準備好，直接回傳，不執行後面的 doc()
+    if (!db || !classID) return;
+
     const docRef = doc(db, 'classes', classID);
     const unsub = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const cloudData = docSnap.data().schedule;
         if (Array.isArray(cloudData)) {
-          // 轉換回物件結構 { 1: [], 2: [], ... }
           const transformed = { 1: [], 2: [], 3: [], 4: [], 5: [] };
           cloudData.forEach((item, idx) => {
             if (transformed[item.day]) {
@@ -139,34 +170,46 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
       console.error("Firestore sync error:", err);
     });
     return () => unsub();
-  }, [classID]);
+  }, [db, classID]); // 💡 記得把 db 加入依賴，db 活過來時會自動重新啟動同步
 
   // Notice System Sync
   useEffect(() => {
-    if (!classID) return;
+    if (!db || !classID) return;
     const noticesRef = collection(db, 'classes', classID, 'notices');
     const q = query(noticesRef, orderBy('timestamp', 'desc'), limit(5));
-    
+
     const unsub = onSnapshot(q, (snapshot) => {
-      const newNotices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setNotices(newNotices);
-      
+      const allNotices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // 僅保留：course (課程)、reschedule (調課)、homework (作業)、exam (考試)
+      const allowedTypes = ['course', 'reschedule', 'homework', 'exam', 'COURSE', 'RESCHEDULE', 'HOMEWORK', 'EXAM'];
+      const filteredNotices = allNotices.filter(n => allowedTypes.includes(n.type));
+      setNotices(filteredNotices);
+
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
           const data = change.doc.data();
-          toast.success(`新公告: ${data.title || '學務系統通知'}`, {
-            icon: '🔔',
-            style: { borderRadius: '20px', background: '#333', color: '#fff' }
+          if (!allowedTypes.includes(data.type)) return;
+
+          const isReschedule = data.type?.toLowerCase() === 'reschedule';
+
+          toast.success(`${data.title || '系統通知'}: ${data.content || ''}`, {
+            icon: isReschedule ? '🟠' : '🔔',
+            style: {
+              borderRadius: '20px',
+              background: isReschedule ? '#f97316' : '#333',
+              color: '#fff'
+            }
           });
-          
+
           // 自動連動調課邏輯
-          if (data.type === "COURSE" || (data.content && data.content.includes("調課"))) {
+          if (data.type === "COURSE" || data.type === "RESCHEDULE" || (data.content && data.content.includes("調課"))) {
             setWeeklySchedule(prev => {
               const updated = { ...prev };
               let changed = false;
               Object.keys(updated).forEach(day => {
                 updated[day] = updated[day].map(course => {
-                  if (data.targetCourse && course.subject.includes(data.targetCourse)) {
+                  if (data.targetCourse && (course.subject.includes(data.targetCourse) || data.targetCourse.includes(course.subject))) {
                     changed = true;
                     return { ...course, rescheduled: true };
                   }
@@ -179,15 +222,13 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
         }
       });
     }, (err) => {
-      if (err.code === 'permission-denied') {
-        console.error("Firestore Permission Denied (Notices)");
-      }
+      console.error("Firestore sync error (Notices)：", err);
     });
     return () => unsub();
-  }, [classID]);
+  }, [db, classID]);
 
   const saveToFirestore = async (newSchedule) => {
-    if (!classID) return;
+    if (!db || !classID) return;
     try {
       // 轉換為扁平陣列結構 [{ day, course, ... }]
       const flatSchedule = [];
@@ -223,7 +264,7 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
       triggerNotification('提示', '請先將班級代碼設定為 206');
       return;
     }
-    
+
     const transformed = { 1: [], 2: [], 3: [], 4: [], 5: [] };
     SCHEDULE_206_TEMPLATE.forEach((item, idx) => {
       if (transformed[item.day]) {
@@ -240,7 +281,7 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
     });
 
     setWeeklySchedule(transformed);
-    
+
     // 寫入 206 完整資訊
     await setDoc(doc(db, 'classes', '206'), {
       className: "206",
@@ -396,10 +437,50 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
     init();
   }, [fetchUserInfo, triggerNotification]);
 
-  const handleAuthClick = () => {
-    if (!tokenClientRef.current) { triggerNotification('設定未完成', '請填入有效的 GOOGLE_CLIENT_ID'); return; }
-    const token = window.gapi?.client?.getToken();
-    tokenClientRef.current.requestAccessToken({ prompt: token ? '' : 'consent' });
+  const handleAuthClick = async () => {
+    const provider = new GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive.file');
+    provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      const token = credential.accessToken;
+
+      localStorage.setItem('gsat_google_token', token);
+      setIsGoogleConnected(true);
+
+      const profile = {
+        name: user.displayName,
+        email: user.email,
+        photo: user.photoURL
+      };
+      setUserProfile(profile);
+      localStorage.setItem('gsat_user_profile', JSON.stringify(profile));
+
+      if (user.email?.endsWith('@nhsh.tp.edu.tw')) {
+        setIsAdmin(true);
+        triggerNotification('歡迎老師', '已自動開啟管理員權限！');
+      }
+
+      triggerNotification('Google 登入成功', '已啟用雲端備份！');
+      setAppPhase('welcome');
+
+      // Sync with GAPI if needed
+      if (window.gapi?.client) {
+        window.gapi.client.setToken({ access_token: token });
+        fetchUserInfo();
+      }
+    } catch (error) {
+      console.error("Auth error:", error);
+      if (error.code === 'auth/popup-closed-by-user') {
+        triggerNotification('登入取消', '您關閉了登入視窗。');
+      } else {
+        triggerNotification('登入失敗', '請檢查網路連線或稍後再試。');
+      }
+      setIsGoogleConnected(false);
+    }
   };
 
   // ─── Smart Reminder System ────────────────────────────────────────────────
@@ -490,6 +571,10 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
     );
   }
 
+  if (firebaseError) {
+    return <MaintenanceView error={firebaseError} />;
+  }
+
   return (
     <>
       {showPrivacyModal && <PrivacyModal onAccept={() => { setShowPrivacyModal(false); setAppPhase('app'); }} />}
@@ -511,7 +596,7 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
             {isNavOpen && (
               <>
                 <div className="fixed inset-0 z-[-1] bg-black/5 animate-fadeIn" onClick={() => setIsNavOpen(false)} />
-                <div className="absolute top-full left-0 mt-4 w-60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-[60px] rounded-[32px] shadow-[0_24px_80px_rgba(0,0,0,0.25)] border border-white/60 dark:border-white/10 overflow-hidden z-[1010] animate-apple-linear origin-top-left">
+                <div className="absolute top-full left-0 mt-4 w-60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-[60px] rounded-[32px] shadow-[0_24px_80px_rgba(0,0,0,0.25)] border border-white/60 dark:border-white/10 overflow-hidden z-[1010] pt-[env(safe-area-inset-top)] animate-apple-linear origin-top-left">
                   <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 bg-slate-50/50 dark:bg-gray-50/10">
                     <span className="text-[12px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-[0.2em]">功能選單</span>
                   </div>
@@ -546,7 +631,7 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
               }}
               className={`p-3 rounded-2xl transition-all active:scale-90 shadow-soft shrink-0 ${activeTab === 'settings' ? 'bg-emerald-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.3)] rotate-180' : 'bg-gray-100/50 dark:bg-white/5 text-gray-400 border border-gray-200/50 dark:border-white/10'}`}
             >
-                <Settings size={20} strokeWidth={2.5} className={`shrink-0 ${activeTab === 'settings' ? 'neon-glow-emerald' : ''}`} />
+              <Settings size={20} strokeWidth={2.5} className={`shrink-0 ${activeTab === 'settings' ? 'neon-glow-emerald' : ''}`} />
             </button>
           </div>
         </div>
@@ -650,7 +735,7 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('gsat_theme') || 'system');
-  
+
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   useEffect(() => {

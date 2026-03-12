@@ -6,6 +6,12 @@ import {
 import { WEEKDAYS, ICON_MAP } from '../utils/constants';
 
 const ContactBookTab = ({ contactBook, setContactBook, subjects }) => {
+  if (!contactBook || !subjects) return (
+    <div className="flex items-center justify-center p-20">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+    </div>
+  );
+  
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [newEntry, setNewEntry] = useState({ subject: subjects?.[0]?.name || '國文', homework: '', exam: '', homeworkDeadline: '', examDeadline: '' });
 
@@ -128,10 +134,11 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects }) => {
             <p className="text-gray-400 font-bold text-[14px]">這天目前沒有任何紀錄 ✨</p>
           </div>
         ) : (
-          entriesForDate.map((entry, idx) => {
+          (contactBook[selectedDate] || []).map((entry, idx) => {
+            if (!entry) return null;
             const subjectInfo = subjects.find(s => s.name === entry.subject) || { icon: '📝', color: 'text-gray-500' };
             return (
-              <div key={entry.id} style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'both' }} className="group p-6 bg-[var(--bg-surface)] rounded-[32px] shadow-soft border border-[var(--border-color)] relative text-left hover:shadow-float transition-all duration-500 animate-slide-up-fade hover:-translate-y-1 glass-effect">
+              <div key={entry.id || idx} className="bg-white dark:bg-white/5 p-5 rounded-[32px] border border-gray-100 dark:border-white/5 shadow-soft hover:shadow-float transition-all duration-300 relative group animate-pop-in">
                 <div className="flex justify-between items-center mb-4 border-b border-[var(--border-color)] pb-4">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl ${subjectInfo.color.replace('text', 'bg-').replace('500', '50')} dark:bg-emerald-500/10 flex items-center justify-center text-xl shrink-0`}>
