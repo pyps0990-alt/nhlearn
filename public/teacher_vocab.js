@@ -126,70 +126,67 @@ async function updateConnectionStatus() {
 }
 
 async function apiGet(action, params = {}) {
-  // 原有的 GAS 備份讀取邏輯
-  if (gasUrl) {
-    try {
-      const url = new URL(gasUrl);
-      url.searchParams.set('action', action);
-      url.searchParams.set('email', userEmail);
-      url.searchParams.set('name', userName);
-      Object.keys(params).forEach(key => url.searchParams.set(key, params[key]));
-      const response = await fetch(url.toString());
-      const res = await response.json();
-      if (res.success) return res;
-    } catch (e) { console.warn('GAS GET failed, falling back to Firestore', e); }
+  const cacheKey = `${action}_${JSON.stringify(params)}_${currentGrade}`;
+  if (isCacheValid(cacheKey) && cache.vocabByLevel[cacheKey]) {
+    return { success: true, records: cache.vocabByLevel[cacheKey] };
   }
 
-  // 原始 Firestore 讀取邏輯
   try {
+    let records = [];
     if (action === 'getRecentRecords') {
       const snap = await db.collection('vocab')
         .where('userEmail', '==', userEmail)
         .where('grade', '==', currentGrade)
         .orderBy('serialNumber', 'desc')
         .limit(50).get();
-      return { success: true, records: snap.docs.map(d => d.data()) };
-    }
-    if (action === 'getWordsByLevel') {
+      records = snap.docs.map(d => d.data());
+    } else if (action === 'getWordsByLevel') {
       const snap = await db.collection('vocab')
         .where('grade', '==', currentGrade)
         .where('level', '==', params.level.toString())
-        .limit(50).get();
-      return { success: true, records: snap.docs.map(d => d.data()) };
-    }
-    if (action === 'getSharedWords') {
+        .limit(100).get();
+      records = snap.docs.map(d => d.data());
+    } else if (action === 'getSharedWords') {
       const snap = await db.collection('vocab')
         .where('grade', '==', currentGrade)
         .where('shared', '==', true)
         .get();
-      return { success: true, records: snap.docs.map(d => d.data()) };
-    }
-    if (action === 'searchRecords') {
+      records = snap.docs.map(d => d.data());
+    } else if (action === 'searchRecords') {
       const snap = await db.collection('vocab').where('grade', '==', currentGrade).get();
       const kw = params.keyword.toLowerCase();
-      const res = snap.docs.map(d => d.data()).filter(d =>
+      records = snap.docs.map(d => d.data()).filter(d =>
         (d.word && d.word.toLowerCase().includes(kw)) || (d.chinese && d.chinese.includes(kw))
       );
-      return { success: true, records: res };
     }
+
+    cache.vocabByLevel[cacheKey] = records;
+    setCache(cacheKey, records);
+    
+    // Background GAS sync (optional backup)
+    if (gasUrl) {
+      setTimeout(async () => {
+        try {
+          const url = new URL(gasUrl);
+          url.searchParams.set('action', action);
+          url.searchParams.set('email', userEmail);
+          url.searchParams.set('name', userName);
+          Object.keys(params).forEach(key => url.searchParams.set(key, params[key]));
+          await fetch(url.toString());
+        } catch (e) { /* silent fail for background task */ }
+      }, 0);
+    }
+
+    return { success: true, records };
   } catch (e) {
+    console.error('Firestore GET failed', e);
     return { success: false, error: e.message };
   }
-  return { success: false };
 }
 
 async function apiPost(action, data = {}) {
-  // 原有的 GAS 備份寫入邏輯
-  if (gasUrl) {
-    try {
-      await fetch(gasUrl, {
-        method: 'POST',
-        body: JSON.stringify({ action, email: userEmail, name: userName, ...data })
-      });
-    } catch (e) { console.warn('GAS POST failed', e); }
-  }
-
   try {
+    let result = { success: false };
     if (action === 'addRecord') {
       const docData = {
         serialNumber: Date.now(),
@@ -197,7 +194,7 @@ async function apiPost(action, data = {}) {
         chinese: data.chinese,
         pos: data.pos || '',
         level: data.level || '',
-        example: data.example || '', // 新增例句存檔
+        example: data.example || '',
         grade: currentGrade,
         userEmail: userEmail,
         type: data.type || '個人',
@@ -205,20 +202,32 @@ async function apiPost(action, data = {}) {
         date: new Date().toLocaleDateString('zh-TW')
       };
       await db.collection('vocab').doc(docData.serialNumber.toString()).set(docData);
-      return { success: true, record: docData };
-    }
-    if (action === 'updateRecord') {
+      result = { success: true, record: docData };
+    } else if (action === 'updateRecord') {
       await db.collection('vocab').doc(data.serialNumber.toString()).update(data);
-      return { success: true };
-    }
-    if (action === 'deleteRecord') {
+      result = { success: true };
+    } else if (action === 'deleteRecord') {
       await db.collection('vocab').doc(data.serialNumber.toString()).delete();
-      return { success: true };
+      result = { success: true };
     }
+
+    // Background GAS backup
+    if (gasUrl) {
+      setTimeout(async () => {
+        try {
+          await fetch(gasUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action, email: userEmail, name: userName, ...data, grade: currentGrade })
+          });
+        } catch (e) { /* silent fail */ }
+      }, 0);
+    }
+
+    return result;
   } catch (e) {
+    console.error('Firestore POST failed', e);
     return { success: false, error: e.message };
   }
-  return { success: false };
 }
 
 // ============================================

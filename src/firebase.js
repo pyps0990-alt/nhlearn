@@ -1,6 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { getMessaging } from "firebase/messaging";
+
+export const VAPID_KEY = "BAAIWem3KGfCQyKFE7vgc4sygRAD6LaQhs9vt8JO3_rFW-6gDrGai6MqbvljUOaIMh4mdZyc2uwqWkBTpM2765g";
 
 // 1. 取得環境變數
 const firebaseConfig = {
@@ -18,6 +21,7 @@ const firebaseConfig = {
 let app = null;
 let db = null;
 let auth = null;
+let messaging = null;
 let firebaseError = null; // 👈 關鍵：必須在這裡先定義！
 
 try {
@@ -29,6 +33,7 @@ try {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   auth = getAuth(app);
+  messaging = getMessaging(app);
   console.log("✅ Firebase 初始化成功");
 } catch (error) {
   console.error("❌ Firebase 初始化失敗:", error);
@@ -36,4 +41,4 @@ try {
 }
 
 // 3. 正式導出
-export { db, auth, firebaseError };
+export { db, auth, messaging, firebaseError };

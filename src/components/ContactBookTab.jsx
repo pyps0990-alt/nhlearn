@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
   Notebook, ChevronLeft, ChevronRight, Plus, CheckCircle2,
-  Trash2, BookOpen, Calendar, ChevronDown
+  Trash2, BookOpen, Calendar, ChevronDown, Camera, Loader2
 } from 'lucide-react';
 import { WEEKDAYS, ICON_MAP } from '../utils/constants';
+import { fetchAI } from '../utils/helpers';
 
-const ContactBookTab = ({ contactBook, setContactBook, subjects }) => {
+const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore }) => {
   if (!contactBook || !subjects) return (
     <div className="flex items-center justify-center p-20">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
@@ -14,6 +15,16 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects }) => {
   
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [newEntry, setNewEntry] = useState({ subject: subjects?.[0]?.name || '國文', homework: '', exam: '', homeworkDeadline: '', examDeadline: '' });
+  const [isParsing, setIsParsing] = useState(false);
+
+  const triggerNotification = (title, message) => {
+    // Basic fallback notification if toast isn't available
+    if (window.toast) {
+      window.toast.success(`${title}: ${message}`);
+    } else {
+      console.log(`${title}: ${message}`);
+    }
+  };
 
   const getFormattedDate = (dateStr) => {
     const d = new Date(dateStr);
@@ -26,17 +37,95 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects }) => {
     setSelectedDate(d.toISOString().split('T')[0]);
   };
 
-  const handleAddEntry = () => {
-    if (!newEntry.homework && !newEntry.exam) return;
+  const handleAddEntry = async () => {
+    if (!newEntry.homework && !newEntry.exam) {
+      alert('請輸入作業或考試內容！');
+      return;
+    }
+    
+    // Validation: Check duplicate
     const currentEntries = contactBook[selectedDate] || [];
+    const isDuplicate = currentEntries.some(entry => 
+      entry.subject === newEntry.subject && 
+      entry.homework === newEntry.homework && 
+      entry.exam === newEntry.exam
+    );
+    
+    if (isDuplicate) {
+      alert('聯絡簿中已有完全相同的內容囉！請確認是否重複輸入。');
+      return;
+    }
+    
+    // Validation: Check deadline
+    const today = new Date().toISOString().split('T')[0];
+    if ((newEntry.homeworkDeadline && newEntry.homeworkDeadline < today) || 
+        (newEntry.examDeadline && newEntry.examDeadline < today)) {
+      if (!window.confirm('截止日期似乎已經過了，確定要新增嗎？')) return;
+    }
+
     const updatedEntries = [...currentEntries, { id: Date.now(), ...newEntry }];
-    setContactBook(prev => ({ ...prev, [selectedDate]: updatedEntries }));
+    const newContactBook = { ...contactBook, [selectedDate]: updatedEntries };
+    
+    setContactBook(newContactBook);
+    await saveContactBookToFirestore(newContactBook);
+    
     setNewEntry({ subject: subjects?.[0]?.name || '國文', homework: '', exam: '', homeworkDeadline: '', examDeadline: '' });
   };
 
-  const handleDeleteEntry = (id) => {
+  const handleDeleteEntry = async (id) => {
+    if (!window.confirm('確定要刪除這項記錄嗎？')) return;
     const updatedEntries = (contactBook[selectedDate] || []).filter(item => item.id !== id);
-    setContactBook(prev => ({ ...prev, [selectedDate]: updatedEntries }));
+    const newContactBook = { ...contactBook, [selectedDate]: updatedEntries };
+    
+    setContactBook(newContactBook);
+    await saveContactBookToFirestore(newContactBook);
+  };
+
+  const handleAIParse = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsParsing(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Image = reader.result;
+        const prompt = `你是一位專業的中文學生助理。請從這張聯絡簿照片中提取資訊，並以 JSON 格式回傳：
+        {
+          "subject": "科目名稱",
+          "homework": "作業內容",
+          "exam": "考試內容",
+          "homeworkDeadline": "YYYY-MM-DD",
+          "examDeadline": "YYYY-MM-DD"
+        }
+        科目請務必從以下清單中選擇最接近的一個：${subjects.map(s => s.name).join(', ')}。
+        如果沒有相關資訊則欄位留空。`;
+
+        const result = await fetchAI(prompt, base64Image);
+        try {
+          // Remove markdown formatting if AI includes it
+          const jsonStr = result.replace(/```json/g, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(jsonStr);
+          setNewEntry(prev => ({
+            ...prev,
+            subject: subjects.find(s => s.name === parsed.subject)?.name || prev.subject,
+            homework: parsed.homework || '',
+            exam: parsed.exam || '',
+            homeworkDeadline: parsed.homeworkDeadline || '',
+            examDeadline: parsed.examDeadline || ''
+          }));
+          alert('AI 辨識完成！請校準內容後點擊同步。');
+        } catch (err) {
+          console.error('AI 解析失敗:', result);
+          alert('AI 解析格式錯誤，請手動調整。');
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      alert('辨識失敗，請重試。');
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   const entriesForDate = contactBook[selectedDate] || [];
@@ -63,63 +152,81 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects }) => {
         </button>
       </div>
 
+      {/* 新增區塊 - 開放全班編輯 */}
       <div className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[36px] shadow-soft border border-[var(--border-color)] overflow-hidden relative group transition-all duration-500 hover:shadow-float glass-effect">
         <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 dark:bg-emerald-500/10 rounded-full -mr-12 -mt-12 opacity-40 group-hover:scale-125 transition-transform duration-1000"></div>
-        <h3 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2 relative z-10">
-          <Plus size={18} className="text-emerald-500 shrink-0" /> 新增事項
-        </h3>
-        <div className="flex flex-col gap-4 relative z-10">
+        
+        <div className="flex justify-between items-center mb-4 relative z-10">
+          <h3 className="text-[14px] font-black text-[var(--text-primary)] flex items-center gap-2">
+            <Plus size={18} className="text-emerald-500 shrink-0" /> 新增事項
+          </h3>
           <div className="relative">
-            <select
-              className="w-full bg-white/50 backdrop-blur-md border border-white/60 rounded-[24px] px-5 py-4 text-[15px] font-black outline-none focus:border-emerald-300 focus:bg-white/80 transition-all shadow-sm hover:shadow-md appearance-none"
-              value={newEntry.subject}
-              onChange={e => setNewEntry({ ...newEntry, subject: e.target.value })}
-            >
-              {subjects.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-            </select>
-            <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none shrink-0" />
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handleAIParse} 
+              className="absolute inset-0 opacity-0 cursor-pointer z-10" 
+              disabled={isParsing}
+            />
+            <button className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${isParsing ? 'bg-slate-100 text-slate-400' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 active:scale-95'}`}>
+              {isParsing ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+              {isParsing ? '辨識中...' : 'AI 圖片導入'}
+            </button>
           </div>
+        </div>
 
-          <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4 relative z-10">
             <div className="relative">
-              <textarea
-                className="w-full bg-white/50 backdrop-blur-md border border-white/60 rounded-[24px] px-5 py-4 text-[14px] font-bold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 focus:bg-white/90 transition-all duration-300 min-h-[100px] shadow-sm hover:shadow-md"
-                placeholder="📝 今日指派作業 (例如：完成習作 P.10-15)"
-                value={newEntry.homework}
-                onChange={e => setNewEntry({ ...newEntry, homework: e.target.value })}
-              />
-              <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-emerald-50/90 dark:bg-black/20 px-3 py-1.5 rounded-xl border border-emerald-200/50 dark:border-white/10 shadow-sm">
-                <Calendar size={14} className="text-emerald-600 dark:text-emerald-400" />
-                <input
-                  type="date"
-                  value={newEntry.homeworkDeadline}
-                  onChange={e => setNewEntry({ ...newEntry, homeworkDeadline: e.target.value })}
-                  className="bg-transparent text-[11px] font-black outline-none text-emerald-800 dark:text-emerald-400 tracking-wider appearance-none"
-                />
-              </div>
+              <select
+                className="w-full bg-white/50 backdrop-blur-md border border-white/60 rounded-[24px] px-5 py-4 text-[15px] font-black outline-none focus:border-emerald-300 focus:bg-white/80 transition-all shadow-sm hover:shadow-md appearance-none"
+                value={newEntry.subject}
+                onChange={e => setNewEntry({ ...newEntry, subject: e.target.value })}
+              >
+                {subjects.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
+              </select>
+              <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none shrink-0" />
             </div>
 
-            <div className="relative">
-              <textarea
-                className="w-full bg-white/50 backdrop-blur-md border border-white/60 rounded-[24px] px-5 py-4 text-[14px] font-bold outline-none focus:border-red-400 focus:ring-4 focus:ring-red-400/20 focus:bg-white/90 transition-all duration-300 min-h-[100px] shadow-sm hover:shadow-md"
-                placeholder="💯 明日考試內容 (例如：第一課默寫)"
-                value={newEntry.exam}
-                onChange={e => setNewEntry({ ...newEntry, exam: e.target.value })}
-              />
-              <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-red-50/90 dark:bg-black/20 px-3 py-1.5 rounded-xl border border-red-200/50 dark:border-white/10 shadow-sm">
-                <Calendar size={14} className="text-red-600 dark:text-red-400" />
-                <input
-                  type="date"
-                  value={newEntry.examDeadline}
-                  onChange={e => setNewEntry({ ...newEntry, examDeadline: e.target.value })}
-                  className="bg-transparent text-[11px] font-black outline-none text-red-800 dark:text-red-400 tracking-wider appearance-none"
+            <div className="flex flex-col gap-3">
+              <div className="relative">
+                <textarea
+                  className="w-full bg-white/50 backdrop-blur-md border border-white/60 rounded-[24px] px-5 py-4 text-[14px] font-bold outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/20 focus:bg-white/90 transition-all duration-300 min-h-[100px] shadow-sm hover:shadow-md"
+                  placeholder="📝 今日指派作業 (例如：完成習作 P.10-15)"
+                  value={newEntry.homework}
+                  onChange={e => setNewEntry({ ...newEntry, homework: e.target.value })}
                 />
+                <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-emerald-50/90 dark:bg-black/20 px-3 py-1.5 rounded-xl border border-emerald-200/50 dark:border-white/10 shadow-sm">
+                  <Calendar size={14} className="text-emerald-600 dark:text-emerald-400" />
+                  <input
+                    type="date"
+                    value={newEntry.homeworkDeadline}
+                    onChange={e => setNewEntry({ ...newEntry, homeworkDeadline: e.target.value })}
+                    className="bg-transparent text-[11px] font-black outline-none text-emerald-800 dark:text-emerald-400 tracking-wider appearance-none"
+                  />
+                </div>
+              </div>
+
+              <div className="relative">
+                <textarea
+                  className="w-full bg-white/50 backdrop-blur-md border border-white/60 rounded-[24px] px-5 py-4 text-[14px] font-bold outline-none focus:border-red-400 focus:ring-4 focus:ring-red-400/20 focus:bg-white/90 transition-all duration-300 min-h-[100px] shadow-sm hover:shadow-md"
+                  placeholder="💯 明日考試內容 (例如：第一課默寫)"
+                  value={newEntry.exam}
+                  onChange={e => setNewEntry({ ...newEntry, exam: e.target.value })}
+                />
+                <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-red-50/90 dark:bg-black/20 px-3 py-1.5 rounded-xl border border-red-200/50 dark:border-white/10 shadow-sm">
+                  <Calendar size={14} className="text-red-600 dark:text-red-400" />
+                  <input
+                    type="date"
+                    value={newEntry.examDeadline}
+                    onChange={e => setNewEntry({ ...newEntry, examDeadline: e.target.value })}
+                    className="bg-transparent text-[11px] font-black outline-none text-red-800 dark:text-red-400 tracking-wider appearance-none"
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
           <button onClick={handleAddEntry} className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-[24px] font-black shadow-neo active:scale-90 transition-all duration-300 ease-out mt-2 flex items-center justify-center gap-2 hover:-translate-y-1">
-            加入聯絡簿 <CheckCircle2 size={18} />
+            同步至全班聯絡簿 <CheckCircle2 size={18} />
           </button>
         </div>
       </div>

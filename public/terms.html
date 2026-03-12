@@ -1,42 +1,313 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>服務條款 - GSAT Pro</title>
+    <title>服務條款 | GSAT Pro</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap"
+        rel="stylesheet">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 40px 20px; }
-        h1 { color: #3B82F6; border-bottom: 2px solid #3B82F6; padding-bottom: 10px; }
-        h2 { color: #2563EB; margin-top: 30px; }
-        ul { padding-left: 20px; }
-        li { margin-bottom: 10px; }
-        .footer { margin-top: 50px; font-size: 0.8em; color: #999; text-align: center; }
-        .back-btn { position: fixed; top: 20px; right: 20px; background: #3B82F6; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; text-decoration: none; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); transition: transform 0.2s; z-index: 1000; }
-        .back-btn:active { transform: scale(0.95); }
+        :root {
+            --primary: #10B981;
+            --primary-dark: #059669;
+            --bg: #F8FAFC;
+            --text: #1E293B;
+            --text-light: #64748B;
+        }
+
+        body {
+            font-family: 'Nunito', 'Noto Sans TC', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            background: white;
+            padding: 3rem;
+            border-radius: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-top: 2rem;
+            border-left: 4px solid var(--primary);
+            padding-left: 1rem;
+        }
+
+        p,
+        li {
+            font-size: 1.1rem;
+            color: var(--text-light);
+        }
+
+        .back-btn {
+            display: inline-block;
+            margin-top: 3rem;
+            background: var(--primary);
+            color: white;
+            padding: 0.8rem 2rem;
+            border-radius: 1rem;
+            text-decoration: none;
+            font-weight: 700;
+            transition: transform 0.2s;
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+            background: var(--primary-dark);
+        }
     </style>
 </head>
+
 <body>
-    <button class="back-btn" onclick="window.close(); if(!window.opener) window.location.href='/';">返回 App</button>
-    <h1>GSAT Pro 服務條款</h1>
-    <p>最後更新日期：2024年3月8日</p>
+    <div class="container">
 
-    <h2>1. 服務宗旨</h2>
-    <p>GSAT Pro 旨在協助學生更有效地管理學習生活。本程式由開發團隊個人維護，並非官方學校強制軟體。</p>
+        <h1>服務條款（Terms of Service）</h1>
+        <p>最後更新日期：2026 年 3 月 12 日</p>
 
-    <h2>2. 使用規範</h2>
-    <p>使用者應遵守法律規範，不得利用本程式進行非法勾當或破壞行為。</p>
+        <p>
+            歡迎使用 <b>GSAT Pro</b>（以下簡稱「本服務」）。
+            本服務由 GSAT Pro 開發團隊提供。
+            當您註冊帳號、登入或使用本服務時，
+            即表示您已閱讀、理解並同意遵守本服務條款之所有內容。
+            若您不同意本條款，請停止使用本服務。
+        </p>
 
-    <h2>3. 免責聲明</h2>
-    <ul>
-        <li>AI 生成之內容僅供參考，請務必自行查證。</li>
-        <li>開發團隊不對因不可抗力或第三方服務中斷導致之資料遺失負賠償責任。</li>
-    </ul>
+        <h2>一、服務說明</h2>
+        <p>
+            本服務為學習輔助工具，提供但不限於以下功能：
+        </p>
 
-    <h2>4. 修正與變更</h2>
-    <p>本條款可能隨時進行修正，並於程式內公告後生效。</p>
+        <ul>
+            <li>課表管理與課程提醒</li>
+            <li>調課通知系統</li>
+            <li>學習筆記功能</li>
+            <li>單字學習與測驗功能</li>
+            <li>學習資料同步與雲端備份</li>
+            <li>AI 輔助學習工具</li>
+        </ul>
 
-    <div class="footer">
-        © 2024 GSAT Pro Team. All rights reserved.
+        <p>
+            本服務僅作為學習輔助用途，
+            不構成任何教育機構、政府機關或考試機構之官方資訊來源。
+        </p>
+
+        <h2>二、帳號註冊與管理</h2>
+
+        <p>
+            使用本服務時，您可能需要透過第三方帳號登入，
+            例如 Google 帳號。
+        </p>
+
+        <ul>
+            <li>您須確保提供之帳號資訊為正確且有效。</li>
+            <li>您應妥善保管您的登入憑證。</li>
+            <li>任何透過您的帳號進行的行為，均視為您本人操作。</li>
+            <li>若您發現帳號遭未授權使用，應立即通知開發團隊。</li>
+        </ul>
+
+        <h2>三、使用者行為規範</h2>
+
+        使用本服務時，您同意不從事以下行為：
+
+        <ul>
+            <li>違反任何法律或法規</li>
+            <li>干擾或破壞本服務系統安全</li>
+            <li>嘗試未經授權存取系統或資料</li>
+            <li>散播惡意程式、病毒或其他破壞性程式碼</li>
+            <li>利用本服務進行詐騙或其他非法活動</li>
+            <li>大量自動化請求或濫用系統資源</li>
+        </ul>
+
+        若違反上述規定，本服務有權暫停或終止您的帳號。
+
+        <h2>四、使用者內容</h2>
+
+        您在本服務中建立或上傳的內容可能包括：
+
+        <ul>
+            <li>課表資料</li>
+            <li>學習筆記</li>
+            <li>學習紀錄</li>
+            <li>其他個人學習內容</li>
+        </ul>
+
+        您保留對這些內容的所有權，
+        但授權本服務在提供服務所需範圍內
+        儲存、處理及顯示該內容。
+
+        您應確保所提供內容不侵犯他人權利。
+
+        <h2>五、AI 與學習內容聲明</h2>
+
+        本服務可能包含 AI 生成的學習內容，
+        例如：
+
+        <ul>
+            <li>單字解釋</li>
+            <li>學習建議</li>
+            <li>測驗題目</li>
+        </ul>
+
+        AI 生成內容可能存在錯誤或不完整之情形，
+        使用者應自行判斷與查證其正確性。
+
+        本服務不對 AI 內容的準確性、完整性或適用性
+        提供任何保證。
+
+        <h2>六、智慧財產權</h2>
+
+        本服務之所有內容與技術，
+        包括但不限於：
+
+        <ul>
+            <li>軟體程式碼</li>
+            <li>介面設計</li>
+            <li>系統架構</li>
+            <li>圖示與視覺設計</li>
+            <li>資料結構</li>
+        </ul>
+
+        均受智慧財產權法保護，
+        並為開發團隊或授權方所有。
+
+        未經書面許可，
+        使用者不得：
+
+        <ul>
+            <li>複製</li>
+            <li>修改</li>
+            <li>散布</li>
+            <li>反向工程</li>
+            <li>建立衍生作品</li>
+        </ul>
+
+        <h2>七、服務可用性</h2>
+
+        本服務將盡力維持系統穩定，
+        但不保證：
+
+        <ul>
+            <li>服務永不中斷</li>
+            <li>服務完全無錯誤</li>
+            <li>資料不會遺失</li>
+        </ul>
+
+        系統可能因以下原因暫停：
+
+        <ul>
+            <li>系統維護</li>
+            <li>伺服器故障</li>
+            <li>網路問題</li>
+            <li>不可抗力因素</li>
+        </ul>
+
+        <h2>八、責任限制</h2>
+
+        在法律允許範圍內，
+        本服務對以下情況不承擔責任：
+
+        <ul>
+            <li>資料遺失</li>
+            <li>通知延遲</li>
+            <li>系統中斷</li>
+            <li>學習成果未達預期</li>
+            <li>使用者依賴 AI 建議所造成之結果</li>
+        </ul>
+
+        <h2>九、第三方服務</h2>
+
+        本服務可能整合第三方服務，
+        例如：
+
+        <ul>
+            <li>Google 帳號登入</li>
+            <li>雲端資料儲存</li>
+            <li>推播通知服務</li>
+        </ul>
+
+        第三方服務可能有其自身條款與隱私政策，
+        使用者亦應遵守該等規定。
+
+        <h2>十、服務修改與終止</h2>
+
+        本服務保留以下權利：
+
+        <ul>
+            <li>隨時修改服務內容</li>
+            <li>新增或移除功能</li>
+            <li>暫停或終止服務</li>
+            <li>限制特定使用者存取</li>
+        </ul>
+
+        上述變更可能不另行通知。
+
+        <h2>十一、帳號終止</h2>
+
+        在以下情況，
+        本服務得終止或限制您的帳號：
+
+        <ul>
+            <li>違反服務條款</li>
+            <li>濫用系統資源</li>
+            <li>涉及非法活動</li>
+        </ul>
+
+        帳號終止後，
+        部分資料可能會被刪除。
+
+        <h2>十二、隱私權</h2>
+
+        本服務對於使用者資料之蒐集與使用，
+        將依據「隱私權政策」進行處理。
+
+        <h2>十三、條款修改</h2>
+
+        本服務保留隨時修改本服務條款之權利。
+
+        修改後條款將公布於本服務平台，
+        並於發布時生效。
+
+        繼續使用本服務即表示您同意修改後條款。
+
+        <h2>十四、準據法與管轄</h2>
+
+        本條款之解釋與適用，
+        應依中華民國（台灣）法律為準據法。
+
+        若因本服務產生爭議，
+        雙方同意以台灣法院為管轄法院。
+
+        <h2>十五、聯絡方式</h2>
+
+        若您對本服務條款有任何問題，
+        請透過以下方式聯絡我們：
+
+        <p>Email：support@yourapp.com</p>
+        <p>開發者：GSAT Pro Team</p>
+
+        <br>
+        <a href="/" class="back-btn">回首頁</a>
+
     </div>
 </body>
+
 </html>

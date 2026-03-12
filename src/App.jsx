@@ -4,22 +4,17 @@ import {
   Library, Store, Bus, HelpCircle, ShieldCheck,
   BellRing, Bell, AlertCircle, RefreshCw
 } from 'lucide-react';
-import './App.css';
-
-// Utilities & Constants
-import {
-  INITIAL_WEEKLY_SCHEDULE, SUBJECTS_LIST, DEFAULT_LINKS, ICON_MAP,
-  GOOGLE_CLIENT_ID, DRIVE_DISCOVERY_DOC, PEOPLE_DISCOVERY_DOC, SCOPES
-} from './utils/constants';
-import { SCHEDULE_206_TEMPLATE } from './utils/templates';
-import { timeToMins } from './utils/helpers';
-import { db, auth, firebaseError } from './firebase';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import toast, { Toaster } from 'react-hot-toast';
 
-
-// Components
+import './App.css';
+import SmartNotificationBanner from './components/SmartNotificationBanner';
+import { INITIAL_WEEKLY_SCHEDULE, SUBJECTS_LIST, DEFAULT_LINKS, ICON_MAP, GOOGLE_CLIENT_ID, DRIVE_DISCOVERY_DOC, PEOPLE_DISCOVERY_DOC, SCOPES } from './utils/constants';
+import { SCHEDULE_206_TEMPLATE } from './utils/templates';
+import { timeToMins } from './utils/helpers';
+import { db, auth, messaging, firebaseError, VAPID_KEY } from './firebase';
+import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { getToken } from 'firebase/messaging';
 import DashboardTab from './components/DashboardTab';
 import VocabularyTab from './components/VocabularyTab';
 import ContactBookTab from './components/ContactBookTab';
@@ -29,10 +24,10 @@ import TrafficTab from './components/TrafficTab';
 import TutorialTab from './components/TutorialTab';
 import SettingsTab from './components/SettingsTab';
 import LegalTab from './components/LegalTab';
-import {
-  IosNotification, WelcomeScreen, AuthScreen, PrivacyModal
-} from './components/SharedComponents';
+import { IosNotification, WelcomeScreen, AuthScreen, PrivacyModal } from './components/SharedComponents';
 
+
+// ─── 系統維護畫面 ────────────────────────────────────────────────────────
 const MaintenanceView = ({ error }) => (
   <div style={{
     position: 'fixed', inset: 0, backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column',
@@ -60,10 +55,13 @@ const MaintenanceView = ({ error }) => (
   </div>
 );
 
-const MainApp = ({ forcedTheme, setForcedTheme }) => {
+// ─── 核心 App 組件 ────────────────────────────────────────────────────────
+const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   const theme = forcedTheme;
   const setTheme = setForcedTheme;
+
   // ─── State ───────────────────────────────────────────────────────────────
+  const [user, setUser] = useState(null); // 🚀 關鍵修復：加入 user 狀態，解決 is not defined
   const [activeTab, setActiveTab] = useState('dashboard');
   const [previousTab, setPreviousTab] = useState('dashboard');
   const contentRef = useRef(null);
@@ -77,6 +75,7 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
       contentRef.current.scrollTo({ top: 0, behavior: 'auto' });
     }
   };
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [notification, setNotification] = useState({ show: false, title: '', message: '' });
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -87,7 +86,6 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
   });
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gsat_gemini_key') || '');
   const [appPhase, setAppPhase] = useState(() => {
-    // 優先順序：驗證 -> 歡迎 -> App
     if (!localStorage.getItem('gsat_onboarding_done')) return 'auth';
     return 'app';
   });
@@ -139,14 +137,51 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
     return () => clearTimeout(timer);
   }, [activeTab]);
 
+  // ─── FCM 與 Auth 整合區塊 ────────────────────────────────────────────────
+  const requestPushPermission = async (currentUser) => {
+    if (!('Notification' in window) || !messaging || !currentUser?.uid) return;
+
+    try {
+      if (Notification.permission !== 'granted') return;
+      const cleanVapidKey = VAPID_KEY?.trim().replace(/\s/g, '');
+      const token = await getToken(messaging, { vapidKey: cleanVapidKey });
+
+      if (token) {
+        const userRef = doc(db, 'users', currentUser.uid);
+        await setDoc(userRef, {
+          fcmToken: token,
+          lastActive: serverTimestamp(),
+          userName: currentUser.displayName || '匿名同學',
+          email: currentUser.email || '',
+          classID: classID || '206',
+          device: navigator.userAgent.includes('iPhone') ? 'iOS' : 'Web'
+        }, { merge: true });
+        console.log("✅ FCM Token 已自動更新至雲端");
+      }
+    } catch (err) {
+      console.error("自動擷取 FCM 失敗:", err);
+    }
+  };
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (authUser) => {
+      if (authUser) {
+        setUser(authUser);
+        await requestPushPermission(authUser); // 登入後自動執行同步
+      } else {
+        setUser(null);
+      }
+    });
+    return () => unsub();
+  }, [classID]);
+
   // Firestore Sync
   useEffect(() => {
-    // 🛡️ 關鍵修正：如果 db 沒準備好，直接回傳，不執行後面的 doc()
     if (!db || !classID) return;
 
     const docRef = doc(db, 'classes', classID);
     const unsub = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
+      if (docSnap.exists && docSnap.exists()) {
         const cloudData = docSnap.data().schedule;
         if (Array.isArray(cloudData)) {
           const transformed = { 1: [], 2: [], 3: [], 4: [], 5: [] };
@@ -165,12 +200,17 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
           });
           setWeeklySchedule(transformed);
         }
+
+        // Sync Contact Book
+        if (docSnap.data().contactBook) {
+          setContactBook(docSnap.data().contactBook);
+        }
       }
     }, (err) => {
       console.error("Firestore sync error:", err);
     });
     return () => unsub();
-  }, [db, classID]); // 💡 記得把 db 加入依賴，db 活過來時會自動重新啟動同步
+  }, [db, classID]);
 
   // Notice System Sync
   useEffect(() => {
@@ -179,48 +219,52 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
     const q = query(noticesRef, orderBy('timestamp', 'desc'), limit(5));
 
     const unsub = onSnapshot(q, (snapshot) => {
-      const allNotices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      if (snapshot && snapshot.docs) {
+        const allNotices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      // 僅保留：course (課程)、reschedule (調課)、homework (作業)、exam (考試)
-      const allowedTypes = ['course', 'reschedule', 'homework', 'exam', 'COURSE', 'RESCHEDULE', 'HOMEWORK', 'EXAM'];
-      const filteredNotices = allNotices.filter(n => allowedTypes.includes(n.type));
-      setNotices(filteredNotices);
+        // 僅保留：course (課程)、reschedule (調課)、homework (作業)、exam (考試)
+        const allowedTypes = ['course', 'reschedule', 'homework', 'exam', 'COURSE', 'RESCHEDULE', 'HOMEWORK', 'EXAM'];
+        const filteredNotices = allNotices.filter(n => allowedTypes.includes(n.type));
+        setNotices(filteredNotices);
 
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const data = change.doc.data();
-          if (!allowedTypes.includes(data.type)) return;
+        if (snapshot.docChanges) {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+              const data = change.doc.data();
+              if (!allowedTypes.includes(data.type)) return;
 
-          const isReschedule = data.type?.toLowerCase() === 'reschedule';
+              const isReschedule = data.type?.toLowerCase() === 'reschedule';
 
-          toast.success(`${data.title || '系統通知'}: ${data.content || ''}`, {
-            icon: isReschedule ? '🟠' : '🔔',
-            style: {
-              borderRadius: '20px',
-              background: isReschedule ? '#f97316' : '#333',
-              color: '#fff'
+              toast.success(`${data.title || '系統通知'}: ${data.content || ''}`, {
+                icon: isReschedule ? '🟠' : '🔔',
+                style: {
+                  borderRadius: '20px',
+                  background: isReschedule ? '#f97316' : '#333',
+                  color: '#fff'
+                }
+              });
+
+              // 自動連動調課邏輯
+              if (data.type === "COURSE" || data.type === "RESCHEDULE" || (data.content && data.content.includes("調課"))) {
+                setWeeklySchedule(prev => {
+                  const updated = { ...prev };
+                  let changed = false;
+                  Object.keys(updated).forEach(day => {
+                    updated[day] = updated[day].map(course => {
+                      if (data.targetCourse && (course.subject.includes(data.targetCourse) || data.targetCourse.includes(course.subject))) {
+                        changed = true;
+                        return { ...course, rescheduled: true };
+                      }
+                      return course;
+                    });
+                  });
+                  return changed ? updated : prev;
+                });
+              }
             }
           });
-
-          // 自動連動調課邏輯
-          if (data.type === "COURSE" || data.type === "RESCHEDULE" || (data.content && data.content.includes("調課"))) {
-            setWeeklySchedule(prev => {
-              const updated = { ...prev };
-              let changed = false;
-              Object.keys(updated).forEach(day => {
-                updated[day] = updated[day].map(course => {
-                  if (data.targetCourse && (course.subject.includes(data.targetCourse) || data.targetCourse.includes(course.subject))) {
-                    changed = true;
-                    return { ...course, rescheduled: true };
-                  }
-                  return course;
-                });
-              });
-              return changed ? updated : prev;
-            });
-          }
         }
-      });
+      }
     }, (err) => {
       console.error("Firestore sync error (Notices)：", err);
     });
@@ -230,33 +274,30 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
   const saveToFirestore = async (newSchedule) => {
     if (!db || !classID) return;
     try {
-      // 轉換為扁平陣列結構 [{ day, course, ... }]
       const flatSchedule = [];
       Object.keys(newSchedule).forEach(dayKey => {
         const day = parseInt(dayKey);
         if (day >= 1 && day <= 5) {
           (newSchedule[dayKey] || []).forEach(item => {
             flatSchedule.push({
-              id: item.id,
-              day: day,
-              course: item.subject,
-              teacher: item.teacher || '',
-              startTime: item.startTime,
-              endTime: item.endTime,
-              location: item.location || '',
-              rescheduled: item.rescheduled || false
+              id: item.id, day: day, course: item.subject, teacher: item.teacher || '',
+              startTime: item.startTime, endTime: item.endTime, location: item.location || '', rescheduled: item.rescheduled || false
             });
           });
         }
       });
+      await setDoc(doc(db, 'classes', classID), { schedule: flatSchedule, lastUpdated: serverTimestamp() }, { merge: true });
+    } catch (e) { console.error("Firestore save error:", e); }
+  };
 
-      await setDoc(doc(db, 'classes', classID), {
-        schedule: flatSchedule,
-        lastUpdated: serverTimestamp()
+  const saveContactBookToFirestore = async (newContactBook) => {
+    if (!db || !classID) return;
+    try {
+      await setDoc(doc(db, 'classes', classID), { 
+        contactBook: newContactBook, 
+        lastUpdated: serverTimestamp() 
       }, { merge: true });
-    } catch (e) {
-      console.error("Firestore save error:", e);
-    }
+    } catch (e) { console.error("Firestore contact book save error:", e); }
   };
 
   const handleImport206Template = async () => {
@@ -264,37 +305,22 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
       triggerNotification('提示', '請先將班級代碼設定為 206');
       return;
     }
-
     const transformed = { 1: [], 2: [], 3: [], 4: [], 5: [] };
     SCHEDULE_206_TEMPLATE.forEach((item, idx) => {
       if (transformed[item.day]) {
         transformed[item.day].push({
-          id: Date.now() + idx,
-          subject: item.course,
-          teacher: item.teacher,
-          startTime: item.startTime,
-          endTime: item.endTime,
-          location: '',
-          rescheduled: false
+          id: Date.now() + idx, subject: item.course, teacher: item.teacher,
+          startTime: item.startTime, endTime: item.endTime, location: '', rescheduled: false
         });
       }
     });
-
     setWeeklySchedule(transformed);
 
-    // 寫入 206 完整資訊
     await setDoc(doc(db, 'classes', '206'), {
-      className: "206",
-      school: "內湖高中",
+      className: "206", school: "內湖高中",
       schedule: SCHEDULE_206_TEMPLATE.map((item, idx) => ({
-        id: Date.now() + idx,
-        day: item.day,
-        course: item.course,
-        teacher: item.teacher,
-        startTime: item.startTime,
-        endTime: item.endTime,
-        location: '',
-        rescheduled: false
+        id: Date.now() + idx, day: item.day, course: item.course, teacher: item.teacher,
+        startTime: item.startTime, endTime: item.endTime, location: '', rescheduled: false
       })),
       lastUpdated: serverTimestamp()
     }, { merge: true });
@@ -319,21 +345,6 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
     setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 6000);
     triggerNativeNotification(title, message);
   }, []);
-
-  const requestPushPermission = async () => {
-    if (!('Notification' in window)) {
-      triggerNotification('系統提示', '此瀏覽器不支援通知。iOS 請先「加入主畫面」。');
-      return;
-    }
-    const perm = await Notification.requestPermission();
-    if (perm === 'granted') triggerNotification('授權成功 🎉', '您現在可以接收提醒了！');
-    else triggerNotification('權限未開啟', '請在瀏覽器設定中允許通知。');
-  };
-
-  const testPushNotification = () => {
-    if (Notification.permission === 'granted') triggerNotification('測試成功', '這是一則系統推播！');
-    else requestPushPermission();
-  };
 
   // ─── AI Test ─────────────────────────────────────────────────────────────
   const testAiConnection = async () => {
@@ -451,11 +462,7 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
       localStorage.setItem('gsat_google_token', token);
       setIsGoogleConnected(true);
 
-      const profile = {
-        name: user.displayName,
-        email: user.email,
-        photo: user.photoURL
-      };
+      const profile = { name: user.displayName, email: user.email, photo: user.photoURL };
       setUserProfile(profile);
       localStorage.setItem('gsat_user_profile', JSON.stringify(profile));
 
@@ -467,18 +474,12 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
       triggerNotification('Google 登入成功', '已啟用雲端備份！');
       setAppPhase('welcome');
 
-      // Sync with GAPI if needed
       if (window.gapi?.client) {
         window.gapi.client.setToken({ access_token: token });
         fetchUserInfo();
       }
     } catch (error) {
       console.error("Auth error:", error);
-      if (error.code === 'auth/popup-closed-by-user') {
-        triggerNotification('登入取消', '您關閉了登入視窗。');
-      } else {
-        triggerNotification('登入失敗', '請檢查網路連線或稍後再試。');
-      }
       setIsGoogleConnected(false);
     }
   };
@@ -549,36 +550,19 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
   const getTabName = id => navItems.find(n => n.id === id)?.label || 'GSAT Pro';
 
   // ─── Phases ───────────────────────────────────────────────────────────────
-  if (appPhase === 'auth') {
-    return (
-      <AuthScreen
-        onLogin={handleAuthClick}
-        onSkip={() => setAppPhase('welcome')}
-      />
-    );
-  }
-
-  if (appPhase === 'welcome') {
-    return (
-      <WelcomeScreen
-        isFirstTime={!localStorage.getItem('gsat_legal_accepted')}
-        onFinishWelcome={() => {
-          localStorage.setItem('gsat_onboarding_done', 'true');
-          setAppPhase('app');
-        }}
-        requestPushPermission={requestPushPermission}
-      />
-    );
-  }
-
-  if (firebaseError) {
-    return <MaintenanceView error={firebaseError} />;
-  }
+  if (appPhase === 'auth') return <AuthScreen onLogin={handleAuthClick} onSkip={() => setAppPhase('welcome')} />;
+  if (appPhase === 'welcome') return <WelcomeScreen isFirstTime={!localStorage.getItem('gsat_legal_accepted')} onFinishWelcome={() => { localStorage.setItem('gsat_onboarding_done', 'true'); setAppPhase('app'); }} requestPushPermission={testPushNotification} />;
+  if (firebaseError) return <MaintenanceView error={firebaseError} />;
 
   return (
     <>
       {showPrivacyModal && <PrivacyModal onAccept={() => { setShowPrivacyModal(false); setAppPhase('app'); }} />}
       <IosNotification notification={notification} />
+
+      {/* 🚀 加入智慧通知導引，放置在 UI 最頂層 */}
+      {appPhase === 'app' && (
+        <SmartNotificationBanner onActivate={testPushNotification} />
+      )}
 
       {/* Fixed Top Navigation & Legal */}
       {appPhase === 'app' && (
@@ -619,10 +603,10 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
 
           {/* 法律與設定區域 */}
           <div className="flex items-center gap-4 w-44 justify-end">
-            <div className="hidden md:flex items-center bg-gray-100/40 dark:bg-white/5 px-4 py-2 rounded-2xl border border-gray-200/50 dark:border-white/10 shrink-0 glass-effect">
-              <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-500 transition-colors uppercase tracking-[0.15em] px-1">Privacy</a>
-              <span className="text-gray-300 dark:text-white/10 mx-1">|</span>
-              <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[11px] font-black text-gray-400 hover:text-emerald-500 transition-colors uppercase tracking-[0.15em] px-1">Terms</a>
+            <div className="flex items-center bg-gray-100/40 dark:bg-white/5 px-3 py-2 rounded-xl sm:rounded-2xl border border-gray-200/50 dark:border-white/10 shrink-0 glass-effect">
+              <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[10px] sm:text-[11px] font-black text-gray-400 hover:text-emerald-500 transition-colors uppercase tracking-[0.1em] sm:tracking-[0.15em] px-1">Privacy</a>
+              <span className="text-gray-300 dark:text-white/10 mx-0.5">|</span>
+              <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[10px] sm:text-[11px] font-black text-gray-400 hover:text-emerald-500 transition-colors uppercase tracking-[0.1em] sm:tracking-[0.15em] px-1">Terms</a>
             </div>
             <button
               onClick={() => {
@@ -666,15 +650,16 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
       {/* Content */}
       <div
         ref={contentRef}
-        className="flex-1 overflow-y-auto w-full px-4 ios-safe-pt ios-safe-pb touch-pan-y scrollbar-hide bg-transparent scroll-smooth transition-all duration-300"
+        className="flex-1 overflow-y-auto w-full px-4 pt-28 ios-safe-pb touch-pan-y scrollbar-hide bg-transparent scroll-smooth transition-all duration-300"
       >
         {activeTab === 'dashboard' && (
           <DashboardTab
+            isAdmin={isAdmin}
             weeklySchedule={weeklySchedule}
             setWeeklySchedule={setWeeklySchedule}
             subjects={subjects}
             triggerNotification={triggerNotification}
-            requestPushPermission={requestPushPermission}
+            requestPushPermission={testPushNotification}
             testPushNotification={testPushNotification}
             setSettingsOpen={() => navTo('settings')}
             isGoogleConnected={isGoogleConnected}
@@ -687,7 +672,15 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
           />
         )}
         {activeTab === 'english' && <VocabularyTab userProfile={userProfile} isAdmin={isAdmin} theme={theme} geminiKey={geminiKey} />}
-        {activeTab === 'contactBook' && <ContactBookTab contactBook={contactBook} setContactBook={setContactBook} subjects={subjects} />}
+        {activeTab === 'contactBook' && (
+          <ContactBookTab 
+            contactBook={contactBook} 
+            setContactBook={setContactBook} 
+            subjects={subjects} 
+            isAdmin={isAdmin}
+            saveContactBookToFirestore={saveContactBookToFirestore}
+          />
+        )}
         {activeTab === 'notes' && (
           <NotesTab
             notes={notes} setNotes={setNotes}
@@ -708,7 +701,7 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
             handleAuthClick={handleAuthClick}
             isGoogleConnected={isGoogleConnected}
             handleSignoutClick={handleSignoutClick}
-            requestPushPermission={requestPushPermission}
+            requestPushPermission={testPushNotification}
             testPushNotification={testPushNotification}
             theme={theme}
             setTheme={setTheme}
@@ -728,7 +721,6 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
         )}
         {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
       </div>
-
     </>
   );
 };
@@ -736,17 +728,46 @@ const MainApp = ({ forcedTheme, setForcedTheme }) => {
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('gsat_theme') || 'system');
 
+  const requestPushPermission = async () => {
+    if (!('Notification' in window)) {
+      toast.error('此瀏覽器不支援通知。iOS 請先「加入主畫面」。');
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        toast.success('通知已授權！系統將自動連線。');
+      } else {
+        toast.error('請在瀏覽器設定中允許通知。');
+      }
+    } catch (err) {
+      console.error("FCM Error:", err);
+    }
+  };
+
+  // 註冊 Service Worker
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then((registration) => console.log('✅ Service Worker 註冊成功:', registration.scope))
+        .catch((err) => console.error('❌ Service Worker 註冊失敗:', err));
+    }
+  }, []);
+
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   useEffect(() => {
     localStorage.setItem('gsat_theme', theme);
   }, [theme]);
 
-  // 我們需要在一個元件裡同步 theme 狀態
   return (
-    <div className={`w-full min-h-[100dvh] bg-[var(--bg-main)] flex justify-center font-sans overflow-hidden transition-colors duration-500 ${isDark ? 'dark' : ''}`}>
-      <div className="main-container">
-        <MainApp forcedTheme={theme} setForcedTheme={setTheme} />
+    <div className={isDark ? 'dark' : ''}>
+      <div className="main-container relative h-[100dvh] w-full flex flex-col bg-slate-50 dark:bg-zinc-950 overflow-hidden font-sans text-slate-800 dark:text-zinc-200">
+        <MainApp
+          forcedTheme={theme}
+          setForcedTheme={setTheme}
+          testPushNotification={requestPushPermission}
+        />
       </div>
     </div>
   );

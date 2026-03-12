@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Bell, ShieldCheck, Sparkles, GraduationCap, MapPin, CheckCircle2, 
-  ChevronRight, Lock, Globe, MessageSquare, X 
+  ChevronRight, Lock, Globe, MessageSquare, X, Share, PlusSquare, Smartphone
 } from 'lucide-react';
 
 export const IosNotification = ({ notification }) => {
@@ -92,6 +92,27 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${grantedNotif ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400 border border-slate-100'}`}><Bell size={20} className="shrink-0" /></div>
             <div className="flex-1 text-[12px] font-black text-slate-800">通知<br/><span className="text-[10px] text-slate-400 font-bold">重要日程與提醒</span></div>
             {!grantedNotif ? <button onClick={handleNotif} className="px-4 py-2 bg-emerald-600 text-white text-[10px] font-black rounded-lg">開啟</button> : <CheckCircle2 size={20} className="text-emerald-500 shrink-0" />}
+          </div>
+        </div>
+
+        {/* iOS 安裝導引 */}
+        <div className="w-full bg-blue-50/50 p-5 rounded-[28px] border border-blue-100/50 space-y-3 animate-slide-up-fade">
+          <div className="flex items-center gap-2 mb-1">
+            <Smartphone size={16} className="text-blue-600 shrink-0" />
+            <h3 className="text-[12px] font-black text-blue-600 uppercase tracking-widest">iOS 安裝建議 (體驗最佳)</h3>
+          </div>
+          <p className="text-[11px] font-bold text-slate-500 leading-relaxed">
+            為了獲得如同 App 的全螢幕體驗與穩定通知：
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-blue-100 shadow-sm">
+              <Share size={16} className="text-blue-500 shrink-0" />
+              <span className="text-[10px] font-black text-slate-700">1. 點擊分享</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-blue-100 shadow-sm">
+              <PlusSquare size={16} className="text-blue-500 shrink-0" />
+              <span className="text-[10px] font-black text-slate-700">2. 加入主畫面</span>
+            </div>
           </div>
         </div>
 

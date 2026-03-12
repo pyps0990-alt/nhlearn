@@ -1,21 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { Store, CreditCard, Clock, MapPin, Navigation, CheckCircle2, Utensils, Coffee, CupSoda, PenTool } from 'lucide-react';
+
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
+
 const StoresTab = ({ isAdmin }) => {
   const [stores, setStores] = useState([]);
+  const [errorMsg, setErrorMsg] = useState('');
   const [newStore, setNewStore] = useState({
     name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '',
     operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: ''
   });
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'stores'), (snapshot) => {
-      const storesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      storesData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      setStores(storesData);
-    });
+    const unsub = onSnapshot(
+      collection(db, 'stores'),
+      (snapshot) => {
+        const storesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        storesData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setStores(storesData);
+        setErrorMsg(''); // 成功讀取時清空錯誤
+      },
+      (error) => {
+        // 💡 加上錯誤捕捉：避免出現 Uncaught Error 導致整個 App 崩潰
+        console.error("Firestore 監聽錯誤 (stores):", error);
+        if (error.code === 'permission-denied') {
+          setErrorMsg('權限不足：無法讀取商店資料，請檢查 Firebase 安全規則。');
+        } else {
+          setErrorMsg('發生錯誤：' + error.message);
+        }
+      }
+    );
     return () => unsub();
   }, []);
 
@@ -57,12 +73,19 @@ const StoresTab = ({ isAdmin }) => {
         出示內湖高中學生證即可享有專屬優惠！
       </p>
 
+      {/* 如果有權限錯誤，顯示在畫面上 */}
+      {errorMsg && (
+        <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-bold border border-red-100">
+          {errorMsg}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {stores.map((store, idx) => (
           <div
             key={store.id}
             style={{ animationDelay: `${idx * 80}ms` }}
-            className="bg-[var(--bg-surface)] p-6 rounded-[36px] shadow-soft border border-[var(--border-color)] flex flex-col relative transition-all duration-300 ease-spring group hover:shadow-float hover:-translate-y-1 animate-slide-up-fade overflow-hidden glass-effect"
+            className="bg-white dark:bg-zinc-900 p-6 rounded-[36px] shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col relative transition-all duration-300 ease-spring group hover:shadow-md hover:-translate-y-1 animate-slide-up-fade overflow-hidden"
           >
             {/* 標題與圖示區塊 */}
             <div className="flex items-center gap-4 mb-5">
@@ -70,7 +93,7 @@ const StoresTab = ({ isAdmin }) => {
                 <div className="w-16 h-16 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-[24px] shadow-sm shrink-0">
                   {React.createElement(getStoreCategoryIcon(store.type), { size: 32, className: "text-emerald-600 dark:text-emerald-400 shrink-0" })}
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-[3px] border-white dark:border-slate-800 flex items-center justify-center shadow-sm">
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-[3px] border-white dark:border-zinc-900 flex items-center justify-center shadow-sm">
                   <CheckCircle2 size={12} className="text-white shrink-0" />
                 </div>
               </div>
@@ -85,8 +108,8 @@ const StoresTab = ({ isAdmin }) => {
                   </span>
                   {store.deliveryStatus && (
                     <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ${store.deliveryStatus.includes('外送')
-                      ? 'text-orange-600 bg-orange-50 border-orange-100'
-                      : 'text-gray-500 bg-gray-50 border-gray-100'
+                      ? 'text-orange-600 bg-orange-50 border-orange-100 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20'
+                      : 'text-gray-500 bg-gray-50 border-gray-100 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700'
                       }`}>
                       {store.deliveryStatus}
                     </span>
@@ -96,29 +119,29 @@ const StoresTab = ({ isAdmin }) => {
             </div>
 
             {/* 專屬優惠區塊 */}
-            <div className="flex items-start gap-3 bg-orange-50 p-4 rounded-3xl border border-orange-100 shadow-inner mb-6 relative overflow-hidden transition-colors group-hover:bg-orange-100/50">
+            <div className="flex items-start gap-3 bg-orange-50 dark:bg-orange-500/10 p-4 rounded-3xl border border-orange-100 dark:border-orange-500/20 shadow-inner mb-6 relative overflow-hidden transition-colors group-hover:bg-orange-100/50 dark:group-hover:bg-orange-500/20">
               <div className="absolute -right-2 -top-2 p-2 opacity-5 pointer-events-none transition-transform duration-500 group-hover:scale-110">
-                <CreditCard size={80} className="text-orange-900" />
+                <CreditCard size={80} className="text-orange-900 dark:text-orange-300" />
               </div>
               <CreditCard size={20} className="text-orange-500 shrink-0 mt-0.5 relative z-10" />
               <div className="flex flex-col gap-0.5 relative z-10">
-                <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">
+                <span className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest">
                   GSAT PRO 獨家優惠
                 </span>
-                <span className="text-[16px] font-black text-orange-800 leading-snug break-words">
+                <span className="text-[16px] font-black text-orange-800 dark:text-orange-200 leading-snug break-words">
                   {store.discount}
                 </span>
               </div>
             </div>
 
             {/* 底部資訊與導航 */}
-            <div className="mt-auto flex items-center justify-between gap-3 pt-5 border-t border-gray-100">
+            <div className="mt-auto flex items-center justify-between gap-3 pt-5 border-t border-gray-100 dark:border-zinc-800">
               <div className="flex flex-col gap-1.5 w-1/2">
-                <div className="flex items-center gap-2 text-[11px] font-bold text-gray-500">
+                <div className="flex items-center gap-2 text-[11px] font-bold text-gray-500 dark:text-zinc-400">
                   <Clock size={13} className="text-gray-400 shrink-0" />
                   <span className="truncate">{store.operatingHours || store.estimatedTime || '詳見官網'}</span>
                 </div>
-                <div className="flex items-center gap-2 text-[11px] font-bold text-gray-500">
+                <div className="flex items-center gap-2 text-[11px] font-bold text-gray-500 dark:text-zinc-400">
                   <MapPin size={13} className="text-gray-400 shrink-0" />
                   <span className="truncate">{store.address || '內湖區校園周邊'}</span>
                 </div>

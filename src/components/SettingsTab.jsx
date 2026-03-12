@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   Settings, User, Monitor, Sun, Moon, Edit3,
   Bell, Sparkles, Cloud, BrainCircuit, RefreshCw, GraduationCap,
-  CheckCircle2, X, Store, Trash2, Lock, MapPin, Globe, Plus, Link
+  CheckCircle2, X, Store, Trash2, Lock, MapPin, Globe, Plus, Link, Share, PlusSquare, Smartphone,
+  Utensils, Coffee, CupSoda, PenTool
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -35,6 +36,16 @@ const SettingsTab = ({
     name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '',
     operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: ''
   });
+
+  const getStoreCategoryIcon = (type) => {
+    switch (type) {
+      case '餐飲': return Utensils;
+      case '飲料': return CupSoda;
+      case '咖啡': return Coffee;
+      case '文具': return PenTool;
+      default: return Store;
+    }
+  };
 
   // 權限狀態
   const [locPermission, setLocPermission] = useState('prompt');
@@ -422,6 +433,9 @@ const SettingsTab = ({
             <button onClick={testPushNotification} className="flex-1 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-slate-100 dark:border-white/5">
               <Sparkles size={14} className="shrink-0" /> 測試推播
             </button>
+            <button onClick={requestPushPermission} className="flex-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-emerald-100 dark:border-white/5">
+              <Bell size={14} className="shrink-0" /> 測試通知連線
+            </button>
           </div>
         </div>
         <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
@@ -436,6 +450,34 @@ const SettingsTab = ({
             ) : (
               <button onClick={handleAuthClick} className="px-4 py-2 rounded-xl text-xs font-black bg-blue-600 text-white active:scale-90">登入</button>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* iOS 安裝教學 */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 px-1">
+          <Smartphone size={16} className="text-blue-600 shrink-0" />
+          <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">iOS 安裝教學</h3>
+        </div>
+        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-blue-100 dark:border-white/10 shadow-soft glass-effect space-y-4">
+          <div className="flex items-start gap-3 bg-blue-50/50 dark:bg-blue-500/5 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/10 transition-transform active:scale-[0.98]">
+            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+              <Share size={20} className="text-blue-500" />
+            </div>
+            <div>
+              <div className="text-sm font-black text-slate-900 dark:text-white">第一步：點擊 Safari 下方分享按鈕</div>
+              <div className="text-[11px] font-bold text-slate-500 dark:text-gray-400">在 Safari 瀏覽器打開本站後點擊底部工具列</div>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 bg-blue-50/50 dark:bg-blue-500/5 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/10 transition-transform active:scale-[0.98]">
+            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+              <PlusSquare size={20} className="text-blue-500" />
+            </div>
+            <div>
+              <div className="text-sm font-black text-slate-900 dark:text-white">第二步：選擇「加入主畫面」</div>
+              <div className="text-[11px] font-bold text-slate-500 dark:text-gray-400">這將讓 App 脫離瀏覽器，獲得全螢幕與穩定通知</div>
+            </div>
           </div>
         </div>
       </section>
