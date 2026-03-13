@@ -1,5 +1,6 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onRequest } = require("firebase-functions/v2/https"); // 💡 新增：用於手動測試
 const admin = require("firebase-admin");
 const moment = require("moment-timezone");
 
@@ -66,6 +67,26 @@ const sendPushToClass = async (classId, title, body, priority = 'high') => {
         console.error(`[推播錯誤] 班級 ${classId} 發送失敗:`, error);
     }
 };
+
+// ============================================================================
+// 🧪 測試用函式：手動觸發通知
+// 部署後可透過瀏覽器訪問網址觸發：https://<region>-<project-id>.cloudfunctions.net/testNotification?classId=206
+// ============================================================================
+exports.testNotification = onRequest(async (req, res) => {
+    const classId = req.query.classId || "206";
+    console.log(`[手動測試] 正在向班級 ${classId} 發送測試通知...`);
+
+    await sendPushToClass(
+        classId,
+        "🧪 GSAT Pro 測試通知",
+        "這是一則手動觸發的測試訊息，收到代表您的 FCM 與 VAPID 金鑰設定完全正確！"
+    );
+
+    res.status(200).send({
+        status: "success",
+        message: `已嘗試向班級 ${classId} 發送測試推播，請檢查手機。`
+    });
+});
 
 // ============================================================================
 // ⚡ 核心優化：即時異動推送 (秒級反應)
@@ -137,6 +158,15 @@ exports.checkAndSendClassReminders = onSchedule({
                 // 如果是 Map，Key 可能為字串 "1" 或數字 1
                 todayClasses = schedule[dayNum] || schedule[String(dayNum)] || [];
             }
+
+            // 💡 測試用區塊：如果您想模擬一堂「現在就要上課」的課程，可以取消下方註解
+            /*
+            todayClasses.push({
+                subject: "測試提醒課程",
+                startTime: moment().tz(TIMEZONE).add(3, 'minutes').format("HH:mm"),
+                location: "測試教室"
+            });
+            */
 
             for (const course of todayClasses) {
                 if (!course.startTime) continue;
