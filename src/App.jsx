@@ -251,9 +251,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   useEffect(() => {
     if (!db || !classID) return;
 
+    // ⚠️ 確保你的資料是存放在 'classes' 集合中
     const docRef = doc(db, 'classes', classID);
     const unsub = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists && docSnap.exists()) {
+      if (docSnap.exists()) {
         const cloudData = docSnap.data().schedule;
         if (Array.isArray(cloudData)) {
           const transformed = { 1: [], 2: [], 3: [], 4: [], 5: [] };
@@ -277,6 +278,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
         if (docSnap.data().contactBook) {
           setContactBook(docSnap.data().contactBook);
         }
+      } else {
+        // 🚀 關鍵修復：如果雲端找不到該班級，必須將畫面重置為空課表
+        console.log(`雲端尚未建立 ${classID} 班的資料`);
+        setWeeklySchedule(INITIAL_WEEKLY_SCHEDULE);
+        setContactBook({});
       }
     }, (err) => {
       console.error("Firestore sync error:", err);

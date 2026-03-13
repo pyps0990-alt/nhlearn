@@ -221,7 +221,7 @@ const DashboardTab = ({
     const now = new Date(currentTime);
     const day = now.getDay();
     const hours = now.getHours();
-    
+
     // 計算今天最後一堂課的結束時間
     const todayClasses = (weeklySchedule && weeklySchedule[day]) || [];
     const lastClassMins = todayClasses.reduce((max, c) => Math.max(max, timeToMins(c.endTime)), 0);
@@ -603,7 +603,7 @@ const DashboardTab = ({
         {customCountdowns?.map((item, i) => {
           const days = getDaysLeft(item.date);
           const style = item.style || 'gradient';
-          
+
           const styles = {
             simple: "bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 text-slate-800 dark:text-white",
             gradient: "bg-gradient-to-br from-emerald-500 to-teal-600 text-white",
@@ -661,6 +661,24 @@ const DashboardTab = ({
                 <button key={d.id} onClick={() => setEditDayTab(d.id)} className={`px-5 py-3 rounded-2xl font-black whitespace-nowrap transition-all ${editDayTab === d.id ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'}`}>{d.label}</button>
               ))}
             </div>
+            <button
+              onClick={async () => {
+                triggerNotification('連線中', '正在將課表上傳至雲端...');
+                try {
+                  // 🚀 直接強制呼叫 App.jsx 傳過來的存檔功能
+                  await saveToFirestore(weeklySchedule);
+                  triggerNotification('同步成功 🎉', '課表已安全備份至雲端！');
+                  setIsEditingSchedule(false); // 存檔成功後才關閉編輯畫面
+                } catch (err) {
+                  triggerNotification('同步失敗 ❌', '請檢查網路或系統權限');
+                  console.error('上傳錯誤:', err);
+                }
+              }}
+              className="w-full mt-4 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[16px] shadow-lg shadow-emerald-600/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <Check size={20} /> 完成編輯並同步至雲端
+            </button>
+
             <div className="space-y-4">
               {(displaySchedule[editDayTab] || []).map(item => (
                 <div key={item.id} className="p-6 bg-gray-50 dark:bg-white/5 rounded-[32px] border border-gray-100 dark:border-white/5 relative group">
@@ -699,12 +717,7 @@ const DashboardTab = ({
                   <button onClick={() => deleteSchedule(item.id)} className="absolute top-4 right-4 text-red-400/50 hover:text-red-500 p-2 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={20} /></button>
                 </div>
               ))}
-              <button
-                onClick={() => setWeeklySchedule(prev => ({ ...prev, [editDayTab]: [...(prev[editDayTab] || []), { id: Date.now(), subject: '', startTime: '08:00', endTime: '09:00', location: '', teacher: '', rescheduled: false }] }))}
-                className="w-full py-5 border-2 border-dashed border-gray-100 dark:border-white/5 rounded-[32px] text-gray-400 dark:text-gray-600 font-black hover:border-emerald-200 dark:hover:border-emerald-900/30 hover:text-emerald-500 transition-all active:scale-[0.98]"
-              >
-                + 新增課程內容
-              </button>
+
             </div>
           </div>
         ) : (

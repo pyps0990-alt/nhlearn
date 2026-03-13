@@ -282,15 +282,6 @@ const SettingsTab = ({
             <Edit3 size={18} className="shrink-0" /> 管理 / 編輯班級課表
           </button>
 
-          {classID === '206' && (
-            <button
-              onClick={handleImport206Template}
-              className="w-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 font-black py-4 rounded-2xl active:scale-[0.98] transition-all hover:bg-blue-100 dark:hover:bg-blue-900/40 flex items-center justify-center gap-2"
-            >
-              <RefreshCw size={18} className="shrink-0" /> 導入 206 班範例課表
-            </button>
-          )}
-
           <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
             💡 輸入班級代碼後，系統會自動從雲端同步該班級的課表。編輯後的課表也將同步至雲端供同學查看。
           </div>
