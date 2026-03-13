@@ -24,7 +24,8 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
 
   const getFormattedDate = (dateStr) => {
     const d = new Date(dateStr);
-    return `${d.getMonth() + 1}月${d.getDate()}日 (${WEEKDAYS[d.getDay()].label})`;
+    const days = ['日', '一', '二', '三', '四', '五', '六'];
+    return `${d.getMonth() + 1}月${d.getDate()}日 (${days[d.getDay()]})`;
   };
 
   const changeDate = (days) => {
