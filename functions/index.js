@@ -139,7 +139,8 @@ exports.checkAndSendClassReminders = onSchedule({
     const dayNum = now.day(); // 0-6
     const currentMins = now.hours() * 60 + now.minutes();
 
-    if (dayNum === 0 || dayNum === 6) return; // 週末不運行
+    // 💡 已移除週末不運行的限制，讓週六、週日也能收到排程通知
+    // if (dayNum === 0 || dayNum === 6) return; 
 
     try {
         const classesSnap = await db.collection("classes").get();
