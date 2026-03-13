@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { WEEKDAYS, ICON_MAP } from '../utils/constants';
 import { fetchAI } from '../utils/helpers';
+import toast from 'react-hot-toast';
 
 const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore }) => {
   if (!contactBook || !subjects) return (
@@ -18,12 +19,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
   const [isParsing, setIsParsing] = useState(false);
 
   const triggerNotification = (title, message) => {
-    // Basic fallback notification if toast isn't available
-    if (window.toast) {
-      window.toast.success(`${title}: ${message}`);
-    } else {
-      console.log(`${title}: ${message}`);
-    }
+    toast.success(`${title}: ${message}`);
   };
 
   const getFormattedDate = (dateStr) => {

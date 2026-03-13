@@ -3,7 +3,7 @@ import {
   Settings, User, Monitor, Sun, Moon, Edit3,
   Bell, Sparkles, Cloud, BrainCircuit, RefreshCw, GraduationCap,
   CheckCircle2, X, Store, Trash2, Lock, MapPin, Globe, Plus, Link, Share, PlusSquare, Smartphone,
-  Utensils, Coffee, CupSoda, PenTool
+  Utensils, Coffee, CupSoda, PenTool, Clock
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -15,7 +15,7 @@ const SettingsTab = ({
   testAiConnection, geminiKey, setGeminiKey,
   customLinks, setCustomLinks,
   classID, setClassID, setIsEditingSchedule, navTo,
-  handleImport206Template
+  handleImport206Template, customCountdowns, setCustomCountdowns
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
   const [campusName, setCampusName] = useState(() => localStorage.getItem('gsat_campus_name') || '內湖高中');
@@ -23,6 +23,27 @@ const SettingsTab = ({
   const [editingCampus, setEditingCampus] = useState(false);
   const [tempName, setTempName] = useState('');
   const [tempAddr, setTempAddr] = useState('');
+
+  // 自定義倒數管理狀態
+  const [isAddingCountdown, setIsAddingCountdown] = useState(false);
+  const [newCountdown, setNewCountdown] = useState({ title: '', date: '', style: 'gradient' });
+
+  const handleAddCountdown = () => {
+    if (!newCountdown.title.trim() || !newCountdown.date) {
+      triggerNotification('資料不全', '請輸入名稱與日期');
+      return;
+    }
+    const newList = [...(customCountdowns || []), { ...newCountdown, id: Date.now() }];
+    setCustomCountdowns(newList);
+    setNewCountdown({ title: '', date: '', style: 'gradient' });
+    setIsAddingCountdown(false);
+    triggerNotification('新增成功', `已加入倒數：${newCountdown.title}`);
+  };
+
+  const handleRemoveCountdown = (id, title) => {
+    setCustomCountdowns(customCountdowns.filter(c => c.id !== id));
+    triggerNotification('已刪除', `已移除倒數：${title}`);
+  };
 
   const themeOptions = [
     { value: 'system', label: '跟隨系統', icon: Monitor },
@@ -238,16 +259,16 @@ const SettingsTab = ({
         <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft space-y-4 transition-all duration-500 glass-effect">
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">班級代碼 (用於同步雲端課表)</label>
-            <input 
-              type="text" 
-              placeholder="例如：302" 
-              value={classID} 
+            <input
+              type="text"
+              placeholder="例如：302"
+              value={classID}
               onChange={e => setClassID(e.target.value)}
               className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-5 py-3.5 rounded-2xl text-[15px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white"
             />
           </div>
-          
-          <button 
+
+          <button
             onClick={() => {
               if (!classID.trim()) {
                 triggerNotification('提示', '請先輸入班級代碼');
@@ -262,14 +283,14 @@ const SettingsTab = ({
           </button>
 
           {classID === '206' && (
-            <button 
+            <button
               onClick={handleImport206Template}
               className="w-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 font-black py-4 rounded-2xl active:scale-[0.98] transition-all hover:bg-blue-100 dark:hover:bg-blue-900/40 flex items-center justify-center gap-2"
             >
               <RefreshCw size={18} className="shrink-0" /> 導入 206 班範例課表
             </button>
           )}
-          
+
           <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
             💡 輸入班級代碼後，系統會自動從雲端同步該班級的課表。編輯後的課表也將同步至雲端供同學查看。
           </div>
@@ -283,7 +304,7 @@ const SettingsTab = ({
             <Link size={16} className="text-emerald-600 neon-glow-emerald" />
             <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">自定義快捷連結</h3>
           </div>
-          <button 
+          <button
             onClick={() => setIsAddingLink(!isAddingLink)}
             className={`p-2 transition-all active:scale-90 rounded-xl ${isAddingLink ? 'bg-red-50 text-red-500 rotate-45 shrink-0' : 'bg-emerald-50 text-emerald-600 shrink-0'}`}
           >
@@ -299,9 +320,9 @@ const SettingsTab = ({
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-emerald-600/50 uppercase ml-2">連結名稱</label>
-                <input 
-                  type="text" 
-                  value={newLinkTitle} 
+                <input
+                  type="text"
+                  value={newLinkTitle}
                   onChange={e => setNewLinkTitle(e.target.value)}
                   placeholder="例如：我的 Github"
                   className="w-full bg-white border border-emerald-100 px-5 py-3.5 rounded-2xl text-[14px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
@@ -309,15 +330,15 @@ const SettingsTab = ({
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-black text-emerald-600/50 uppercase ml-2">網址 (URL)</label>
-                <input 
-                  type="text" 
-                  value={newLinkUrl} 
+                <input
+                  type="text"
+                  value={newLinkUrl}
                   onChange={e => setNewLinkUrl(e.target.value)}
                   placeholder="https://example.com"
                   className="w-full bg-white border border-emerald-100 px-5 py-3.5 rounded-2xl text-[14px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
                 />
               </div>
-              <button 
+              <button
                 onClick={handleAddCustomLink}
                 className="w-full bg-emerald-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all hover:bg-emerald-700"
               >
@@ -333,7 +354,7 @@ const SettingsTab = ({
               <div className="w-12 h-12 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-300 dark:text-gray-700 shrink-0">
                 <Link size={24} className="shrink-0" />
               </div>
-              <p className="text-sm font-black text-slate-300">目前尚無自定義連結<br/><span className="text-[10px]">點擊右上角新增</span></p>
+              <p className="text-sm font-black text-slate-300">目前尚無自定義連結<br /><span className="text-[10px]">點擊右上角新增</span></p>
             </div>
           ) : (
             <div className="space-y-1">
@@ -341,15 +362,15 @@ const SettingsTab = ({
                 <div key={link.id} className="p-2 border-b border-slate-50 dark:border-white/5 last:border-none">
                   {editingLink?.id === link.id ? (
                     <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl space-y-3 animate-fadeIn">
-                      <input 
+                      <input
                         className="w-full bg-white dark:bg-slate-800 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100 dark:border-emerald-500/20 text-slate-900 dark:text-white"
-                        value={editingLink.title} 
-                        onChange={e => setEditingLink({...editingLink, title: e.target.value})}
+                        value={editingLink.title}
+                        onChange={e => setEditingLink({ ...editingLink, title: e.target.value })}
                       />
-                      <input 
+                      <input
                         className="w-full bg-white dark:bg-slate-800 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100 dark:border-emerald-500/20 text-slate-900 dark:text-white"
-                        value={editingLink.url} 
-                        onChange={e => setEditingLink({...editingLink, url: e.target.value})}
+                        value={editingLink.url}
+                        onChange={e => setEditingLink({ ...editingLink, url: e.target.value })}
                       />
                       <div className="flex gap-2">
                         <button onClick={handleSaveEdit} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-xs font-black">儲存</button>
@@ -368,13 +389,13 @@ const SettingsTab = ({
                         </div>
                       </div>
                       <div className="flex items-center">
-                        <button 
+                        <button
                           onClick={() => setEditingLink(link)}
                           className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl transition-all"
                         >
                           <Edit3 size={18} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleRemoveLink(link.id, link.title)}
                           className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                         >
@@ -579,25 +600,81 @@ const SettingsTab = ({
           </div>
         )}
       </section>
-
-      {/* 底部法律資訊 */}
-      <section className="pt-12 pb-10 flex flex-col items-center gap-3">
-        <div className="flex gap-4 items-center">
-          <button 
-            onClick={() => navTo('legal')} 
-            className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 transition-colors border-b border-slate-200 dark:border-slate-800"
+      {/* 自定義倒數管理 */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Clock size={16} className="text-emerald-600 neon-glow-emerald" />
+            <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">自定義倒數設置</h3>
+          </div>
+          <button
+            onClick={() => setIsAddingCountdown(!isAddingCountdown)}
+            className={`p-2 rounded-xl transition-all active:scale-95 ${isAddingCountdown ? 'bg-red-50 text-red-500 rotate-45' : 'bg-emerald-50 text-emerald-600'}`}
           >
-            隱私權政策
-          </button>
-          <div className="w-[1px] h-2 bg-slate-200 dark:bg-slate-800" />
-          <button 
-            onClick={() => navTo('legal')} 
-            className="text-[10px] font-bold text-slate-400 hover:text-emerald-600 transition-colors border-b border-slate-200 dark:border-slate-800"
-          >
-            服務條款
+            <Plus size={20} />
           </button>
         </div>
-        <p className="text-[9px] font-black text-slate-300 dark:text-slate-700 uppercase tracking-tighter">© 2024 GSAT Pro Team · Windows & iOS Optimized</p>
+
+        {isAddingCountdown && (
+          <div className="bg-white dark:bg-white/5 border border-emerald-100 dark:border-emerald-500/20 rounded-[32px] p-6 shadow-soft animate-slide-up-fade">
+            <div className="space-y-4">
+              <input
+                placeholder="事件名稱 (例如：畢業典禮)"
+                className="w-full p-4 rounded-2xl border border-gray-100 dark:border-white/10 text-sm font-bold bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-emerald-500"
+                value={newCountdown.title}
+                onChange={e => setNewCountdown({ ...newCountdown, title: e.target.value })}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="date"
+                  className="p-4 rounded-2xl border border-gray-100 dark:border-white/10 text-sm font-bold bg-gray-50 dark:bg-white/5 outline-none"
+                  value={newCountdown.date}
+                  onChange={e => setNewCountdown({ ...newCountdown, date: e.target.value })}
+                />
+                <select
+                  className="p-4 rounded-2xl border border-gray-100 dark:border-white/10 text-sm font-bold bg-gray-50 dark:bg-white/5 outline-none"
+                  value={newCountdown.style}
+                  onChange={e => setNewCountdown({ ...newCountdown, style: e.target.value })}
+                >
+                  <option value="gradient">主題漸層</option>
+                  <option value="simple">極簡風格</option>
+                  <option value="neon">電競霓虹</option>
+                </select>
+              </div>
+              <button
+                onClick={handleAddCountdown}
+                className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all"
+              >
+                確認新增
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-[var(--bg-surface)] p-2 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+          {!customCountdowns || customCountdowns.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 font-bold text-sm">
+              目前沒有自定義倒數項目 ✨
+            </div>
+          ) : (
+            <div className="space-y-2 p-2">
+              {customCountdowns.map(item => (
+                <div key={item.id} className="flex justify-between items-center bg-white dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="text-xl">📅</div>
+                    <div>
+                      <div className="font-black text-slate-800 dark:text-white text-sm">{item.title}</div>
+                      <div className="text-[11px] font-bold text-slate-400 mt-0.5">{item.date} · {item.style}</div>
+                    </div>
+                  </div>
+                  <button onClick={() => handleRemoveCountdown(item.id, item.title)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );

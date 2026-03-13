@@ -170,7 +170,7 @@ const SchoolNewsWidget = () => {
 const DashboardTab = ({
   isAdmin, weeklySchedule, setWeeklySchedule, subjects, triggerNotification,
   customLinks, contactBook, isEditingSchedule, setIsEditingSchedule, classID,
-  saveToFirestore, setSettingsOpen
+  saveToFirestore, setSettingsOpen, customCountdowns
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -217,21 +217,36 @@ const DashboardTab = ({
   }, []);
 
   // --- 智慧日期與「20:00 預習」邏輯 ---
-  const { targetDay, isTomorrowMode, displayDate, targetDateStr } = useMemo(() => {
+  const { targetDay, isTomorrowMode, displayDate, targetDateStr, isWeekendRest } = useMemo(() => {
     const now = new Date(currentTime);
+    const day = now.getDay();
     const hours = now.getHours();
-    const isTomorrow = hours >= 20;
+    
+    // 計算今天最後一堂課的結束時間
+    const todayClasses = (weeklySchedule && weeklySchedule[day]) || [];
+    const lastClassMins = todayClasses.reduce((max, c) => Math.max(max, timeToMins(c.endTime)), 0);
+    const currentMins = now.getHours() * 60 + now.getMinutes();
 
-    let tDay = now.getDay();
+    // 假日休息判斷邏輯：
+    // 1. 週五且課程已結束
+    // 2. 週六全天
+    // 3. 週日且未到 20:00
+    const isFridayEnd = (day === 5 && currentMins >= lastClassMins && lastClassMins > 0);
+    const isSaturday = (day === 6);
+    const isSundayBefore8 = (day === 0 && hours < 20);
+    const weekendRest = isFridayEnd || isSaturday || isSundayBefore8;
+
+    let tDay = day;
     let display = new Date(now);
+    let tomorrowMode = hours >= 20;
 
-    if (isTomorrow) {
+    if (tomorrowMode) {
       tDay = (tDay + 1) % 7;
       display.setDate(display.getDate() + 1);
     }
 
-    // 週末處理：若為週六 (6) 或週日 (0)，強化至週一 (1)
-    if (tDay === 0 || tDay === 6) {
+    // 若非週末休息，且目標日期是週末，自動跳轉到週一
+    if (!weekendRest && (tDay === 0 || tDay === 6)) {
       const daysUntilMonday = tDay === 0 ? 1 : 2;
       tDay = 1;
       display.setDate(display.getDate() + daysUntilMonday);
@@ -239,11 +254,12 @@ const DashboardTab = ({
 
     return {
       targetDay: tDay,
-      isTomorrowMode: isTomorrow,
+      isTomorrowMode: tomorrowMode,
       displayDate: display.toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' }),
-      targetDateStr: display.toISOString().split('T')[0]
+      targetDateStr: display.toISOString().split('T')[0],
+      isWeekendRest: weekendRest
     };
-  }, [currentTime]);
+  }, [currentTime, weeklySchedule]);
 
   // --- 💡 當前課程進度計算 ---
   const { currentClass, currentProgress, hasClassesToday } = useMemo(() => {
@@ -582,70 +598,47 @@ const DashboardTab = ({
         <Sparkles className="absolute -right-4 -bottom-4 text-emerald-900 dark:text-white opacity-5 dark:opacity-10 w-40 h-40 pointer-events-none" />
       </div>
 
-      {/* 考試倒數區塊 */}
-      <div className="grid grid-cols-2 gap-4">
-        {[
-          { label: '學測倒數', days: getDaysLeft(EXAM_DATES.gsat), icon: Sparkles, color: 'from-purple-500 to-indigo-600', unit: 'Days' },
-          { label: '段考倒數', days: getDaysLeft(EXAM_DATES.midterm), icon: BookText, color: 'from-orange-400 to-rose-500', unit: 'Days' }
-        ].map((exam, i) => (
-          <div key={i} className={`bg-gradient-to-br ${exam.color} rounded-[32px] p-5 text-white shadow-soft relative overflow-hidden group active:scale-[0.98] transition-all`}>
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-2">
-                <exam.icon size={16} className="opacity-80" />
-                <span className="text-[12px] font-black opacity-90 tracking-wider font-sans">{exam.label}</span>
+      {/* 自定義倒數區塊 */}
+      <div className={`grid ${customCountdowns?.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+        {customCountdowns?.map((item, i) => {
+          const days = getDaysLeft(item.date);
+          const style = item.style || 'gradient';
+          
+          const styles = {
+            simple: "bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 text-slate-800 dark:text-white",
+            gradient: "bg-gradient-to-br from-emerald-500 to-teal-600 text-white",
+            neon: "bg-slate-900 border border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+          };
+
+          return (
+            <div key={item.id || i} className={`${styles[style] || styles.gradient} rounded-[32px] p-5 shadow-soft relative overflow-hidden group active:scale-[0.98] transition-all`}>
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles size={16} className="opacity-80" />
+                  <span className="text-[12px] font-black opacity-90 tracking-wider font-sans">{item.title}</span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[32px] font-black leading-none">{Math.max(0, days)}</span>
+                  <span className="text-[12px] font-bold opacity-70">Days</span>
+                </div>
               </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-[32px] font-black leading-none">{Math.max(0, exam.days)}</span>
-                <span className="text-[12px] font-bold opacity-70">{exam.unit}</span>
-              </div>
+              <Sparkles className="absolute -right-4 -bottom-4 w-20 h-20 opacity-10 group-hover:scale-125 transition-transform duration-700" />
             </div>
-            <exam.icon className="absolute -right-4 -bottom-4 w-20 h-20 opacity-10 group-hover:scale-125 transition-transform duration-700" />
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* 學習排程區塊 */}
       <div id="schedule-section" className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[40px] border border-[var(--border-color)] shadow-soft relative overflow-hidden transition-all duration-500">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-              <Calendar className="text-emerald-500 shrink-0" size={22} />
+        {isWeekendRest && !isEditingSchedule ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
+              <Sun className="text-emerald-500" size={40} />
             </div>
-            <div>
-              <h3 className="text-[20px] font-black text-slate-900 dark:text-white">
-                {isEditingSchedule ? '管理班級課表' : (isTomorrowMode ? '明日預習模式' : '今日學習排程')}
-              </h3>
-              {!isEditingSchedule && (
-                <p className="text-[11px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-0.5">
-                  {displayDate}
-                </p>
-              )}
-            </div>
+            <h4 className="text-[22px] font-black text-slate-900 dark:text-white mb-2">假日休息中 ✨</h4>
+            <p className="text-slate-500 dark:text-gray-400 font-bold max-w-[200px]">辛苦了一週，好好充電！週晚 20:00 後顯示新課程。</p>
           </div>
-          <div className="flex gap-2">
-            {isAdmin && !isEditingSchedule && (
-              <button
-                onClick={() => {
-                  setIsSwapMode(!isSwapMode);
-                  setSelectedForSwap([]);
-                }}
-                className={`px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 ${isSwapMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-500/20'}`}
-              >
-                <ArrowUpDown size={14} /> {isSwapMode ? '取消調課' : '⚡ 快速調課'}
-              </button>
-            )}
-            {isEditingSchedule && (
-              <button
-                onClick={() => setIsEditingSchedule(false)}
-                className="px-5 py-2 bg-emerald-600 text-white rounded-2xl text-sm font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20"
-              >
-                完成並儲存
-              </button>
-            )}
-          </div>
-        </div>
-
-        {isEditingSchedule ? (
+        ) : isEditingSchedule ? (
           <div className="flex flex-col gap-4">
             {!previewSchedule && (
               <label className="border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 rounded-3xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-500/5 transition-all group">
