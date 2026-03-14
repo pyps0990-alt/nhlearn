@@ -72,7 +72,7 @@ body, html {
   transition: background-color 0.4s ease, box-shadow 0.4s ease;
 }
 @media (max-width: 768px) {
-  .main-container { height: -webkit-fill-available; height: fill-available; }
+  .main-container { height: 100dvh; }
 }
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .pb-safe { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }

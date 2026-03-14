@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Menu, Settings, LayoutDashboard, BookOpen, Notebook,
   Library, Store, Bus, HelpCircle, ShieldCheck,
-  BellRing, Bell, AlertCircle, RefreshCw
+  BellRing, Bell, AlertCircle, RefreshCw, MessageSquare
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -11,9 +11,19 @@ import SmartNotificationBanner from './components/SmartNotificationBanner';
 import { INITIAL_WEEKLY_SCHEDULE, SUBJECTS_LIST, DEFAULT_LINKS, ICON_MAP, GOOGLE_CLIENT_ID, GOOGLE_REDIRECT_URI, DRIVE_DISCOVERY_DOC, PEOPLE_DISCOVERY_DOC, SCOPES } from './utils/constants';
 import { SCHEDULE_206_TEMPLATE } from './utils/templates';
 import { timeToMins } from './utils/helpers';
+
+export const DEFAULT_DASHBOARD_LAYOUT = [
+  { id: 'countdowns', visible: true, label: '自訂倒數計時' },
+  { id: 'greeting', visible: true, label: '歡迎卡片與進度' },
+  { id: 'pomodoro', visible: true, label: '專注模式 (番茄鐘)' },
+  { id: 'schedule', visible: true, label: '今日課表與時間軸' },
+  { id: 'links', visible: true, label: '自訂外部連結' },
+  { id: 'news', visible: true, label: '校園最新公告' },
+  { id: 'prep', visible: true, label: '明日準備事項' }
+];
 import { db, auth, messaging, firebaseError, VAPID_KEY } from './firebase';
-import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signInWithCredential } from 'firebase/auth';
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 import DashboardTab from './components/DashboardTab';
 import VocabularyTab from './components/VocabularyTab';
@@ -25,6 +35,8 @@ import TutorialTab from './components/TutorialTab';
 import SettingsTab from './components/SettingsTab';
 import LegalTab from './components/LegalTab';
 import LandingPage from './components/LandingPage';
+import FeedbackTab from './components/FeedbackTab';
+import CommandPalette from './components/CommandPalette';
 import { IosNotification, WelcomeScreen, AuthScreen, PrivacyModal } from './components/SharedComponents';
 
 
@@ -63,7 +75,6 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   const setTheme = setForcedTheme;
 
   // ─── State ───────────────────────────────────────────────────────────────
-  const [user, setUser] = useState(null); // 🚀 關鍵修復：加入 user 狀態，解決 is not defined
   const [activeTab, setActiveTab] = useState('dashboard');
   const [previousTab, setPreviousTab] = useState('dashboard');
   const contentRef = useRef(null);
@@ -79,6 +90,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   };
 
   const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState(null);
   const [notification, setNotification] = useState({ show: false, title: '', message: '' });
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
@@ -96,6 +108,23 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   const [classID, setClassID] = useState(() => localStorage.getItem('gsat_class_id') || '');
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [notices, setNotices] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0); // 紀錄未讀通知數量 (用於 iOS 紅點)
+  const lastNoticeTimestamp = useRef(Date.now()); // 🔴 紀錄 App 啟動時間，只推播比這更新的通知
+  const [campusName, setCampusName] = useState(() => localStorage.getItem('gsat_campus_name') || '內湖高中');
+  const [campusAddress, setCampusAddress] = useState(() => localStorage.getItem('gsat_campus_address') || '台北市內湖區文德路218號');
+  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
+
+  // 全域快捷鍵 Ctrl+K 開啟指令面板
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const [weeklySchedule, setWeeklySchedule] = useState(() => {
     try { return JSON.parse(localStorage.getItem('gsat_schedule')) || INITIAL_WEEKLY_SCHEDULE; } catch { return INITIAL_WEEKLY_SCHEDULE; }
@@ -115,15 +144,20 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   const [customCountdowns, setCustomCountdowns] = useState(() => {
     try { return JSON.parse(localStorage.getItem('gsat_custom_countdowns')) || []; } catch { return []; }
   });
+  const [dashboardLayout, setDashboardLayout] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('gsat_dashboard_layout'));
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        const savedIds = saved.map(s => s.id);
+        const missing = DEFAULT_DASHBOARD_LAYOUT.filter(d => !savedIds.includes(d.id));
+        return [...saved, ...missing];
+      }
+      return DEFAULT_DASHBOARD_LAYOUT;
+    } catch { return DEFAULT_DASHBOARD_LAYOUT; }
+  });
 
   // Refs
-  const notifiedSet = useRef(new Set());
-  const scheduleRef = useRef(weeklySchedule);
-  const contactBookRef = useRef(contactBook);
   const tokenClientRef = useRef(null);
-
-  useEffect(() => { scheduleRef.current = weeklySchedule; }, [weeklySchedule]);
-  useEffect(() => { contactBookRef.current = contactBook; }, [contactBook]);
 
   // Persist
   useEffect(() => { localStorage.setItem('gsat_schedule', JSON.stringify(weeklySchedule)); }, [weeklySchedule]);
@@ -133,6 +167,19 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   useEffect(() => { localStorage.setItem('gsat_custom_links', JSON.stringify(customLinks)); }, [customLinks]);
   useEffect(() => { localStorage.setItem('gsat_custom_countdowns', JSON.stringify(customCountdowns)); }, [customCountdowns]);
   useEffect(() => { localStorage.setItem('gsat_class_id', classID); }, [classID]);
+  useEffect(() => { localStorage.setItem('gsat_dashboard_layout', JSON.stringify(dashboardLayout)); }, [dashboardLayout]);
+
+  // ─── 清除 iOS App 圖示紅點 (當使用者開啟/回到 App 時) ─────────────────────
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setUnreadCount(0);
+        if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(e => console.error(e));
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   // 全域自動置頂
   useEffect(() => {
@@ -173,9 +220,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     const unsub = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
         setUser(authUser);
-        await requestPushPermission(authUser); // 登入後自動執行同步
+        setIsGoogleConnected(true); // 🚀 確保 Firebase 登入狀態同步至 Google 連線狀態
+        await requestPushPermission(authUser);
       } else {
         setUser(null);
+        setIsGoogleConnected(false);
       }
     });
     return () => unsub();
@@ -191,9 +240,9 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
       if (docSnap.exists()) {
         const cloudData = docSnap.data().schedule;
         if (Array.isArray(cloudData)) {
-          const transformed = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+          const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
           cloudData.forEach((item, idx) => {
-            if (transformed[item.day]) {
+            if (transformed[item.day] !== undefined) {
               transformed[item.day].push({
                 id: item.id || Date.now() + idx,
                 subject: item.course || item.subject,
@@ -201,7 +250,9 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
                 startTime: item.startTime || '08:00',
                 endTime: item.endTime || '09:00',
                 location: item.location || '',
-                rescheduled: item.rescheduled || false
+                rescheduled: item.rescheduled || false,
+                link: item.link || '',
+                color: item.color || ''
               });
             }
           });
@@ -213,10 +264,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
           setContactBook(docSnap.data().contactBook);
         }
       } else {
-        // 🚀 關鍵修復：如果雲端找不到該班級，必須將畫面重置為空課表
+        // 🚀 如果雲端找不到該班級，將本地資料重置為初始狀態
         console.log(`雲端尚未建立 ${classID} 班的資料`);
-        setWeeklySchedule(INITIAL_WEEKLY_SCHEDULE);
-        setContactBook({});
+        setWeeklySchedule(JSON.parse(localStorage.getItem('gsat_schedule')) || INITIAL_WEEKLY_SCHEDULE);
+        setContactBook(JSON.parse(localStorage.getItem('gsat_contact_book')) || {});
       }
     }, (err) => {
       console.error("Firestore sync error:", err);
@@ -245,15 +296,22 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
               const data = change.doc.data();
               if (!allowedTypes.includes(data.type)) return;
 
-              const isReschedule = data.type?.toLowerCase() === 'reschedule';
+              // 🔴 關鍵修正：只對「App啟動後」才新增的通知進行推播
+              if (data.timestamp <= lastNoticeTimestamp.current) {
+                console.log('偵測到舊通知，已略過推播:', data.title);
+                return;
+              }
 
-              toast.success(`${data.title || '系統通知'}: ${data.content || ''}`, {
-                icon: isReschedule ? '🟠' : '🔔',
-                style: {
-                  borderRadius: '20px',
-                  background: isReschedule ? '#f97316' : '#333',
-                  color: '#fff'
+              // 🚀 僅觸發原生 Web Push 通知 (前景)，移除 App 內橫幅
+              triggerNativeNotification(data.title || '系統通知', data.content || '');
+              
+              // 🔴 更新 iOS / Android 桌面 App 圖示的未讀紅點 (Badge API)
+              setUnreadCount(prev => {
+                const nextCount = prev + 1;
+                if ('setAppBadge' in navigator) {
+                  navigator.setAppBadge(nextCount).catch(e => console.error(e));
                 }
+                return nextCount;
               });
 
               // 自動連動調課邏輯
@@ -289,11 +347,13 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
       const flatSchedule = [];
       Object.keys(newSchedule).forEach(dayKey => {
         const day = parseInt(dayKey);
-        if (day >= 1 && day <= 5) {
+        if (day >= 0 && day <= 6) {
           (newSchedule[dayKey] || []).forEach(item => {
             flatSchedule.push({
               id: item.id, day: day, course: item.subject, teacher: item.teacher || '',
-              startTime: item.startTime, endTime: item.endTime, location: item.location || '', rescheduled: item.rescheduled || false
+              startTime: item.startTime, endTime: item.endTime, location: item.location || '',
+              rescheduled: item.rescheduled || false, link: item.link || '',
+              color: item.color || ''
             });
           });
         }
@@ -317,12 +377,13 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
       triggerNotification('提示', '請先將班級代碼設定為 206');
       return;
     }
-    const transformed = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+    const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
     SCHEDULE_206_TEMPLATE.forEach((item, idx) => {
-      if (transformed[item.day]) {
+      if (transformed[item.day] !== undefined) {
         transformed[item.day].push({
           id: Date.now() + idx, subject: item.course, teacher: item.teacher,
-          startTime: item.startTime, endTime: item.endTime, location: '', rescheduled: false
+          startTime: item.startTime, endTime: item.endTime, location: '',
+          rescheduled: false, link: '', color: ''
         });
       }
     });
@@ -332,7 +393,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
       className: "206", school: "內湖高中",
       schedule: SCHEDULE_206_TEMPLATE.map((item, idx) => ({
         id: Date.now() + idx, day: item.day, course: item.course, teacher: item.teacher,
-        startTime: item.startTime, endTime: item.endTime, location: '', rescheduled: false
+        startTime: item.startTime, endTime: item.endTime, location: '',
+        rescheduled: false, link: '', color: ''
       })),
       lastUpdated: serverTimestamp()
     }, { merge: true });
@@ -357,6 +419,42 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 6000);
     triggerNativeNotification(title, message);
   }, []);
+
+  // ─── 網頁端本地定時提醒 (晚上 20:00) ──────────────────────────────────────
+  // 防呆機制：若無部署 Firebase Functions，只要網頁處於開啟狀態，晚上八點一樣會觸發原生推播
+  const contactBookRef = useRef(contactBook);
+  useEffect(() => { contactBookRef.current = contactBook; }, [contactBook]);
+
+  useEffect(() => {
+    const checkLocalReminder = () => {
+      const now = new Date();
+      // 在 20:00 的第 0 分鐘觸發
+      if (now.getHours() === 20 && now.getMinutes() === 0) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        const cb = contactBookRef.current || {};
+        const tomorrowsEntries = cb[tomorrowStr] || [];
+        
+        if (tomorrowsEntries.length > 0) {
+          const exams = tomorrowsEntries.filter(e => e.exam).length;
+          const hws = tomorrowsEntries.filter(e => e.homework).length;
+          let txt = [];
+          if (exams > 0) txt.push(`💯 ${exams} 項考試`);
+          if (hws > 0) txt.push(`📝 ${hws} 項作業`);
+          triggerNativeNotification('明日準備事項 🎒', `明天有 ${txt.join(" 以及 ")}，請記得準備！`);
+        }
+      }
+    };
+    const timer = setInterval(checkLocalReminder, 60000);
+    return () => clearInterval(timer);
+  }, []); // 獨立執行，避免依賴重渲染
+
+  // ─── 測試 Firebase 雲端通知推播 ──────────────────────────────────────────
+  const sendTestNotice = async () => {
+    // 僅觸發原生 Web Push 通知，不寫入資料庫產生畫面橫幅
+    triggerNativeNotification('原生推播測試 🚀', '這是一則系統原生推播測試！如果您看到這個通知，代表 Web Push 運作完全正常 ✅');
+  };
 
   // ─── AI Test ─────────────────────────────────────────────────────────────
   const testAiConnection = async () => {
@@ -438,37 +536,80 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
       });
       try {
         await waitFor();
+        console.log("🟢 Scripts loaded, initializing GAPI...");
+
         await new Promise(r => window.gapi.load('client', r));
-        await window.gapi.client.init({ clientId: GOOGLE_CLIENT_ID, discoveryDocs: [DRIVE_DISCOVERY_DOC, PEOPLE_DISCOVERY_DOC] });
+        await window.gapi.client.init({
+          discoveryDocs: [DRIVE_DISCOVERY_DOC, PEOPLE_DISCOVERY_DOC]
+        });
+        console.log("✅ GAPI Client Init (Discovery Only)");
+
         const storedToken = localStorage.getItem('gsat_google_token');
-        if (storedToken) { window.gapi.client.setToken({ access_token: storedToken }); setIsGoogleConnected(true); fetchUserInfo(); }
-        
-        if (GOOGLE_CLIENT_ID) {
-          // 🚀 切換為 Authorization Code Flow (更有利於過審與安全性)
-          tokenClientRef.current = window.google.accounts.oauth2.initCodeClient({
-            client_id: GOOGLE_CLIENT_ID,
-            scope: SCOPES,
-            ux_mode: 'redirect',
-            redirect_uri: GOOGLE_REDIRECT_URI,
-            include_granted_scopes: true,
-            callback: async (response) => {
-              if (response.code) {
-                console.log("✅ 收到授權碼 (Auth Code):", response.code);
-                // 在純前端架構中，如果沒有後端換 Token，
-                // 通常會維持用 Token 模式或透過 Firebase 處理。
-                // 但為了符合 Google 審核，我們先正確導向回呼。
-              }
-            }
-          });
+        if (storedToken) {
+          window.gapi.client.setToken({ access_token: storedToken });
+          setIsGoogleConnected(true);
+          fetchUserInfo().catch(e => console.error("UserInfo fetch failed:", e));
         }
 
-        // 處理 URL 中的授權碼 (由 api/auth/callback.js 導回)
+        if (window.google?.accounts?.oauth2?.initCodeClient) {
+          try {
+            console.log("🚀 Initializing GSI (Auth Code Flow)...");
+            tokenClientRef.current = window.google.accounts.oauth2.initCodeClient({
+              client_id: GOOGLE_CLIENT_ID,
+              scope: SCOPES,
+              ux_mode: 'redirect',
+              redirect_uri: GOOGLE_REDIRECT_URI,
+              include_granted_scopes: true,
+              // Google 要求在某些版本中仍需提供 callback 即使是 redirect 模式
+              callback: (resp) => { console.log("GSI Callback Triggered:", resp); }
+            });
+            console.log("✅ GSI Initialized");
+          } catch (gisErr) {
+            console.error("❌ GSI Init Error:", gisErr);
+          }
+        } else {
+          console.warn("⚠️ Google Identity Services not fully loaded.");
+        }
+
+        // 處理從 API Callback 帶回來的 Token
         const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        if (code) {
-          console.log("📥 從重新導向中取得代碼:", code);
-          // 這裡通常會送往後端換取 Token
-          // 如果目前的架構仍依賴 Firebase，我們會確保 Firebase 的 Redirect 優先處理
+        const accessToken = urlParams.get('access_token');
+        const idToken = urlParams.get('id_token');
+
+        if (idToken) {
+          console.log("📥 從 Callback 取得 ID Token，正在還原 Firebase 演唱會...");
+          try {
+            const credential = GoogleAuthProvider.credential(idToken, accessToken);
+            const result = await signInWithCredential(auth, credential);
+
+            localStorage.setItem('gsat_google_token', accessToken);
+            setIsGoogleConnected(true);
+
+            const profile = { name: result.user.displayName, email: result.user.email, photo: result.user.photoURL };
+            setUserProfile(profile);
+            localStorage.setItem('gsat_user_profile', JSON.stringify(profile));
+
+            if (result.user.email?.endsWith('@nhsh.tp.edu.tw')) {
+              setIsAdmin(true);
+              triggerNotification('歡迎老師', '已自動正式開啟管理員權限！');
+            }
+
+            triggerNotification('Google 登入成功', '安全性流程驗證通過！');
+            setAppPhase('welcome');
+
+            // 清理 URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } catch (error) {
+            console.error("Firebase session restore error:", error);
+            triggerNotification('登入失敗', '憑證驗證失敗，請重試。');
+          }
+        }
+
+        // 檢查是否有 Auth Error
+        const authError = urlParams.get('auth_error');
+        if (authError) {
+          console.error("❌ Auth Error from Callback:", authError);
+          triggerNotification('登入發生錯誤', `代碼: ${authError}。請檢查環境變數 (Client Secret) 是否設置。`);
           window.history.replaceState({}, document.title, window.location.pathname);
         }
 
@@ -477,98 +618,57 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
           const result = await getRedirectResult(auth);
           if (result) {
             const credential = GoogleAuthProvider.credentialFromResult(result);
-            const token = credential.accessToken;
-            localStorage.setItem('gsat_google_token', token);
+            const token = credential?.accessToken;
+            if (token) localStorage.setItem('gsat_google_token', token);
             setIsGoogleConnected(true);
-            
+
             const profile = { name: result.user.displayName, email: result.user.email, photo: result.user.photoURL };
             setUserProfile(profile);
             localStorage.setItem('gsat_user_profile', JSON.stringify(profile));
-            
+
             if (result.user.email?.endsWith('@nhsh.tp.edu.tw')) {
               setIsAdmin(true);
               triggerNotification('歡迎老師', '已自動開啟管理員權限！');
             }
-            
+
             triggerNotification('Google 登入成功', '已啟用雲端備份！');
-            setAppPhase('welcome');
+            setAppPhase('app'); // 🚀 直接進入 App
           }
         } catch (error) {
           console.error("Redirect auth error:", error);
         }
-      } catch { }
+      } catch (err) {
+        console.error("❌ Main Initialization Error:", err);
+      }
     };
     init();
   }, [fetchUserInfo, triggerNotification]);
 
   const handleAuthClick = async () => {
-    const provider = new GoogleAuthProvider();
-    // 僅包含 OpenID 基礎權限 (openid, email, profile)
-    // 確保支援增量授權 (Incremental Authorization)
-    provider.setCustomParameters({
-      prompt: 'consent',
-      access_type: 'offline',
-      include_granted_scopes: 'true'
-    });
-
-    try {
-      await signInWithRedirect(auth, provider);
-    } catch (error) {
-      console.error("Auth error:", error);
-      setIsGoogleConnected(false);
+    console.log("📍 Using Redirect URI:", GOOGLE_REDIRECT_URI);
+    if (tokenClientRef.current) {
+      console.log("🚀 啟動 Google Authorization Code Flow (requestCode)");
+      try {
+        tokenClientRef.current.requestCode();
+      } catch (err) {
+        console.error("requestCode failed:", err);
+        triggerNotification('啟動登入失敗', '請重新整理頁面再試。');
+      }
+    } else {
+      // 回退方案
+      const provider = new GoogleAuthProvider();
+      try {
+        await signInWithRedirect(auth, provider);
+      } catch (error) {
+        console.error("Fallback Auth error:", error);
+      }
     }
   };
 
-  // ─── Smart Reminder System ────────────────────────────────────────────────
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const day = now.getDay();
-      const currentMins = now.getHours() * 60 + now.getMinutes();
-      const dateStr = now.toDateString();
-      const tomorrowStr = new Date(now.getTime() + 86400000).toISOString().split('T')[0];
-
-      const todayClasses = scheduleRef.current[day] || [];
-      let lastClassEndMins = 0;
-      todayClasses.forEach(c => {
-        if (!c.startTime) return;
-        const startMins = timeToMins(c.startTime);
-        const endMins = timeToMins(c.endTime);
-        if (endMins > lastClassEndMins) lastClassEndMins = endMins;
-        const diff = startMins - currentMins;
-        if (diff > 0 && diff <= 5) {
-          const key = `class-${c.id}-${dateStr}-5min`;
-          if (!notifiedSet.current.has(key)) {
-            notifiedSet.current.add(key);
-            triggerNotification(`🔔 準備上課：${c.subject}`, `📍 ${c.location || '未定'} | ${diff}分鐘後`);
-          }
-        }
-      });
-
-      const allEntries = Object.values(contactBookRef.current || {}).flat();
-      if (lastClassEndMins > 0 && currentMins >= lastClassEndMins + 5 && currentMins <= lastClassEndMins + 6) {
-        const hw = allEntries.filter(e => e.homeworkDeadline === tomorrowStr);
-        if (hw.length) {
-          const key = `hw-${dateStr}`;
-          if (!notifiedSet.current.has(key)) {
-            notifiedSet.current.add(key);
-            triggerNotification(`🎒 放學提醒：${hw.length} 項作業`, hw.map(t => t.homework).join(', '));
-          }
-        }
-      }
-      if (currentMins >= 1140 && currentMins <= 1141) {
-        const exams = allEntries.filter(e => e.examDeadline === tomorrowStr);
-        if (exams.length) {
-          const key = `exam-${dateStr}-1900`;
-          if (!notifiedSet.current.has(key)) {
-            notifiedSet.current.add(key);
-            triggerNotification(`📝 明日大考 (${exams.length}項)`, exams.map(t => t.exam).join(', '));
-          }
-        }
-      }
-    }, 30000);
-    return () => clearInterval(timer);
-  }, [triggerNotification]);
+  const handleGuestStart = () => {
+    setAppPhase('app');
+    triggerNotification('訪客模式', '已進入應用程式，部分功能可能受限。');
+  };
 
   // ─── Nav ─────────────────────────────────────────────────────────────────
   const navItems = [
@@ -578,14 +678,14 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     { id: 'notes', icon: Library, label: '知識筆記' },
     { id: 'stores', icon: Store, label: '特約商店' },
     { id: 'traffic', icon: Bus, label: '交通與 YouBike' },
+    { id: 'feedback', icon: MessageSquare, label: '回饋與支持' },
     { id: 'help', icon: HelpCircle, label: '如何使用' },
-    { id: 'legal', icon: ShieldCheck, label: '法律資訊' },
   ];
 
   const getTabName = id => navItems.find(n => n.id === id)?.label || 'GSAT Pro';
 
   // ─── Phases ───────────────────────────────────────────────────────────────
-  if (appPhase === 'auth') return <LandingPage onStart={handleAuthClick} />;
+  if (appPhase === 'auth') return <LandingPage onStart={handleAuthClick} onGuestStart={handleGuestStart} />;
   if (appPhase === 'welcome') return <WelcomeScreen isFirstTime={!localStorage.getItem('gsat_legal_accepted')} onFinishWelcome={() => { localStorage.setItem('gsat_onboarding_done', 'true'); setAppPhase('app'); }} requestPushPermission={testPushNotification} />;
   if (firebaseError) return <MaintenanceView error={firebaseError} />;
 
@@ -593,6 +693,15 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     <>
       {showPrivacyModal && <PrivacyModal onAccept={() => { setShowPrivacyModal(false); setAppPhase('app'); }} />}
       <IosNotification notification={notification} />
+      <CommandPalette
+        isOpen={cmdPaletteOpen}
+        onClose={() => setCmdPaletteOpen(false)}
+        onSelectTab={(id) => {
+          const map = { dashboard: 'dashboard', vocabulary: 'english', contact: 'contactBook', stores: 'stores', traffic: 'traffic', settings: 'settings', feedback: 'feedback', tutorial: 'help' };
+          setActiveTab(map[id] || id);
+          setIsNavOpen(false);
+        }}
+      />
 
       {/* 🚀 加入智慧通知導引，放置在 UI 最頂層 */}
       {appPhase === 'app' && (
@@ -601,163 +710,155 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
 
       {/* Fixed Top Navigation & Legal */}
       {appPhase === 'app' && (
-        <div className="fixed top-0 left-0 right-0 z-[1000] glass-effect px-6 h-20 flex items-center justify-between shadow-soft pt-[env(safe-area-inset-top)] border-b border-white/10 transition-all duration-300">
-          {/* 選單區域 */}
-          <div className="relative w-40">
-            <button
-              onClick={() => setIsNavOpen(!isNavOpen)}
-              className={`flex items-center gap-2.5 px-5 py-3 rounded-2xl transition-all active:scale-95 duration-300 w-full overflow-hidden ${isNavOpen ? 'bg-emerald-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.3)]' : 'bg-emerald-50/80 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-100/50 dark:border-emerald-500/20'}`}
-            >
-              <Menu size={18} strokeWidth={3} className="transition-transform duration-500 shrink-0" style={{ transform: isNavOpen ? 'rotate(90deg)' : 'none' }} />
-              <span className="text-[15px] font-black truncate tracking-wide">{getTabName(activeTab)}</span>
-            </button>
-
-            {isNavOpen && (
-              <>
-                <div className="fixed inset-0 z-[-1] bg-black/5 animate-fadeIn" onClick={() => setIsNavOpen(false)} />
-                <div className="absolute top-full left-0 mt-4 w-60 bg-white/95 dark:bg-slate-900/95 backdrop-blur-[60px] rounded-[32px] shadow-[0_24px_80px_rgba(0,0,0,0.25)] border border-white/60 dark:border-white/10 overflow-hidden z-[1010] pt-[env(safe-area-inset-top)] animate-apple-linear origin-top-left">
-                  <div className="px-5 py-4 border-b border-gray-100 dark:border-white/5 bg-slate-50/50 dark:bg-gray-50/10">
-                    <span className="text-[12px] font-black text-slate-400 dark:text-gray-400 uppercase tracking-[0.2em]">功能選單</span>
-                  </div>
-                  <div className="p-2 max-h-[60vh] overflow-y-auto scrollbar-hide space-y-1">
-                    {navItems.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => { navTo(item.id); setIsNavOpen(false); }}
-                        className={`w-full flex items-center gap-3.5 px-4 py-3.5 text-left rounded-2xl transition-all ${activeTab === item.id ? 'bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-500/10 dark:text-emerald-400' : 'text-slate-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 hover:text-emerald-600'}`}
-                      >
-                        <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} className={`shrink-0 ${activeTab === item.id ? 'text-emerald-600 neon-glow-emerald' : 'text-slate-400'}`} />
-                        <span className="text-[15px] font-bold">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
+        <div className="fixed top-0 left-0 right-0 z-[1000] pointer-events-none pt-[calc(env(safe-area-inset-top)+16px)] px-4 sm:px-6 transition-all duration-500">
+          <div className="pointer-events-auto max-w-screen-xl mx-auto h-[68px] glass-effect rounded-[32px] flex items-center justify-between px-3 shadow-float border border-white/40 dark:border-white/10 transition-all duration-500">
+            {/* 選單區域 */}
+            <div className="relative">
+              <button
+                onClick={() => setIsNavOpen(!isNavOpen)}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-[24px] transition-all duration-500 ease-spring-smooth active:scale-95 overflow-hidden ${isNavOpen ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'hover:bg-slate-100/50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-200'}`}
+              >
+                <Menu size={20} strokeWidth={isNavOpen ? 2.5 : 2} className="transition-transform duration-500 shrink-0" style={{ transform: isNavOpen ? 'rotate(90deg)' : 'none' }} />
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] sm:text-[16px] font-black tracking-tight truncate max-w-[120px] sm:max-w-none">{getTabName(activeTab)}</span>
+                  <span className="hidden md:flex items-center justify-center px-1.5 py-0.5 rounded border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 text-[10px] font-black text-slate-400">⌘K</span>
                 </div>
-              </>
-            )}
-          </div>
+              </button>
 
-          {/* 法律與設定區域 */}
-          <div className="flex items-center gap-4 w-44 justify-end">
-            <div className="flex items-center bg-gray-100/40 dark:bg-white/5 px-3 py-2 rounded-xl sm:rounded-2xl border border-gray-200/50 dark:border-white/10 shrink-0 glass-effect">
-              <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[10px] sm:text-[11px] font-black text-gray-400 hover:text-emerald-500 transition-colors uppercase tracking-[0.1em] sm:tracking-[0.15em] px-1">Privacy</a>
-              <span className="text-gray-300 dark:text-white/10 mx-0.5">|</span>
-              <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[10px] sm:text-[11px] font-black text-gray-400 hover:text-emerald-500 transition-colors uppercase tracking-[0.1em] sm:tracking-[0.15em] px-1">Terms</a>
+              {isNavOpen && (
+                <>
+                  <div className="fixed inset-0 z-[-1] bg-black/5 dark:bg-black/20 backdrop-blur-sm animate-fadeIn" onClick={() => setIsNavOpen(false)} />
+                  <div className="absolute top-full left-0 mt-4 w-[280px] bg-white/80 dark:bg-slate-900/80 backdrop-blur-[64px] rounded-[36px] shadow-[0_40px_100px_rgba(0,0,0,0.15)] dark:shadow-[0_40px_100px_rgba(0,0,0,0.6)] border border-white/60 dark:border-white/10 overflow-hidden z-[1010] animate-apple-linear origin-top-left p-3">
+                    <div className="px-4 py-3 mb-1">
+                      <span className="text-[11px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-[0.25em]">功能選單</span>
+                    </div>
+                    <div className="max-h-[60vh] overflow-y-auto scrollbar-hide space-y-1">
+                      {navItems.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => { navTo(item.id); setIsNavOpen(false); }}
+                          className={`w-full flex items-center gap-4 px-4 py-3.5 text-left rounded-[24px] transition-all duration-300 ease-spring-smooth active:scale-[0.98] ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 shadow-sm' : 'text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400'}`}
+                        >
+                          <item.icon size={22} strokeWidth={activeTab === item.id ? 2.5 : 2} className={`shrink-0 transition-transform duration-300 ${activeTab === item.id ? 'text-emerald-500 scale-110' : 'text-slate-400'}`} />
+                          <span className="text-[16px] font-bold">{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-            <button
-              onClick={() => {
-                if (activeTab === 'settings') navTo(previousTab);
-                else navTo('settings');
-              }}
-              className={`p-3 rounded-2xl transition-all active:scale-90 shadow-soft shrink-0 ${activeTab === 'settings' ? 'bg-emerald-600 text-white shadow-[0_10px_30px_rgba(16,185,129,0.3)] rotate-180' : 'bg-gray-100/50 dark:bg-white/5 text-gray-400 border border-gray-200/50 dark:border-white/10'}`}
-            >
-              <Settings size={20} strokeWidth={2.5} className={`shrink-0 ${activeTab === 'settings' ? 'neon-glow-emerald' : ''}`} />
-            </button>
+
+            {/* 法律與設定區域 */}
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center bg-slate-100/50 dark:bg-white/5 px-3 py-2 rounded-full border border-slate-200/50 dark:border-white/5 backdrop-blur-sm">
+                <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[10px] font-black text-slate-400 hover:text-emerald-500 transition-colors uppercase tracking-widest px-2" onClick={(e) => e.stopPropagation()}>Privacy</a>
+                <span className="text-slate-300 dark:text-white/10 text-[10px]">·</span>
+                <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[10px] font-black text-slate-400 hover:text-emerald-500 transition-colors uppercase tracking-widest px-2" onClick={(e) => e.stopPropagation()}>Terms</a>
+              </div>
+              <button
+                onClick={() => {
+                  if (activeTab === 'settings') navTo(previousTab);
+                  else navTo('settings');
+                }}
+                className={`p-3 rounded-full transition-all duration-500 ease-spring-smooth active:scale-90 shadow-sm shrink-0 ${activeTab === 'settings' ? 'bg-emerald-500 text-white shadow-emerald-500/25 rotate-180 scale-105' : 'bg-slate-100/80 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-200/50 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10'}`}
+              >
+                <Settings size={22} strokeWidth={activeTab === 'settings' ? 2.5 : 2} />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       <Toaster position="bottom-center" toastOptions={{ duration: 6000, style: { fontSize: '14px', fontWeight: '900', borderRadius: '24px', padding: '16px 24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' } }} />
 
-      {/* Notice Banner - Fixed below Header */}
-      {notices.length > 0 && activeTab === 'dashboard' && (
-        <div className="fixed top-[68px] left-0 w-full z-[990] bg-orange-500/95 border-b border-white/20 backdrop-blur-xl animate-fadeIn">
-          <div className="max-w-screen-xl mx-auto px-6 py-3 flex items-center gap-4">
-            <div className="shrink-0 flex items-center justify-center w-8 h-8 bg-white/20 rounded-full animate-pulse">
-              <BellRing size={16} className="text-white shrink-0" />
-            </div>
-            <div className="flex-1 overflow-hidden relative">
-              <div className="flex gap-12 whitespace-nowrap animate-notice-slide">
-                <span className="text-[14px] font-black text-white tracking-wider flex items-center gap-2">
-                  <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">NEW</span>
-                  {notices[0].title}：{notices[0].content}
-                </span>
-                {/* Duplicate for seamless effect */}
-                <span className="text-[14px] font-black text-white tracking-wider flex items-center gap-2">
-                  <span className="bg-white/20 px-2 py-0.5 rounded-lg text-[10px]">HOT</span>
-                  {notices[0].title}：{notices[0].content}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Content */}
       <div
         ref={contentRef}
-        className="flex-1 overflow-y-auto w-full px-4 pt-28 ios-safe-pb touch-pan-y scrollbar-hide bg-transparent scroll-smooth transition-all duration-300"
+        className="flex-1 overflow-y-auto w-full px-4 pt-32 sm:pt-[140px] ios-safe-pb touch-pan-y scrollbar-hide bg-transparent scroll-smooth transition-all duration-300 relative z-10"
       >
-        {activeTab === 'dashboard' && (
-          <DashboardTab
-            isAdmin={isAdmin}
-            weeklySchedule={weeklySchedule}
-            setWeeklySchedule={setWeeklySchedule}
-            subjects={subjects}
-            triggerNotification={triggerNotification}
-            requestPushPermission={testPushNotification}
-            testPushNotification={testPushNotification}
-            setSettingsOpen={() => navTo('settings')}
-            isGoogleConnected={isGoogleConnected}
-            contactBook={contactBook}
-            customLinks={customLinks}
-            isEditingSchedule={isEditingSchedule}
-            setIsEditingSchedule={setIsEditingSchedule}
-            classID={classID}
-            saveToFirestore={saveToFirestore}
-            customCountdowns={customCountdowns}
-          />
-        )}
-        {activeTab === 'english' && <VocabularyTab userProfile={userProfile} isAdmin={isAdmin} theme={theme} geminiKey={geminiKey} />}
-        {activeTab === 'contactBook' && (
-          <ContactBookTab
-            contactBook={contactBook}
-            setContactBook={setContactBook}
-            subjects={subjects}
-            isAdmin={isAdmin}
-            saveContactBookToFirestore={saveContactBookToFirestore}
-          />
-        )}
-        {activeTab === 'notes' && (
-          <NotesTab
-            notes={notes} setNotes={setNotes}
-            subjects={subjects} setSubjects={setSubjects}
-            selectedSubject={selectedSubject} setSelectedSubject={setSelectedSubject}
-            triggerNotification={triggerNotification}
-            isGoogleConnected={isGoogleConnected}
-          />
-        )}
-        {activeTab === 'stores' && <StoresTab isAdmin={isAdmin} />}
-        {activeTab === 'traffic' && <TrafficTab />}
-        {activeTab === 'help' && <TutorialTab onOpenFeedback={() => window.open('https://forms.gle/gJyuP7ZEBjdo2MFK9', '_blank')} />}
-        {activeTab === 'settings' && (
-          <SettingsTab
-            isAdmin={isAdmin}
-            setIsAdmin={setIsAdmin}
-            triggerNotification={triggerNotification}
-            handleAuthClick={handleAuthClick}
-            isGoogleConnected={isGoogleConnected}
-            handleSignoutClick={handleSignoutClick}
-            requestPushPermission={testPushNotification}
-            testPushNotification={testPushNotification}
-            theme={theme}
-            setTheme={setTheme}
-            aiTestStatus={aiTestStatus}
-            testAiConnection={testAiConnection}
-            geminiKey={geminiKey}
-            setGeminiKey={setGeminiKey}
-            navTo={navTo}
-            previousTab={previousTab}
-            customLinks={customLinks}
-            setCustomLinks={setCustomLinks}
-            classID={classID}
-            setClassID={setClassID}
-            setIsEditingSchedule={setIsEditingSchedule}
-            handleImport206Template={handleImport206Template}
-            customCountdowns={customCountdowns}
-            setCustomCountdowns={setCustomCountdowns}
-          />
-        )}
-        {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
+        <div key={activeTab} className="animate-tab-enter">
+          {activeTab === 'dashboard' && (
+            <DashboardTab
+              isAdmin={isAdmin}
+              weeklySchedule={weeklySchedule}
+              setWeeklySchedule={setWeeklySchedule}
+              subjects={subjects}
+              triggerNotification={triggerNotification}
+              requestPushPermission={testPushNotification}
+              testPushNotification={sendTestNotice}
+              setSettingsOpen={() => navTo('settings')}
+              isGoogleConnected={isGoogleConnected}
+              contactBook={contactBook}
+              customLinks={customLinks}
+              isEditingSchedule={isEditingSchedule}
+              setIsEditingSchedule={setIsEditingSchedule}
+              classID={classID}
+              saveToFirestore={saveToFirestore}
+              customCountdowns={customCountdowns}
+              dashboardLayout={dashboardLayout}
+            />
+          )}
+          {activeTab === 'english' && <VocabularyTab user={user} geminiKey={geminiKey} isAdmin={isAdmin} />}
+          {activeTab === 'contactBook' && (
+            <ContactBookTab
+              contactBook={contactBook}
+              setContactBook={setContactBook}
+              subjects={subjects}
+              isAdmin={isAdmin}
+              saveContactBookToFirestore={saveContactBookToFirestore}
+              classID={classID}
+            />
+          )}
+          {activeTab === 'notes' && (
+            <NotesTab
+              notes={notes} setNotes={setNotes}
+              subjects={subjects} setSubjects={setSubjects}
+              selectedSubject={selectedSubject} setSelectedSubject={setSelectedSubject}
+              triggerNotification={triggerNotification}
+              isGoogleConnected={isGoogleConnected}
+            />
+          )}
+          {activeTab === 'stores' && <StoresTab isAdmin={isAdmin} campusName={campusName} />}
+          {activeTab === 'traffic' && <TrafficTab campusName={campusName} campusAddress={campusAddress} />}
+          {activeTab === 'feedback' && <FeedbackTab userProfile={userProfile} triggerNotification={triggerNotification} onBack={() => navTo(previousTab)} onSuccess={() => navTo('dashboard')} />}
+          {activeTab === 'help' && <TutorialTab onOpenFeedback={() => navTo('feedback')} campusName={campusName} />}
+          {activeTab === 'settings' && (
+            <SettingsTab
+              isAdmin={isAdmin}
+              setIsAdmin={setIsAdmin}
+              triggerNotification={triggerNotification}
+              handleAuthClick={handleAuthClick}
+              isGoogleConnected={isGoogleConnected}
+              handleSignoutClick={handleSignoutClick}
+              requestPushPermission={testPushNotification}
+              testPushNotification={sendTestNotice}
+              theme={theme}
+              setTheme={setTheme}
+              aiTestStatus={aiTestStatus}
+              testAiConnection={testAiConnection}
+              geminiKey={geminiKey}
+              setGeminiKey={setGeminiKey}
+              navTo={navTo}
+              previousTab={previousTab}
+              customLinks={customLinks}
+              setCustomLinks={setCustomLinks}
+              classID={classID}
+              setClassID={setClassID}
+              setIsEditingSchedule={setIsEditingSchedule}
+              handleImport206Template={handleImport206Template}
+              customCountdowns={customCountdowns}
+              setCustomCountdowns={setCustomCountdowns}
+              campusName={campusName}
+              setCampusName={setCampusName}
+              campusAddress={campusAddress}
+              setCampusAddress={setCampusAddress}
+              dashboardLayout={dashboardLayout}
+              setDashboardLayout={setDashboardLayout}
+            />
+          )}
+          {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
+        </div>
       </div>
     </>
   );
@@ -765,6 +866,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('gsat_theme') || 'system');
+  const [user, setUser] = useState(null); // 🚀 將 user 狀態提升到頂層
 
   const requestPushPermission = async () => {
     if (!('Notification' in window)) {
@@ -801,10 +903,15 @@ export default function App() {
   return (
     <div className={isDark ? 'dark' : ''}>
       <div className="main-container relative h-[100dvh] w-full flex flex-col bg-slate-50 dark:bg-zinc-950 overflow-hidden font-sans text-slate-800 dark:text-zinc-200">
+        {/* Subtle Ambient Mesh Background */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-emerald-500/5 dark:bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none animate-float" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 dark:bg-blue-500/10 blur-[120px] rounded-full pointer-events-none animate-float-delayed" />
         <MainApp
           forcedTheme={theme}
           setForcedTheme={setTheme}
           testPushNotification={requestPushPermission}
+          user={user}
+          setUser={setUser}
         />
       </div>
     </div>

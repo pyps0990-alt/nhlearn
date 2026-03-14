@@ -5,7 +5,7 @@ import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
 
-const StoresTab = ({ isAdmin }) => {
+const StoresTab = ({ isAdmin, campusName }) => {
   const [stores, setStores] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [newStore, setNewStore] = useState({
@@ -62,30 +62,30 @@ const StoresTab = ({ isAdmin }) => {
   };
 
   return (
-    <div className="space-y-5 flex flex-col w-full text-left animate-slide-up-fade mb-8">
-      <div className="flex justify-between items-center px-1">
-        <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-3">
+    <div className="space-y-8 flex flex-col w-full text-left animate-slide-up-fade mb-12">
+      <div className="flex flex-col gap-2 px-2">
+        <h2 className="text-3xl font-black text-emerald-600 flex items-center gap-3 tracking-tight">
           <Store size={28} className="shrink-0 neon-glow-emerald" />
           校園特約商店
         </h2>
+        <p className="text-[14px] font-bold text-slate-500 dark:text-slate-400 ml-10">
+          出示{campusName || '校園'}學生證即可享有專屬優惠，為你的荷包把關！
+        </p>
       </div>
-      <p className="text-[13px] font-bold text-gray-500 px-1 mb-2">
-        出示內湖高中學生證即可享有專屬優惠！
-      </p>
 
       {/* 如果有權限錯誤，顯示在畫面上 */}
       {errorMsg && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-bold border border-red-100">
+        <div className="bg-red-50 text-red-600 p-5 rounded-[24px] text-sm font-bold border border-red-100 shadow-sm mx-1">
           {errorMsg}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-1">
         {stores.map((store, idx) => (
           <div
             key={store.id}
             style={{ animationDelay: `${idx * 80}ms` }}
-            className="bg-white dark:bg-zinc-900 p-6 rounded-[36px] shadow-sm border border-slate-100 dark:border-zinc-800 flex flex-col relative transition-all duration-300 ease-spring group hover:shadow-md hover:-translate-y-1 animate-slide-up-fade overflow-hidden"
+            className="bg-[var(--bg-surface)] p-7 rounded-[40px] shadow-soft border border-[var(--border-color)] flex flex-col relative transition-all duration-500 ease-spring-smooth group hover:shadow-float hover:-translate-y-2 animate-slide-up-fade overflow-hidden glass-effect"
           >
             {/* 標題與圖示區塊 */}
             <div className="flex items-center gap-4 mb-5">

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-TW">
 
 <head>
   <meta name="google-site-verification" content="DawqxUxvlBCSyRCaCvLFW2vO1lwsc3TdX6P62pk5-AQ" />
@@ -10,55 +10,79 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#10B981">
+  <meta name="theme-color" content="#020617">
+  <meta name="description" content="GSAT Pro — 專為高中生設計的學測備考管理工具，整合智慧課表、即時調課通知、特約商店與 AI 學習分析。">
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap"
     rel="stylesheet">
-  <title>GSAT Pro</title>
+
+  <title>GSAT Pro — 學測備考管理</title>
+
   <!-- Google API & Identity Services -->
   <script src="https://apis.google.com/js/api.js" async defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <style>
+    /* Inline critical CSS for the splash screen — prevents FOUC */
+    body { margin: 0; background: #020617; }
+    #splash {
+      position: fixed; inset: 0; z-index: 99999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #020617;
+      font-family: 'Noto Sans TC', -apple-system, sans-serif;
+      transition: opacity 0.4s ease;
+    }
+    #splash.hidden { opacity: 0; pointer-events: none; }
+    #splash h1 {
+      font-size: 2rem; font-weight: 900;
+      background: linear-gradient(135deg, #10B981, #34d399);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      margin: 0 0 12px;
+    }
+    #splash p { color: rgba(255,255,255,0.4); font-size: 13px; font-weight: 600; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .splash-spinner {
+      width: 28px; height: 28px; margin-top: 24px;
+      border: 3px solid rgba(16,185,129,0.15);
+      border-top-color: #10B981;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+  </style>
 </head>
 
 <body>
-  <div id="root">
-    <div
-      style="font-family: 'Noto Sans TC', sans-serif; max-width: 800px; margin: 0 auto; padding: 50px 20px; text-align: center;">
-      <h1 style="color: #10B981; font-size: 2.5rem;">GSAT Pro</h1>
-      <p style="font-size: 1.25rem; color: #374151; line-height: 1.6;">
-        GSAT Pro 是一款專為高中生設計的學測備考管理工具。<br>
-        我們提供智慧課表、倒數日提醒以及成績追蹤功能，協助您高效規劃複習進度。
-      </p>
-
-      <div style="margin: 40px 0;">
-        <h2 style="font-size: 1.5rem;">主要功能</h2>
-        <ul style="list-style: none; padding: 0; color: #4B5563;">
-          <li>✅ 雲端課表同步與自動提醒</li>
-          <li>📈 模擬考成績落點分析</li>
-          <li>⏳ 倒數計時器與讀書計畫管理</li>
-        </ul>
-      </div>
-
-      <div
-        style="margin-top: 30px; padding: 12px 24px; background: #10B981; color: white; display: inline-block; border-radius: 8px;">
-        登入以開始使用
-      </div>
-    </div>
+  <!-- Splash Screen — disappears once React mounts -->
+  <div id="splash">
+    <h1>GSAT Pro</h1>
+    <p>正在載入學習夥伴…</p>
+    <div class="splash-spinner"></div>
   </div>
+
+  <div id="root"></div>
 
   <script type="module" src="/src/main.jsx"></script>
 
-  <footer style="text-align: center; padding: 40px 20px; border-top: 1px solid #e5e7eb; margin-top: 60px; background-color: #f9fafb;">
-    <nav style="margin-bottom: 15px;">
-      <a href="/privacy.html" style="margin: 0 20px; color: #10B981; text-decoration: none; font-weight: 700; border-bottom: 2px solid transparent;" onmouseover="this.style.borderBottom='2px solid #10B981'" onmouseout="this.style.borderBottom='2px solid transparent'">隱私權政策 (Privacy Policy)</a>
-      <a href="/terms.html" style="margin: 0 20px; color: #10B981; text-decoration: none; font-weight: 700; border-bottom: 2px solid transparent;" onmouseover="this.style.borderBottom='2px solid #10B981'" onmouseout="this.style.borderBottom='2px solid transparent'">服務條款 (Terms of Service)</a>
-    </nav>
-    <p style="color: #6B7280; font-size: 0.85rem; margin-top: 10px; font-weight: 500;">&copy; 2026 GSAT Pro. All rights reserved.</p>
-    <p style="color: #9CA3AF; font-size: 0.75rem;">專為高中生設計的學測備考管理工具</p>
-  </footer>
+  <script>
+    // Hide splash once React root renders
+    const observer = new MutationObserver(() => {
+      const root = document.getElementById('root');
+      if (root && root.children.length > 0) {
+        const splash = document.getElementById('splash');
+        if (splash) {
+          splash.classList.add('hidden');
+          setTimeout(() => splash.remove(), 500);
+        }
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.getElementById('root'), { childList: true });
+  </script>
 </body>
 
 </html>

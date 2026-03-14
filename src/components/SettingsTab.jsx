@@ -3,7 +3,7 @@ import {
   Settings, User, Monitor, Sun, Moon, Edit3,
   Bell, Sparkles, Cloud, BrainCircuit, RefreshCw, GraduationCap,
   CheckCircle2, X, Store, Trash2, Lock, MapPin, Globe, Plus, Link, Share, PlusSquare, Smartphone,
-  Utensils, Coffee, CupSoda, PenTool, Clock
+  Utensils, Coffee, CupSoda, PenTool, Clock, LayoutTemplate, Eye, EyeOff, ArrowUp, ArrowDown, GripVertical, Palette
 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -15,14 +15,36 @@ const SettingsTab = ({
   testAiConnection, geminiKey, setGeminiKey,
   customLinks, setCustomLinks,
   classID, setClassID, setIsEditingSchedule, navTo,
-  handleImport206Template, customCountdowns, setCustomCountdowns
+  handleImport206Template, customCountdowns, setCustomCountdowns,
+  campusName, setCampusName, campusAddress, setCampusAddress,
+  dashboardLayout, setDashboardLayout
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
-  const [campusName, setCampusName] = useState(() => localStorage.getItem('gsat_campus_name') || '內湖高中');
-  const [campusAddress, setCampusAddress] = useState(() => localStorage.getItem('gsat_campus_address') || '台北市內湖區文德路218號');
   const [editingCampus, setEditingCampus] = useState(false);
-  const [tempName, setTempName] = useState('');
-  const [tempAddr, setTempAddr] = useState('');
+  const [tempName, setTempName] = useState(campusName);
+  const [tempAddr, setTempAddr] = useState(campusAddress);
+
+  const SETTINGS_TABS = [
+    { id: 'general', label: '一般與外觀', icon: Palette },
+    { id: 'academic', label: '學習與課表', icon: GraduationCap },
+    { id: 'system', label: '系統服務', icon: Cloud },
+    { id: 'advanced', label: '進階與管理', icon: BrainCircuit }
+  ];
+  const [activeSubTab, setActiveSubTab] = useState('general');
+  const [draggedIdx, setDraggedIdx] = useState(null);
+
+  const handleDragStart = (e, index) => { setDraggedIdx(index); e.dataTransfer.effectAllowed = 'move'; };
+  const handleDragEnter = (e, index) => {
+    if (draggedIdx === null || draggedIdx === index) return;
+    const newLayout = [...dashboardLayout];
+    const draggedItem = newLayout[draggedIdx];
+    newLayout.splice(draggedIdx, 1);
+    newLayout.splice(index, 0, draggedItem);
+    setDraggedIdx(index);
+    setDashboardLayout(newLayout);
+  };
+  const handleDragEnd = () => setDraggedIdx(null);
+  const handleDragOver = (e) => e.preventDefault();
 
   // 自定義倒數管理狀態
   const [isAddingCountdown, setIsAddingCountdown] = useState(false);
@@ -187,486 +209,601 @@ const SettingsTab = ({
   };
 
   return (
-    <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade mb-8">
-      <div className="flex justify-between items-center px-1">
-        <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-3">
-          <Settings size={28} className="shrink-0" /> 系統設定
+    <div className="space-y-4 flex flex-col w-full text-left animate-slide-up-fade mb-8 pb-10">
+      {/* 標題區域 */}
+      <div className="flex justify-between items-center px-2 mb-2">
+        <h2 className="text-3xl font-black text-[var(--text-primary)] flex items-center gap-3 tracking-tight">
+          <Settings size={28} className="text-emerald-500 shrink-0" /> 系統設定
         </h2>
         {isAdmin && (
-          <button onClick={() => setIsAdmin(false)} className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm font-black active:scale-95 transition-all hover:bg-red-100 dark:hover:bg-red-900/40">
+          <button onClick={() => setIsAdmin(false)} className="px-4 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-[16px] text-sm font-black active:scale-95 transition-all hover:bg-red-100 dark:hover:bg-red-900/40 shadow-sm">
             登出後台
           </button>
         )}
       </div>
 
-      {/* 外觀設定 */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 px-1 text-[var(--text-secondary)]">
-          <Sparkles size={16} className="text-emerald-500 shrink-0" />
-          <h3 className="text-sm font-black uppercase tracking-wider">個人與外觀</h3>
+      {/* 分頁選單列 */}
+      <div className="px-1 mb-4">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide bg-[var(--bg-surface)] p-2 rounded-[28px] border border-[var(--border-color)] shadow-sm glass-effect">
+          {SETTINGS_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveSubTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-[20px] font-black text-[14px] whitespace-nowrap transition-all duration-300 ease-spring-smooth active:scale-[0.95] ${activeSubTab === tab.id
+                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-white'
+                }`}
+            >
+              <tab.icon size={18} className={activeSubTab === tab.id ? 'animate-bounce-soft' : ''} />
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect transition-all duration-500">
-          <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2">
-            <Monitor size={18} className="text-emerald-500 shrink-0" />
-            外觀主題
-          </h4>
-          <div className="grid grid-cols-3 gap-2 mb-6">
-            {themeOptions.map(opt => (
-              <button key={opt.value} onClick={() => { setTheme(opt.value); localStorage.setItem('gsat_theme', opt.value); }}
-                className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all active:scale-95 ${theme === opt.value ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-500/10 shadow-sm' : 'border-transparent bg-slate-50 dark:bg-white/5 hover:bg-slate-100'}`}>
-                <opt.icon size={28} className={`shrink-0 ${theme === opt.value ? 'text-emerald-600' : 'text-slate-400'}`} />
-                <span className={`text-[12px] font-black ${theme === opt.value ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}>{opt.label}</span>
-              </button>
-            ))}
-          </div>
-          <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-3 flex items-center gap-2">
-            <GraduationCap size={18} className="text-emerald-500 shrink-0" />
-            校園快速導覽
-          </h4>
-          {!editingCampus ? (
-            <div className="bg-emerald-50/80 dark:bg-emerald-500/10 rounded-[24px] border border-emerald-100 dark:border-emerald-500/20 p-4 flex items-center gap-4">
-              <div className="w-12 h-12 shrink-0 bg-white dark:bg-slate-800 rounded-[18px] shadow-sm flex items-center justify-center">
-                <MapPin size={24} className="text-emerald-500 shrink-0" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-black text-slate-900 dark:text-white">{campusName}</div>
-                <div className="text-[12px] font-bold text-slate-500 dark:text-slate-400 truncate">{campusAddress}</div>
-              </div>
-              <button onClick={() => { setTempName(campusName); setTempAddr(campusAddress); setEditingCampus(true); }}
-                className="p-2.5 bg-white rounded-xl shadow-sm border border-gray-100">
-                <Edit3 size={14} className="shrink-0" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <input className="w-full p-3 rounded-2xl border border-emerald-200 outline-none text-sm font-bold focus:border-emerald-400" value={tempName} onChange={e => setTempName(e.target.value)} placeholder="學校名稱" />
-              <input className="w-full p-3 rounded-2xl border border-emerald-200 outline-none text-sm font-bold focus:border-emerald-400" value={tempAddr} onChange={e => setTempAddr(e.target.value)} placeholder="學校地址" />
-              <div className="flex gap-2">
-                <button onClick={handleSaveCampus} className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl font-black text-sm active:scale-95">儲存</button>
-                <button onClick={() => setEditingCampus(false)} className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-2xl font-black text-sm active:scale-95">取消</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
+      </div>
 
-      {/* 班級與課表管理 */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 px-1">
-          <GraduationCap size={16} className="text-emerald-600 neon-glow-emerald" />
-          <h3 className="text-sm font-black text-[var(--text-secondary)] dark:text-gray-400 uppercase tracking-wider">班級與課表管理</h3>
-        </div>
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft space-y-4 transition-all duration-500 glass-effect">
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">班級代碼 (用於同步雲端課表)</label>
-            <input
-              type="text"
-              placeholder="例如：302"
-              value={classID}
-              onChange={e => setClassID(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-5 py-3.5 rounded-2xl text-[15px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white"
-            />
-          </div>
+      {/* 依據選單渲染對應內容區塊 */}
+      <div className="animate-tab-enter space-y-8" key={activeSubTab}>
 
-          <button
-            onClick={() => {
-              if (!classID.trim()) {
-                triggerNotification('提示', '請先輸入班級代碼');
-                return;
-              }
-              setIsEditingSchedule(true);
-              navTo('dashboard');
-            }}
-            className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all hover:bg-emerald-700 flex items-center justify-center gap-2"
-          >
-            <Edit3 size={18} className="shrink-0" /> 管理 / 編輯班級課表
-          </button>
-
-          <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
-            💡 輸入班級代碼後，系統會自動從雲端同步該班級的課表。編輯後的課表也將同步至雲端供同學查看。
-          </div>
-        </div>
-      </section>
-
-      {/* 自定義連結管理 */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <Link size={16} className="text-emerald-600 neon-glow-emerald" />
-            <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">自定義快捷連結</h3>
-          </div>
-          <button
-            onClick={() => setIsAddingLink(!isAddingLink)}
-            className={`p-2 transition-all active:scale-90 rounded-xl ${isAddingLink ? 'bg-red-50 text-red-500 rotate-45 shrink-0' : 'bg-emerald-50 text-emerald-600 shrink-0'}`}
-          >
-            <Plus size={20} className="shrink-0" />
-          </button>
-        </div>
-
-        {isAddingLink && (
-          <div className="bg-emerald-50/50 backdrop-blur-xl p-5 rounded-[28px] border border-emerald-100 animate-apple-linear overflow-hidden">
-            <h4 className="text-[14px] font-black text-emerald-800 dark:text-emerald-400 mb-4 flex items-center gap-2">
-              <Plus size={16} className="shrink-0" /> 新增快捷連結
-            </h4>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-emerald-600/50 uppercase ml-2">連結名稱</label>
-                <input
-                  type="text"
-                  value={newLinkTitle}
-                  onChange={e => setNewLinkTitle(e.target.value)}
-                  placeholder="例如：我的 Github"
-                  className="w-full bg-white border border-emerald-100 px-5 py-3.5 rounded-2xl text-[14px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                />
+        {/* ========================================================
+            【一般與外觀】
+           ======================================================== */}
+        {activeSubTab === 'general' && (
+          <>
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-1 text-[var(--text-secondary)]">
+                <Palette size={16} className="text-emerald-500 shrink-0" />
+                <h3 className="text-sm font-black uppercase tracking-wider">外觀主題</h3>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black text-emerald-600/50 uppercase ml-2">網址 (URL)</label>
-                <input
-                  type="text"
-                  value={newLinkUrl}
-                  onChange={e => setNewLinkUrl(e.target.value)}
-                  placeholder="https://example.com"
-                  className="w-full bg-white border border-emerald-100 px-5 py-3.5 rounded-2xl text-[14px] font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                />
+              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect transition-all duration-500">
+                <div className="grid grid-cols-3 gap-3">
+                  {themeOptions.map(opt => (
+                    <button key={opt.value} onClick={() => { setTheme(opt.value); localStorage.setItem('gsat_theme', opt.value); }}
+                      className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all active:scale-95 ${theme === opt.value ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-500/10 shadow-sm' : 'border-transparent bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10'}`}>
+                      <opt.icon size={28} className={`shrink-0 ${theme === opt.value ? 'text-emerald-600' : 'text-slate-400'}`} />
+                      <span className={`text-[12px] font-black ${theme === opt.value ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}>{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <button
-                onClick={handleAddCustomLink}
-                className="w-full bg-emerald-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all hover:bg-emerald-700"
-              >
-                儲存設置
-              </button>
-            </div>
-          </div>
-        )}
+            </section>
 
-        <div className="bg-[var(--bg-surface)] p-2 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
-          {customLinks.length === 0 && !isAddingLink ? (
-            <div className="p-8 text-center flex flex-col items-center gap-3">
-              <div className="w-12 h-12 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-300 dark:text-gray-700 shrink-0">
-                <Link size={24} className="shrink-0" />
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <LayoutTemplate size={16} className="text-indigo-600 neon-glow-indigo" />
+                <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">首頁排版設定</h3>
               </div>
-              <p className="text-sm font-black text-slate-300">目前尚無自定義連結<br /><span className="text-[10px]">點擊右上角新增</span></p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {customLinks.map((link) => (
-                <div key={link.id} className="p-2 border-b border-slate-50 dark:border-white/5 last:border-none">
-                  {editingLink?.id === link.id ? (
-                    <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl space-y-3 animate-fadeIn">
-                      <input
-                        className="w-full bg-white dark:bg-slate-800 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100 dark:border-emerald-500/20 text-slate-900 dark:text-white"
-                        value={editingLink.title}
-                        onChange={e => setEditingLink({ ...editingLink, title: e.target.value })}
-                      />
-                      <input
-                        className="w-full bg-white dark:bg-slate-800 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100 dark:border-emerald-500/20 text-slate-900 dark:text-white"
-                        value={editingLink.url}
-                        onChange={e => setEditingLink({ ...editingLink, url: e.target.value })}
-                      />
-                      <div className="flex gap-2">
-                        <button onClick={handleSaveEdit} className="flex-1 bg-emerald-600 text-white py-2 rounded-xl text-xs font-black">儲存</button>
-                        <button onClick={() => setEditingLink(null)} className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-2 rounded-xl text-xs font-black">取消</button>
+              <div className="bg-[var(--bg-surface)] p-3 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+                <div className="space-y-2 p-1">
+                  {dashboardLayout?.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, idx)}
+                      onDragEnter={(e) => handleDragEnter(e, idx)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={handleDragOver}
+                      className={`flex justify-between items-center bg-white/60 dark:bg-white/5 p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-sm transition-all duration-300 ${draggedIdx === idx ? 'opacity-40 scale-[0.98] border-dashed border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20' : ''} ${!item.visible ? 'opacity-50 grayscale' : ''}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="cursor-grab active:cursor-grabbing p-1.5 text-slate-400 hover:text-emerald-500 transition-colors hidden sm:block touch-none">
+                          <GripVertical size={18} />
+                        </div>
+                        <button onClick={() => {
+                          const newLayout = [...dashboardLayout];
+                          newLayout[idx].visible = !newLayout[idx].visible;
+                          setDashboardLayout(newLayout);
+                        }} className={`p-2.5 rounded-xl transition-all ${item.visible ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 shadow-sm' : 'bg-slate-100 text-slate-400 dark:bg-white/10'}`}>
+                          {item.visible ? <Eye size={18} /> : <EyeOff size={18} />}
+                        </button>
+                        <span className="font-black text-slate-800 dark:text-white text-[15px]">{item.label}</span>
+                      </div>
+                      <div className="flex gap-1.5 bg-slate-100/50 dark:bg-white/5 p-1.5 rounded-xl">
+                        <button onClick={() => {
+                          if (idx === 0) return;
+                          const newLayout = [...dashboardLayout];
+                          [newLayout[idx - 1], newLayout[idx]] = [newLayout[idx], newLayout[idx - 1]];
+                          setDashboardLayout(newLayout);
+                        }} disabled={idx === 0} className="p-2.5 text-slate-500 hover:text-emerald-600 disabled:opacity-30 transition-all bg-white dark:bg-slate-800 rounded-lg shadow-sm hover:shadow-md">
+                          <ArrowUp size={16} />
+                        </button>
+                        <button onClick={() => {
+                          if (idx === dashboardLayout.length - 1) return;
+                          const newLayout = [...dashboardLayout];
+                          [newLayout[idx + 1], newLayout[idx]] = [newLayout[idx], newLayout[idx + 1]];
+                          setDashboardLayout(newLayout);
+                        }} disabled={idx === dashboardLayout.length - 1} className="p-2.5 text-slate-500 hover:text-emerald-600 disabled:opacity-30 transition-all bg-white dark:bg-slate-800 rounded-lg shadow-sm hover:shadow-md">
+                          <ArrowDown size={16} />
+                        </button>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center justify-between p-2 pl-3 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors rounded-2xl group text-slate-900 dark:text-white">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-                          <Globe size={20} className="shrink-0" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[14px] font-black truncate">{link.title}</div>
-                          <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">{link.url}</div>
-                        </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <Clock size={16} className="text-emerald-600 neon-glow-emerald" />
+                  <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">自定義倒數設置</h3>
+                </div>
+                <button
+                  onClick={() => setIsAddingCountdown(!isAddingCountdown)}
+                  className={`p-2 rounded-xl transition-all active:scale-95 ${isAddingCountdown ? 'bg-red-50 text-red-500 rotate-45' : 'bg-emerald-50 text-emerald-600'}`}
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+
+              {isAddingCountdown && (
+                <div className="bg-[var(--bg-surface)] border border-emerald-100 dark:border-emerald-500/20 rounded-[32px] p-6 shadow-soft animate-slide-up-fade glass-effect">
+                  <div className="space-y-4">
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">事件名稱</label>
+                        <input
+                          placeholder="例如：畢業典禮"
+                          className="w-full p-4 rounded-2xl border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-white/5 outline-none focus:ring-2 focus:ring-emerald-500 text-[var(--text-primary)]"
+                          value={newCountdown.title}
+                          onChange={e => setNewCountdown({ ...newCountdown, title: e.target.value })}
+                        />
                       </div>
-                      <div className="flex items-center">
-                        <button
-                          onClick={() => setEditingLink(link)}
-                          className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl transition-all"
+                      <div className="w-24">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">圖標</label>
+                        <select
+                          className="w-full p-4 rounded-2xl border border-[var(--border-color)] text-lg bg-white dark:bg-white/5 outline-none appearance-none text-center"
+                          value={newCountdown.icon || '📅'}
+                          onChange={e => setNewCountdown({ ...newCountdown, icon: e.target.value })}
                         >
-                          <Edit3 size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleRemoveLink(link.id, link.title)}
-                          className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                          {['📅', '🎯', '🎓', '🏆', '🔥', '🎨', '🧪', '💻', '📚', '📝', '🏃', '✈️', '🎮', '💡', '🌟'].map(emoji => (
+                            <option key={emoji} value={emoji}>{emoji}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">日期</label>
+                        <input
+                          type="date"
+                          className="w-full p-4 rounded-2xl border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-white/5 outline-none text-[var(--text-primary)]"
+                          value={newCountdown.date}
+                          onChange={e => setNewCountdown({ ...newCountdown, date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">風格</label>
+                        <select
+                          className="w-full p-4 rounded-2xl border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-white/5 outline-none text-[var(--text-primary)]"
+                          value={newCountdown.style}
+                          onChange={e => setNewCountdown({ ...newCountdown, style: e.target.value })}
                         >
+                          <option value="gradient">主題漸層</option>
+                          <option value="simple">極簡風格</option>
+                          <option value="neon">電競霓虹</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleAddCountdown}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all"
+                    >
+                      確認新增
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-[var(--bg-surface)] p-2 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+                {!customCountdowns || customCountdowns.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 font-bold text-sm">
+                    目前沒有自定義倒數項目 ✨
+                  </div>
+                ) : (
+                  <div className="space-y-2 p-2">
+                    {customCountdowns.map(item => (
+                      <div key={item.id} className="flex justify-between items-center bg-white/50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="text-xl bg-slate-50 dark:bg-white/5 w-10 h-10 flex items-center justify-center rounded-xl">{item.icon || '📅'}</div>
+                          <div>
+                            <div className="font-black text-slate-800 dark:text-white text-sm">{item.title}</div>
+                            <div className="text-[11px] font-bold text-slate-400 mt-0.5">{item.date} · {item.style}</div>
+                          </div>
+                        </div>
+                        <button onClick={() => handleRemoveCountdown(item.id, item.title)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
                           <Trash2 size={18} />
                         </button>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* ========================================================
+            【學習與課表】
+           ======================================================== */}
+        {activeSubTab === 'academic' && (
+          <>
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <MapPin size={16} className="text-emerald-600 neon-glow-emerald" />
+                <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">校園導覽設定</h3>
+              </div>
+              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect transition-all duration-500">
+                {!editingCampus ? (
+                  <div className="bg-emerald-50/80 dark:bg-emerald-500/10 rounded-[24px] border border-emerald-100 dark:border-emerald-500/20 p-4 flex items-center gap-4">
+                    <div className="w-12 h-12 shrink-0 bg-white dark:bg-slate-800 rounded-[18px] shadow-sm flex items-center justify-center">
+                      <MapPin size={24} className="text-emerald-500 shrink-0" />
                     </div>
-                  )}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-black text-slate-900 dark:text-white">{campusName}</div>
+                      <div className="text-[12px] font-bold text-slate-500 dark:text-slate-400 truncate">{campusAddress}</div>
+                    </div>
+                    <button onClick={() => { setTempName(campusName); setTempAddr(campusAddress); setEditingCampus(true); }}
+                      className="p-2.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 hover:bg-slate-50 transition-colors text-slate-500">
+                      <Edit3 size={16} className="shrink-0" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <input className="w-full p-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 outline-none text-[15px] font-bold focus:border-emerald-400 text-[var(--text-primary)]" value={tempName} onChange={e => setTempName(e.target.value)} placeholder="學校名稱" />
+                    <input className="w-full p-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 outline-none text-[15px] font-bold focus:border-emerald-400 text-[var(--text-primary)]" value={tempAddr} onChange={e => setTempAddr(e.target.value)} placeholder="學校地址" />
+                    <div className="flex gap-3 mt-2">
+                      <button onClick={() => setEditingCampus(false)} className="flex-1 py-4 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-[20px] font-black text-sm active:scale-95 transition-all">取消</button>
+                      <button onClick={handleSaveCampus} className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-sm active:scale-95 shadow-md transition-all">儲存變更</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <GraduationCap size={16} className="text-emerald-600 neon-glow-emerald" />
+                <h3 className="text-sm font-black text-[var(--text-secondary)] dark:text-gray-400 uppercase tracking-wider">班級與課表管理</h3>
+              </div>
+              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft space-y-4 transition-all duration-500 glass-effect">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">班級代碼 (輸入以同步雲端，留空為本機自訂)</label>
+                  <input
+                    type="text"
+                    placeholder="例如：302 (留空則為本機自訂課表)"
+                    value={classID}
+                    onChange={e => setClassID(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-5 py-4 rounded-[20px] text-[16px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white"
+                  />
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* 系統服務 */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 px-1">
-          <Cloud size={16} className="text-blue-600" />
-          <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">系統服務串接</h3>
-        </div>
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft space-y-5 glass-effect">
-          {/* 通知開關 */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500 shrink-0"><Bell size={20} className="shrink-0" /></div>
-              <div>
-                <div className="text-sm font-black text-slate-900 dark:text-white">推播通知</div>
-                <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">接收課程與作業提醒</div>
+                <button
+                  onClick={() => {
+                    setIsEditingSchedule(true);
+                    navTo('dashboard');
+                  }}
+                  className="w-full bg-emerald-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all hover:bg-emerald-500 flex items-center justify-center gap-2"
+                >
+                  <Edit3 size={18} className="shrink-0" /> {classID ? '管理 / 編輯班級課表' : '建立 / 編輯自訂課表'}
+                </button>
+                <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
+                  💡 輸入班級代碼後，系統會自動從雲端同步該班級的課表。編輯後的課表也將同步至雲端供同學查看。
+                </div>
               </div>
-            </div>
-            <Switch
-              enabled={notifPermission === 'granted'}
-              onChange={(val) => val ? requestPushPermission() : triggerNotification('資訊', '請至瀏覽器設定關閉權限')}
-              colorClass="bg-orange-500"
-            />
-          </div>
+            </section>
+          </>
+        )}
 
-          {/* 定位開關 */}
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 shrink-0"><MapPin size={20} className="shrink-0" /></div>
-              <div>
-                <div className="text-sm font-black text-slate-900 dark:text-white">即時定位</div>
-                <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">用於尋找附近 YouBike</div>
-              </div>
-            </div>
-            <Switch
-              enabled={locPermission === 'granted'}
-              onChange={(val) => val ? handleLocationRequest() : triggerNotification('資訊', '請至瀏覽器設定關閉權限')}
-              colorClass="bg-emerald-500"
-            />
-          </div>
-
-          <div className="pt-2 border-t border-slate-50 dark:border-white/5 flex gap-2">
-            <button onClick={testPushNotification} className="flex-1 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-slate-100 dark:border-white/5">
-              <Sparkles size={14} className="shrink-0" /> 測試推播
-            </button>
-            <button onClick={requestPushPermission} className="flex-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-emerald-100 dark:border-white/5">
-              <Bell size={14} className="shrink-0" /> 測試通知連線
-            </button>
-          </div>
-        </div>
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
-          <h4 className="text-[14px] font-black text-slate-900 dark:text-white mb-4 flex items-center gap-2"><Cloud className="text-blue-500" size={16} /> Google 服務</h4>
-          <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-4 rounded-2xl">
-            <div>
-              <div className="text-sm font-black text-slate-900 dark:text-white">Google 帳號備份</div>
-              <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-1">備份筆記至 Drive</div>
-            </div>
-            {isGoogleConnected ? (
-              <button onClick={handleSignoutClick} className="px-4 py-2 rounded-xl text-xs font-black bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/30 active:scale-90">登出</button>
-            ) : (
-              <button onClick={handleAuthClick} className="px-4 py-2 rounded-xl text-xs font-black bg-blue-600 text-white active:scale-90">登入</button>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* iOS 安裝教學 */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 px-1">
-          <Smartphone size={16} className="text-blue-600 shrink-0" />
-          <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">iOS 安裝教學</h3>
-        </div>
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-blue-100 dark:border-white/10 shadow-soft glass-effect space-y-4">
-          <div className="flex items-start gap-3 bg-blue-50/50 dark:bg-blue-500/5 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/10 transition-transform active:scale-[0.98]">
-            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-              <Share size={20} className="text-blue-500" />
-            </div>
-            <div>
-              <div className="text-sm font-black text-slate-900 dark:text-white">第一步：點擊 Safari 下方分享按鈕</div>
-              <div className="text-[11px] font-bold text-slate-500 dark:text-gray-400">在 Safari 瀏覽器打開本站後點擊底部工具列</div>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 bg-blue-50/50 dark:bg-blue-500/5 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/10 transition-transform active:scale-[0.98]">
-            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-              <PlusSquare size={20} className="text-blue-500" />
-            </div>
-            <div>
-              <div className="text-sm font-black text-slate-900 dark:text-white">第二步：選擇「加入主畫面」</div>
-              <div className="text-[11px] font-bold text-slate-500 dark:text-gray-400">這將讓 App 脫離瀏覽器，獲得全螢幕與穩定通知</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* AI 設定 */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 px-1">
-          <BrainCircuit size={16} className="text-purple-600 shrink-0" />
-          <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">AI 引擎設定</h3>
-        </div>
-        <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
-          <h4 className="text-[14px] font-black text-slate-800 dark:text-white mb-4 flex items-center gap-2"><Sparkles className="text-purple-500" size={16} /> API 金鑰管理</h4>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between items-end mb-2">
-                <label className="text-[12px] font-black text-slate-400 dark:text-gray-500">GEMINI KEY {!geminiKey && <span className="text-amber-500">未設定</span>}</label>
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[11px] font-black text-purple-600 hover:underline">🔗 取得金鑰</a>
-              </div>
-              <div className="flex gap-2">
-                <input type="password" placeholder="貼上您的 API Key" value={geminiKey}
-                  onChange={e => { setGeminiKey(e.target.value); localStorage.setItem('gsat_gemini_key', e.target.value); }}
-                  className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 text-sm font-black outline-none focus:border-purple-400 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-white" />
-                <button onClick={testAiConnection} disabled={aiTestStatus === 'testing'}
-                  className={`px-4 rounded-2xl font-black text-xs active:scale-95 flex items-center gap-2 ${aiTestStatus === 'success' ? 'bg-emerald-500 text-white' : aiTestStatus === 'error' ? 'bg-red-500 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'}`}>
-                  {aiTestStatus === 'testing' ? <RefreshCw size={14} className="animate-spin" /> : aiTestStatus === 'success' ? <CheckCircle2 size={14} /> : aiTestStatus === 'error' ? <X size={14} /> : '測試'}
-                  {aiTestStatus === 'idle' ? '測試' : aiTestStatus === 'testing' ? '驗證中' : aiTestStatus === 'success' ? '成功' : '失敗'}
+        {/* ========================================================
+            【系統服務】
+           ======================================================== */}
+        {activeSubTab === 'system' && (
+          <>
+            <section className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <Link size={16} className="text-emerald-600 neon-glow-emerald" />
+                  <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">自定義快捷連結</h3>
+                </div>
+                <button
+                  onClick={() => setIsAddingLink(!isAddingLink)}
+                  className={`p-2 transition-all active:scale-90 rounded-xl ${isAddingLink ? 'bg-red-50 text-red-500 rotate-45 shrink-0' : 'bg-emerald-50 text-emerald-600 shrink-0'}`}
+                >
+                  <Plus size={20} className="shrink-0" />
                 </button>
               </div>
-            </div>
-            <div className="p-4 bg-purple-50/80 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
-              💡 使用 Gemini 2.5 Flash 模型，金鑰僅存在您的瀏覽器中。
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* 管理員 */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2 px-1">
-          <Lock size={16} className="text-gray-600" />
-          <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">管理/學生會專區</h3>
-        </div>
-        {!isAdmin ? (
-          <div className="bg-[var(--bg-surface)] p-8 rounded-[32px] border border-[var(--border-color)] shadow-soft flex flex-col items-center max-w-sm mx-auto w-full glass-effect">
-            <div className="bg-emerald-100 dark:bg-emerald-500/10 p-4 rounded-[24px] mb-4 text-emerald-600 dark:text-emerald-400"><Store size={32} /></div>
-            <h4 className="text-[17px] font-black text-slate-900 dark:text-white mb-1">特約商店管理</h4>
-            <p className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mb-5 text-center">進入後台以管理商店資料</p>
-            <div className="w-full flex flex-col gap-3">
-              <input type="password" placeholder="管理員密碼" value={adminPassword}
-                onChange={e => setAdminPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
-                className="w-full p-3 rounded-2xl border border-slate-200 dark:border-white/10 outline-none text-sm font-bold text-center focus:border-emerald-400 bg-white dark:bg-white/5 text-slate-900 dark:text-white" />
-              <button onClick={handleAdminLogin} className="w-full bg-emerald-600 text-white font-black py-3 rounded-2xl active:scale-95 shadow-md">解鎖後台</button>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-emerald-500/30 shadow-lg glass-effect">
-            <h4 className="text-[14px] font-black text-gray-800 mb-4">🏪 特約商店管理（已授權）</h4>
-            <div className="bg-emerald-50/80 p-5 rounded-[24px] border border-emerald-100 flex flex-col gap-3 mb-6">
-              <h5 className="text-sm font-black text-emerald-800 flex justify-between items-center">
-                {editingStore ? '編輯商店' : '新增商店'}
-                {editingStore && <button onClick={() => { setEditingStore(null); setNewStore({ name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '', operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: '' }); }} className="text-xs text-gray-500 bg-white px-2 py-1 rounded-md border">取消編輯</button>}
-              </h5>
-              <div className="grid grid-cols-2 gap-2">
-                <input placeholder="商店名稱 *" className="p-3 rounded-xl border border-emerald-200 text-sm font-bold col-span-2" value={newStore.name} onChange={e => setNewStore({ ...newStore, name: e.target.value })} />
-                <input placeholder="優惠內容 *" className="p-3 rounded-xl border border-emerald-200 text-sm font-bold col-span-2" value={newStore.discount} onChange={e => setNewStore({ ...newStore, discount: e.target.value })} />
-                <div className="flex gap-2 col-span-2">
-                  <input placeholder="Icon" className="p-3 rounded-xl border border-emerald-200 text-sm font-bold w-1/4 text-center" value={newStore.icon} onChange={e => setNewStore({ ...newStore, icon: e.target.value })} />
-                  <select className="p-3 rounded-xl border border-emerald-200 text-sm font-bold bg-white flex-1" value={newStore.type} onChange={e => setNewStore({ ...newStore, type: e.target.value })}>
-                    {['餐飲', '飲料', '咖啡', '文具', '其他'].map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <input placeholder="地址（選填）" className="p-3 rounded-xl border border-emerald-200 text-sm font-bold col-span-2" value={newStore.address} onChange={e => setNewStore({ ...newStore, address: e.target.value })} />
-              </div>
-              <button onClick={handleAddOrUpdateStore} className="w-full bg-emerald-600 text-white font-black py-3 rounded-xl active:scale-95 mt-1 shadow-md">
-                {editingStore ? '儲存變更' : '新增商店'}
-              </button>
-            </div>
-            <div className="space-y-3 pt-2">
-              <h5 className="text-[12px] font-black text-slate-400 uppercase tracking-widest px-1">現有商店：{stores.length} 間</h5>
-              {stores.map(store => (
-                <div key={store.id} className="flex justify-between items-center bg-slate-50/50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-white/10 shrink-0">
-                      {React.createElement(getStoreCategoryIcon(store.type), { size: 24, className: "text-emerald-500 shrink-0" })}
+              {isAddingLink && (
+                <div className="bg-[var(--bg-surface)] backdrop-blur-xl p-6 rounded-[32px] border border-emerald-100 dark:border-emerald-500/30 animate-apple-linear overflow-hidden glass-effect">
+                  <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                    <Plus size={16} className="shrink-0 text-emerald-500" /> 新增快捷連結
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">連結名稱</label>
+                      <input
+                        type="text"
+                        value={newLinkTitle}
+                        onChange={e => setNewLinkTitle(e.target.value)}
+                        placeholder="例如：我的 Github"
+                        className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-5 py-3.5 rounded-2xl text-[14px] font-bold focus:border-emerald-400 outline-none transition-all text-[var(--text-primary)]"
+                      />
                     </div>
-                    <div>
-                      <div className="font-black text-slate-900 dark:text-white text-sm leading-tight">{store.name}</div>
-                      <div className="text-[11px] font-bold text-slate-400 mt-0.5">{store.discount}</div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">網址 (URL)</label>
+                      <input
+                        type="text"
+                        value={newLinkUrl}
+                        onChange={e => setNewLinkUrl(e.target.value)}
+                        placeholder="https://example.com"
+                        className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-5 py-3.5 rounded-2xl text-[14px] font-bold focus:border-emerald-400 outline-none transition-all text-[var(--text-primary)]"
+                      />
                     </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => { setEditingStore(store.id); setNewStore({ name: store.name || '', discount: store.discount || '', type: store.type || '餐飲', icon: store.icon || '🏪', distance: store.distance || '特約商店', address: store.address || '', operatingHours: store.operatingHours || '', deliveryStatus: store.deliveryStatus || '僅限自取', estimatedTime: store.estimatedTime || '', deliveryUrl: store.deliveryUrl || '' }); }} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold">編輯</button>
-                    <button onClick={() => handleDeleteStore(store.id, store.name)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold">刪除</button>
+                    <button
+                      onClick={handleAddCustomLink}
+                      className="w-full bg-emerald-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all hover:bg-emerald-500"
+                    >
+                      儲存設置
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
-      {/* 自定義倒數管理 */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <Clock size={16} className="text-emerald-600 neon-glow-emerald" />
-            <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">自定義倒數設置</h3>
-          </div>
-          <button
-            onClick={() => setIsAddingCountdown(!isAddingCountdown)}
-            className={`p-2 rounded-xl transition-all active:scale-95 ${isAddingCountdown ? 'bg-red-50 text-red-500 rotate-45' : 'bg-emerald-50 text-emerald-600'}`}
-          >
-            <Plus size={20} />
-          </button>
-        </div>
+              )}
 
-        {isAddingCountdown && (
-          <div className="bg-white dark:bg-white/5 border border-emerald-100 dark:border-emerald-500/20 rounded-[32px] p-6 shadow-soft animate-slide-up-fade">
-            <div className="space-y-4">
-              <input
-                placeholder="事件名稱 (例如：畢業典禮)"
-                className="w-full p-4 rounded-2xl border border-gray-100 dark:border-white/10 text-sm font-bold bg-gray-50 dark:bg-white/5 outline-none focus:ring-2 focus:ring-emerald-500"
-                value={newCountdown.title}
-                onChange={e => setNewCountdown({ ...newCountdown, title: e.target.value })}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="date"
-                  className="p-4 rounded-2xl border border-gray-100 dark:border-white/10 text-sm font-bold bg-gray-50 dark:bg-white/5 outline-none"
-                  value={newCountdown.date}
-                  onChange={e => setNewCountdown({ ...newCountdown, date: e.target.value })}
-                />
-                <select
-                  className="p-4 rounded-2xl border border-gray-100 dark:border-white/10 text-sm font-bold bg-gray-50 dark:bg-white/5 outline-none"
-                  value={newCountdown.style}
-                  onChange={e => setNewCountdown({ ...newCountdown, style: e.target.value })}
-                >
-                  <option value="gradient">主題漸層</option>
-                  <option value="simple">極簡風格</option>
-                  <option value="neon">電競霓虹</option>
-                </select>
+              <div className="bg-[var(--bg-surface)] p-2 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+                {customLinks.length === 0 && !isAddingLink ? (
+                  <div className="p-8 text-center flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-300 dark:text-gray-700 shrink-0">
+                      <Link size={24} className="shrink-0" />
+                    </div>
+                    <p className="text-sm font-black text-slate-400">目前尚無自定義連結<br /><span className="text-[10px]">點擊右上角新增</span></p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {customLinks.map((link) => (
+                      <div key={link.id} className="p-2 border-b border-slate-50 dark:border-white/5 last:border-none">
+                        {editingLink?.id === link.id ? (
+                          <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl space-y-3 animate-fadeIn">
+                            <input
+                              className="w-full bg-white dark:bg-slate-800 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100 dark:border-emerald-500/20 text-[var(--text-primary)]"
+                              value={editingLink.title}
+                              onChange={e => setEditingLink({ ...editingLink, title: e.target.value })}
+                            />
+                            <input
+                              className="w-full bg-white dark:bg-slate-800 px-4 py-2 rounded-xl text-sm font-bold border border-emerald-100 dark:border-emerald-500/20 text-[var(--text-primary)]"
+                              value={editingLink.url}
+                              onChange={e => setEditingLink({ ...editingLink, url: e.target.value })}
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={handleSaveEdit} className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black">儲存</button>
+                              <button onClick={() => setEditingLink(null)} className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-2.5 rounded-xl text-xs font-black">取消</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between p-2 pl-3 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors rounded-2xl group text-slate-900 dark:text-white">
+                            <div className="flex items-center gap-4 min-w-0">
+                              <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                                <Globe size={20} className="shrink-0" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-[14px] font-black truncate">{link.title}</div>
+                                <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate">{link.url}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              <button
+                                onClick={() => setEditingLink(link)}
+                                className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl transition-all"
+                              >
+                                <Edit3 size={18} />
+                              </button>
+                              <button
+                                onClick={() => handleRemoveLink(link.id, link.title)}
+                                className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <button
-                onClick={handleAddCountdown}
-                className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all"
-              >
-                確認新增
-              </button>
-            </div>
-          </div>
-        )}
+            </section>
 
-        <div className="bg-[var(--bg-surface)] p-2 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
-          {!customCountdowns || customCountdowns.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 font-bold text-sm">
-              目前沒有自定義倒數項目 ✨
-            </div>
-          ) : (
-            <div className="space-y-2 p-2">
-              {customCountdowns.map(item => (
-                <div key={item.id} className="flex justify-between items-center bg-white dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm">
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <Cloud size={16} className="text-blue-600" />
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">系統服務串接</h3>
+              </div>
+              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft space-y-5 glass-effect">
+                {/* 通知開關 */}
+                <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <div className="text-xl">📅</div>
+                    <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500 shrink-0"><Bell size={20} className="shrink-0" /></div>
                     <div>
-                      <div className="font-black text-slate-800 dark:text-white text-sm">{item.title}</div>
-                      <div className="text-[11px] font-bold text-slate-400 mt-0.5">{item.date} · {item.style}</div>
+                      <div className="text-sm font-black text-[var(--text-primary)]">推播通知</div>
+                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">接收課程與作業提醒</div>
                     </div>
                   </div>
-                  <button onClick={() => handleRemoveCountdown(item.id, item.title)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                    <Trash2 size={18} />
+                  <Switch
+                    enabled={notifPermission === 'granted'}
+                    onChange={(val) => val ? requestPushPermission() : triggerNotification('資訊', '請至瀏覽器設定關閉權限')}
+                    colorClass="bg-orange-500"
+                  />
+                </div>
+                {/* 定位開關 */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 shrink-0"><MapPin size={20} className="shrink-0" /></div>
+                    <div>
+                      <div className="text-sm font-black text-[var(--text-primary)]">即時定位</div>
+                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">用於尋找附近 YouBike</div>
+                    </div>
+                  </div>
+                  <Switch
+                    enabled={locPermission === 'granted'}
+                    onChange={(val) => val ? handleLocationRequest() : triggerNotification('資訊', '請至瀏覽器設定關閉權限')}
+                    colorClass="bg-emerald-500"
+                  />
+                </div>
+                <div className="pt-2 border-t border-slate-50 dark:border-white/5 flex gap-3">
+                  <button onClick={testPushNotification} className="flex-1 bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-300 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-slate-100 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                    <Sparkles size={14} className="shrink-0" /> 測試推播
+                  </button>
+                  <button onClick={requestPushPermission} className="flex-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-emerald-100 dark:border-emerald-500/20 hover:bg-emerald-100 transition-colors">
+                    <Bell size={14} className="shrink-0" /> 通知連線
                   </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+              </div>
+
+              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+                <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2"><Cloud className="text-blue-500" size={16} /> Google 服務</h4>
+                <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-4 rounded-2xl">
+                  <div>
+                    <div className="text-sm font-black text-[var(--text-primary)]">Google 帳號備份</div>
+                    <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-1">備份筆記至 Drive</div>
+                  </div>
+                  {isGoogleConnected ? (
+                    <button onClick={handleSignoutClick} className="px-4 py-2.5 rounded-xl text-xs font-black bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/30 active:scale-90 transition-transform">登出</button>
+                  ) : (
+                    <button onClick={handleAuthClick} className="px-4 py-2.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white active:scale-90 transition-all shadow-md">登入備份</button>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <Smartphone size={16} className="text-blue-600 shrink-0" />
+                <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">iOS 安裝教學</h3>
+              </div>
+              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-blue-100 dark:border-white/10 shadow-soft glass-effect space-y-4">
+                <div className="flex items-start gap-3 bg-blue-50/50 dark:bg-blue-500/5 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/10 transition-transform active:scale-[0.98]">
+                  <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                    <Share size={20} className="text-blue-500" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-black text-[var(--text-primary)]">第一步：點擊下方分享按鈕</div>
+                    <div className="text-[11px] font-bold text-slate-500 dark:text-gray-400">在 Safari 瀏覽器打開本站後點擊底部工具列</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 bg-blue-50/50 dark:bg-blue-500/5 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/10 transition-transform active:scale-[0.98]">
+                  <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                    <PlusSquare size={20} className="text-blue-500" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-black text-[var(--text-primary)]">第二步：選擇「加入主畫面」</div>
+                    <div className="text-[11px] font-bold text-slate-500 dark:text-gray-400">這將讓 App 獲得全螢幕與穩定通知</div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* ========================================================
+            【進階與管理】
+           ======================================================== */}
+        {activeSubTab === 'advanced' && (
+          <>
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <BrainCircuit size={16} className="text-purple-600 shrink-0" />
+                <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">AI 引擎設定</h3>
+              </div>
+              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+                <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2"><Sparkles className="text-purple-500" size={16} /> API 金鑰管理</h4>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-end mb-2">
+                      <label className="text-[12px] font-black text-slate-400 dark:text-gray-500">GEMINI KEY {!geminiKey && <span className="text-amber-500">未設定</span>}</label>
+                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[11px] font-black text-purple-600 hover:underline">🔗 取得金鑰</a>
+                    </div>
+                    <div className="flex gap-3">
+                      <input type="password" placeholder="貼上您的 API Key" value={geminiKey}
+                        onChange={e => { setGeminiKey(e.target.value); localStorage.setItem('gsat_gemini_key', e.target.value); }}
+                        className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-purple-400 focus:bg-white dark:focus:bg-slate-800 text-[var(--text-primary)] transition-all" />
+                      <button onClick={testAiConnection} disabled={aiTestStatus === 'testing'}
+                        className={`px-5 rounded-2xl font-black text-sm active:scale-95 transition-all flex items-center justify-center gap-2 ${aiTestStatus === 'success' ? 'bg-emerald-500 text-white' : aiTestStatus === 'error' ? 'bg-red-500 text-white' : 'bg-purple-600 text-white hover:bg-purple-500 shadow-md'}`}>
+                        {aiTestStatus === 'testing' ? <RefreshCw size={16} className="animate-spin" /> : aiTestStatus === 'success' ? <CheckCircle2 size={16} /> : aiTestStatus === 'error' ? <X size={16} /> : '測試'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-purple-50/80 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
+                    💡 使用 Gemini 2.5 Flash 模型，金鑰僅存在您的瀏覽器中。
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <Lock size={16} className="text-gray-600" />
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">管理 / 學生會專區</h3>
+              </div>
+              {!isAdmin ? (
+                <div className="bg-[var(--bg-surface)] p-8 rounded-[32px] border border-[var(--border-color)] shadow-soft flex flex-col items-center mx-auto w-full glass-effect">
+                  <div className="bg-emerald-100 dark:bg-emerald-500/10 p-4 rounded-[24px] mb-4 text-emerald-600 dark:text-emerald-400"><Store size={32} /></div>
+                  <h4 className="text-[17px] font-black text-[var(--text-primary)] mb-1">特約商店管理</h4>
+                  <p className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mb-6 text-center">進入後台以管理商店資料</p>
+                  <div className="w-full flex flex-col gap-3">
+                    <input type="password" placeholder="管理員密碼" value={adminPassword}
+                      onChange={e => setAdminPassword(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
+                      className="w-full p-4 rounded-[20px] border border-slate-200 dark:border-white/10 outline-none text-sm font-bold text-center focus:border-emerald-400 bg-slate-50 dark:bg-white/5 text-[var(--text-primary)] transition-all" />
+                    <button onClick={handleAdminLogin} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-[20px] active:scale-[0.98] transition-all shadow-md">解鎖後台</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-emerald-500/30 shadow-lg glass-effect">
+                  <h4 className="text-[15px] font-black text-[var(--text-primary)] mb-5 flex items-center gap-2"><Store size={18} className="text-emerald-500" /> 特約商店管理（已授權）</h4>
+                  <div className="bg-emerald-50/80 dark:bg-emerald-950/20 p-5 rounded-[24px] border border-emerald-100 dark:border-emerald-500/20 flex flex-col gap-4 mb-6">
+                    <h5 className="text-sm font-black text-emerald-800 dark:text-emerald-400 flex justify-between items-center">
+                      {editingStore ? '編輯商店' : '新增商店'}
+                      {editingStore && <button onClick={() => { setEditingStore(null); setNewStore({ name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '', operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: '' }); }} className="text-[11px] text-gray-500 bg-white dark:bg-white/10 px-2.5 py-1 rounded-lg border dark:border-white/5 shadow-sm active:scale-95 transition-all">取消編輯</button>}
+                    </h5>
+                    <div className="grid grid-cols-2 gap-3">
+                      <input placeholder="商店名稱 *" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold col-span-2 outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.name} onChange={e => setNewStore({ ...newStore, name: e.target.value })} />
+                      <input placeholder="優惠內容 *" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold col-span-2 outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.discount} onChange={e => setNewStore({ ...newStore, discount: e.target.value })} />
+                      <div className="flex gap-2 col-span-2">
+                        <input placeholder="Icon" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold w-[30%] text-center outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.icon} onChange={e => setNewStore({ ...newStore, icon: e.target.value })} />
+                        <select className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold flex-1 outline-none text-[var(--text-primary)] appearance-none" value={newStore.type} onChange={e => setNewStore({ ...newStore, type: e.target.value })}>
+                          {['餐飲', '飲料', '咖啡', '文具', '其他'].map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <input placeholder="地址（選填）" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold col-span-2 outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.address} onChange={e => setNewStore({ ...newStore, address: e.target.value })} />
+                    </div>
+                    <button onClick={handleAddOrUpdateStore} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 rounded-[16px] active:scale-[0.98] mt-1 shadow-md transition-all">
+                      {editingStore ? '儲存變更' : '新增商店'}
+                    </button>
+                  </div>
+                  <div className="space-y-3 pt-2">
+                    <h5 className="text-[12px] font-black text-slate-400 uppercase tracking-widest px-1">現有商店：{stores.length} 間</h5>
+                    {stores.map(store => (
+                      <div key={store.id} className="flex justify-between items-center bg-slate-50/50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-white/10 shrink-0 shadow-sm">
+                            {React.createElement(getStoreCategoryIcon(store.type), { size: 24, className: "text-emerald-500 shrink-0" })}
+                          </div>
+                          <div>
+                            <div className="font-black text-[var(--text-primary)] text-[15px] leading-tight mb-1">{store.name}</div>
+                            <div className="text-[11px] font-bold text-slate-400 dark:text-gray-400">{store.discount}</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => { setEditingStore(store.id); setNewStore({ name: store.name || '', discount: store.discount || '', type: store.type || '餐飲', icon: store.icon || '🏪', distance: store.distance || '特約商店', address: store.address || '', operatingHours: store.operatingHours || '', deliveryStatus: store.deliveryStatus || '僅限自取', estimatedTime: store.estimatedTime || '', deliveryUrl: store.deliveryUrl || '' }); }} className="p-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 text-blue-600 rounded-xl transition-all active:scale-95"><Edit3 size={16} /></button>
+                          <button onClick={() => handleDeleteStore(store.id, store.name)} className="p-2 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 text-red-600 rounded-xl transition-all active:scale-95"><Trash2 size={16} /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </div>
     </div>
   );
 };

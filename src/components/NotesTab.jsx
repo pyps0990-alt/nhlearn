@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { 
-  BrainCircuit, X, CheckCircle2, Library, Edit3, Trash2, Plus, 
-  ArrowLeft, Wand2, RefreshCw, Upload, Sparkles, Save, Calendar, 
-  FolderPlus, FileText, ChevronLeft, Book, BookOpen, FlaskConical, 
+import {
+  BrainCircuit, X, CheckCircle2, Library, Edit3, Trash2, Plus,
+  ArrowLeft, Wand2, RefreshCw, Upload, Sparkles, Save, Calendar,
+  FolderPlus, FileText, ChevronLeft, Book, BookOpen, FlaskConical,
   Palette, Languages, Globe, Timer, Lightbulb, PenTool, Trophy, Music, Layout
 } from 'lucide-react';
 import { NOTE_CATEGORIES } from '../utils/constants';
@@ -10,11 +10,21 @@ import { fetchAI } from '../utils/helpers';
 
 // 1. 補上缺失的圖標映射表，解決黑屏與圖標顯示問題
 const ICON_MAP = {
-  '📘': Book, '📕': BookOpen, '📗': FlaskConical, '📙': Palette,
-  '📓': Languages, '🎨': Layout, '🧪': FlaskConical, '📏': PenTool,
-  '💻': Layout, '🇬🇧': Globe, '🌍': Globe, '⏳': Timer,
-  '💡': Lightbulb, '✍️': PenTool, '🏀': Trophy, '🎵': Music
+  '📘': Book, '📕': BookOpen, '📗': FlaskConical, '📙': Palette, '📓': Languages, 
+  '🎨': Palette, '🧪': FlaskConical, '📏': PenTool, '💻': Layout, 
+  '🇬🇧': Globe, '🌍': Globe, '⏳': Timer, '💡': Lightbulb, 
+  '✍️': PenTool, '🏀': Trophy, '🎵': Music
 };
+
+const COLOR_CLASSES = [
+  { key: 'emerald', hex: 'bg-emerald-500' },
+  { key: 'blue', hex: 'bg-blue-500' },
+  { key: 'rose', hex: 'bg-rose-500' },
+  { key: 'amber', hex: 'bg-amber-500' },
+  { key: 'purple', hex: 'bg-purple-500' },
+  { key: 'indigo', hex: 'bg-indigo-500' },
+  { key: 'slate', hex: 'bg-slate-500' }
+];
 
 const QuizModal = ({ isOpen, onClose, quizData, subject }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -103,14 +113,14 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
   const [quizData, setQuizData] = useState([]);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [showAddSubject, setShowAddSubject] = useState(false);
-  const [newSub, setNewSub] = useState({ name: '', icon: '📘', color: 'text-emerald-600' });
+  const [newSub, setNewSub] = useState({ name: '', icon: '📘', color: 'emerald' });
 
   // ----------------邏輯函式保持不變 (handleAddSubject, handleDeleteNote 等)----------------
   const handleAddSubject = () => {
     if (!newSub.name) return;
     if (subjects.find(s => s.name === newSub.name)) { triggerNotification('重複科目', '該科目已存在！'); return; }
     setSubjects(prev => [...prev, { ...newSub }]);
-    setNewSub({ name: '', icon: '📘', color: 'text-emerald-600' });
+    setNewSub({ name: '', icon: '📘', color: 'emerald' });
     setShowAddSubject(false);
     triggerNotification('新增成功', `已新增科目：${newSub.name}`);
   };
@@ -178,14 +188,14 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
   if (!selectedSubject) {
     return (
-      <div className="space-y-6 flex flex-col w-full text-left mb-8">
-        <div className="flex justify-between items-center px-1">
-          <h2 className="text-2xl font-black text-emerald-600 flex items-center gap-2.5">
+      <div className="space-y-8 flex flex-col w-full text-left mb-12">
+        <div className="flex justify-between items-center px-2">
+          <h2 className="text-3xl font-black text-emerald-600 flex items-center gap-3 tracking-tight">
             <Library size={28} className="shrink-0 neon-glow-emerald" /> 知識筆記
           </h2>
-          <button 
-            onClick={() => setIsEditMode(!isEditMode)} 
-            className={`p-2.5 rounded-xl transition-all active:scale-95 duration-500 ${isEditMode ? 'bg-red-500 text-white shadow-lg' : 'bg-slate-50 dark:bg-white/10 text-slate-500 border border-slate-200 dark:border-white/10'}`}
+          <button
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`p-3.5 rounded-[20px] transition-all active:scale-[0.95] duration-500 ease-spring-smooth ${isEditMode ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 rotate-12' : 'bg-[var(--bg-surface)] text-slate-500 border border-[var(--border-color)] shadow-sm hover:shadow-md hover:-translate-y-0.5 glass-effect'}`}
           >
             {isEditMode ? <CheckCircle2 size={20} /> : <Edit3 size={20} />}
           </button>
@@ -216,14 +226,24 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
               </div>
               <div className="flex flex-wrap gap-2 p-1">
                 {Object.keys(ICON_MAP).map(emoji => (
-                  <button 
-                    key={emoji} 
+                  <button
+                    key={emoji}
                     onClick={() => setNewSub({ ...newSub, icon: emoji })}
                     className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${newSub.icon === emoji ? 'bg-emerald-100 dark:bg-emerald-500/20 scale-110 shadow-sm' : 'bg-slate-50 dark:bg-white/5 hover:bg-slate-100'}`}
                   >
                     {emoji}
                   </button>
                 ))}
+              </div>
+              <div className="flex flex-col gap-2 mt-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">科目標籤顏色</span>
+                <div className="flex flex-wrap gap-2 p-1">
+                  {COLOR_CLASSES.map(c => (
+                    <button key={c.key} onClick={() => setNewSub({ ...newSub, color: c.key })}
+                      className={`w-7 h-7 rounded-full ${c.hex} transition-all active:scale-90 ${newSub.color === c.key ? 'ring-4 ring-offset-2 ring-emerald-200 dark:ring-emerald-500/50 scale-110' : 'opacity-70 hover:opacity-100'}`}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
             <div className="flex gap-2">
@@ -238,18 +258,18 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
             const IconComp = ICON_MAP[s.icon] || Library;
             return (
               <div key={s.name} className="relative group animate-pop-in">
-                <button 
-                  onClick={() => !isEditMode && setSelectedSubject(s)} 
-                  className={`relative w-full aspect-square bg-[var(--bg-surface)] shadow-soft border border-[var(--border-color)] rounded-[36px] flex flex-col items-center justify-center gap-3 transition-all duration-300 glass-effect ${isEditMode ? 'opacity-50 grayscale' : 'hover:-translate-y-2 active:scale-95 hover:brightness-110'}`}
+                <button
+                  onClick={() => !isEditMode && setSelectedSubject(s)}
+                  className={`relative w-full aspect-square bg-[var(--bg-surface)] shadow-soft border border-[var(--border-color)] rounded-[40px] flex flex-col items-center justify-center gap-4 transition-all duration-500 ease-spring-smooth glass-effect ${isEditMode ? 'opacity-50 grayscale scale-[0.98]' : 'hover:shadow-float hover:-translate-y-2 active:scale-[0.95] hover:bg-white/80 dark:hover:bg-white/10'}`}
                 >
                   <div className="text-emerald-500 transform group-hover:scale-110 transition-transform duration-500">
                     <IconComp size={48} className="shrink-0" />
                   </div>
-                  <span className="text-[15px] font-black text-[var(--text-primary)]">{s.name}</span>
+                  <span className="text-[16px] font-black text-[var(--text-primary)] tracking-wide">{s.name}</span>
                 </button>
                 {isEditMode && (
-                  <button 
-                    onClick={() => handleDeleteSubject(s.name)} 
+                  <button
+                    onClick={() => handleDeleteSubject(s.name)}
                     className="absolute -top-1 -right-1 bg-red-500 text-white p-2 rounded-full shadow-lg active:scale-125 z-10"
                   >
                     <Trash2 size={14} />
@@ -258,7 +278,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
               </div>
             );
           })}
-          <button onClick={() => setShowAddSubject(true)} className="aspect-square border-2 border-dashed border-[var(--border-color)] rounded-[36px] flex flex-col items-center justify-center text-slate-400 hover:text-emerald-500 transition-all active:scale-95"><Plus size={32} /></button>
+          <button onClick={() => setShowAddSubject(true)} className="aspect-square border-2 border-dashed border-[var(--border-color)] rounded-[40px] flex flex-col items-center justify-center text-slate-400 hover:text-emerald-500 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-500 ease-spring-smooth active:scale-[0.95] group"><Plus size={36} className="group-hover:scale-125 transition-transform duration-500 ease-spring-bouncy" /></button>
         </div>
       </div>
     );
@@ -266,15 +286,15 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
   // 當選擇了科目後，渲染筆記清單
   const sn = notes.filter(n => n.subject === selectedSubject?.name);
-  
+
   return (
-    <div className="space-y-5 flex flex-col w-full text-left mb-8 pb-10 relative animate-slide-up-fade">
+    <div className="space-y-8 flex flex-col w-full text-left mb-12 pb-10 relative animate-slide-up-fade">
       <QuizModal isOpen={isQuizOpen} onClose={() => setIsQuizOpen(false)} quizData={quizData} subject={selectedSubject?.name} />
-      <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-5">
+      <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-6 px-2">
         <div className="flex items-center gap-4">
-          <button onClick={() => setSelectedSubject(null)} className="p-3 bg-slate-50 dark:bg-white/10 rounded-[20px] shadow-sm active:scale-95 border border-[var(--border-color)]"><ArrowLeft size={20} className="text-slate-600 dark:text-gray-300" /></button>
+          <button onClick={() => setSelectedSubject(null)} className="p-4 bg-[var(--bg-surface)] rounded-[24px] shadow-sm hover:shadow-md active:scale-95 border border-[var(--border-color)] transition-all duration-300 ease-spring glass-effect"><ArrowLeft size={22} className="text-slate-600 dark:text-gray-300" /></button>
           <div>
-            <h2 className="text-[20px] font-black text-emerald-600">{selectedSubject?.name}</h2>
+            <h2 className="text-[24px] font-black text-emerald-600 tracking-tight">{selectedSubject?.name}</h2>
             <p className="text-[12px] font-bold text-slate-400">{sn.length} 則筆記</p>
           </div>
         </div>
@@ -283,7 +303,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
         </button>
       </div>
 
-      <div className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[36px] border border-[var(--border-color)] shadow-soft space-y-4 glass-effect">
+      <div className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[40px] border border-[var(--border-color)] shadow-soft space-y-5 glass-effect hover:shadow-float transition-all duration-500 ease-spring-smooth">
         <div className="flex flex-col sm:flex-row gap-2.5">
           <select className="bg-slate-50 dark:bg-white/5 border border-[var(--border-color)] rounded-2xl px-3 py-4 text-xs font-black text-[var(--text-primary)] outline-none" value={newNote.category} onChange={e => setNewNote({ ...newNote, category: e.target.value })}>
             {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -306,7 +326,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
       <div className="space-y-4 mt-4">
         {sn.map(n => (
-          <div key={n.id} className="p-6 bg-[var(--bg-surface)] rounded-[32px] border border-[var(--border-color)] shadow-soft group glass-effect">
+          <div key={n.id} className="p-7 bg-[var(--bg-surface)] rounded-[40px] border border-[var(--border-color)] shadow-soft hover:shadow-float hover:-translate-y-1 transition-all duration-500 ease-spring-smooth group glass-effect">
             <div className="flex justify-between items-start mb-4">
               <span className={`px-3 py-1.5 ${n.category === '錯題本' ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'} rounded-lg text-[10px] font-black`}>{n.category}</span>
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

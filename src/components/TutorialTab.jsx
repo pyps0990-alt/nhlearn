@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import {
   Sparkles, LayoutDashboard, Library, Notebook, BookOpen,
   Bike, Store, BrainCircuit, Settings, ChevronRight, MessageSquare,
-  Bell, Cloud, Globe, Navigation, Calendar, Key
+  Bell, Cloud, Globe, Navigation, Calendar, Key, LayoutTemplate
 } from 'lucide-react';
 
-const TutorialTab = ({ onOpenFeedback }) => {
+const TutorialTab = ({ onOpenFeedback, campusName }) => {
   const [openSection, setOpenSection] = useState(null);
 
   const sections = [
@@ -15,9 +15,19 @@ const TutorialTab = ({ onOpenFeedback }) => {
       color: 'text-amber-500',
       bg: 'bg-amber-50',
       content: [
-        { q: '第一次啟動要做什麼？', a: '1. 點選「允許通知」➜ 授權推播提醒\n2. 點選「連結 Google」➜ 啟用雲端備份\n3. 在設定綁定 Gemini API Key ➜ 解鎖 AI 功能\n4. 開始使用！' },
-        { q: '需要帳號才能使用嗎？', a: '不需要！大部分功能（課表、聯絡簿、筆記）皆可離線使用，只有雲端備份和部分 AI 功能需要登入 Google。' },
-        { q: '支援哪些裝置？', a: '支援所有現代瀏覽器，強烈建議在 iOS/Android 上加到主畫面以獲得最佳體驗（可接收推播通知）。' }
+        { q: '第一次啟動要做什麼？', a: '1. 允許通知 ➜ 掌握課表與重要提醒\n2. 連結 Google ➜ 啟用跨裝置雲端備份\n3. 綁定 Gemini API Key ➜ 解鎖強大的 AI 學習輔助\n4. 前往「設定」自訂你的專屬首頁！' },
+        { q: '需要帳號才能使用嗎？', a: '不需要！若選擇訪客模式，所有資料（課表、聯絡簿、筆記）皆會安全地儲存於您的本機設備中。登入 Google 僅是為了讓資料能備份上雲端。' },
+        { q: '如何獲得最佳體驗？', a: '強烈建議在 iOS / Android 瀏覽器中點擊「加入主畫面」，讓 GSAT Pro 成為全螢幕且能穩定接收通知的沉浸式 App！' }
+      ]
+    },
+    {
+      title: '🎨 首頁與排版自訂',
+      icon: LayoutTemplate,
+      color: 'text-pink-500',
+      bg: 'bg-pink-50',
+      content: [
+        { q: '如何改變首頁卡片的順序？', a: '前往「設定 ➜ 一般與外觀 ➜ 首頁排版設定」，你可以直接拖曳 (或使用上下按鈕) 來改變番茄鐘、課表、外部連結等區塊的順序，甚至能隱藏不需要的模組。' },
+        { q: '如何新增自訂倒數計時？', a: '同樣在「設定 ➜ 一般與外觀」，找到「自定義倒數設置」，即可新增你的專屬目標（如：畢業典禮、模擬考），並可自由切換卡片的漸層、極簡或霓虹風格。' }
       ]
     },
     {
@@ -26,9 +36,9 @@ const TutorialTab = ({ onOpenFeedback }) => {
       color: 'text-emerald-600',
       bg: 'bg-emerald-50',
       content: [
-        { q: '如何編輯課表？', a: '首頁 ➜ 課表卡片右側點「編輯」按鈕，可以手動新增／修改／刪除每天的課程。' },
-        { q: 'AI 自動解析課表是什麼？', a: '進入編輯模式後，點選「上傳課表照片」，AI 會自動從照片中辨識課程名稱、時間、地點，一鍵匯入！' },
-        { q: '課表資料儲存在哪裡？', a: '儲存在瀏覽器的 localStorage，不會上傳至伺服器。清除瀏覽器資料會導致課表遺失，建議連結 Google 備份。' }
+        { q: '如何查看與編輯課表？', a: '首頁課表區塊提供「今日時間軸」與「一週網格」兩種檢視模式。點擊「編輯」即可自訂卡片顏色、設定外部上課連結，或標記調課狀態。' },
+        { q: 'AI 自動解析課表是什麼？', a: '進入編輯模式後，點選「上傳課表照片」，AI 就會幫你把整張圖轉成數位課表，自動填入課程名稱、時間與地點，免去手動輸入的麻煩！' },
+        { q: '個人課表與班級課表有何不同？', a: '若您在設定中「未輸入」班級代碼，課表將屬於您的「本機自訂課表」；若輸入了班級代碼，則會與班上同學同步共享雲端課表，所有調課資訊將即時推播。' }
       ]
     },
     {
@@ -37,17 +47,12 @@ const TutorialTab = ({ onOpenFeedback }) => {
       color: 'text-blue-500',
       bg: 'bg-blue-50',
       content: [
-        { q: '單字特訓有什麼功能？', a: '✏️ 記錄單字 / 💡 AI 自動填入詞性與中文意思 / 📝 大考模式查看考試重點 / 🧠 AI 出克漏字與閱讀測驗' },
-        { q: 'AI 自動填入如何使用？', a: '輸入英文單字後，點選旁邊的「✨」按鈕，AI 會自動填入中文意思、詞性和建議的學測級別。' },
-        { q: '如何同步設定的 API Key？', a: '在設定頁輸入 Gemini API Key 後，返回單字頁面時 AI 功能即會自動使用該 Key。' },
+        { q: '單字特訓有什麼功能？', a: '📚 單字庫檢視 / 🧠 記憶曲線(SRS)今日複習 / 🏆 多元測驗模式 (選擇、拼寫、AI文法) / 📸 AI 考卷掃描匯入。' },
+        { q: 'AI 自動填入如何使用？', a: '手動新增單字時，只需輸入英文，點擊旁邊的「✨ AI 填入」，系統會自動幫您補齊最精準的中文解釋與詞性。' },
+        { q: '測驗模式怎麼玩？', a: '選擇題考驗字義反應，拼寫題強化肌肉記憶。如果您有綁定 AI 金鑰，還能讓系統根據您的單字，即時生成帶有詳解的「學測級英文文法題」！' },
         {
           q: '有專屬的單字庫可以參考嗎？',
-          a: (
-            <>
-              當然有！我們為您準備了「內中專屬 6000 單字表」。您可以點擊下方連結前往 Notion，在裡面挑選自己不熟的單字，複製並加入到系統的單字本中，搭配 AI 測驗與大考模式進行每日特訓：<br /><br />
-              🔗 <a href="https://stupendous-harpymimus-52c.notion.site/NHSH-6000e-2ef4ca55a08e81f5ba79fc23424fda7e" target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 underline break-all font-black transition-colors">內中 6000 單字表 Notion 連結</a>
-            </>
-          )
+          a: `當然有！系統已經將「${campusName || '校園'}專屬 6000 核心單字」以及「教師推薦」無縫同步至雲端單字庫。您不再需要複製貼上，只需在單字庫中切換分類，就能一鍵將不熟的單字加入「個人收藏」，並搭配 AI 測驗與記憶曲線進行每日特訓！`
         }
       ]
     },
@@ -57,8 +62,8 @@ const TutorialTab = ({ onOpenFeedback }) => {
       color: 'text-purple-500',
       bg: 'bg-purple-50',
       content: [
-        { q: '聯絡簿可以記錄什麼？', a: '可以依日期、科目記錄作業內容與考試資訊。首頁會自動顯示「明日準備事項」提醒。' },
-        { q: '提醒功能如何運作？', a: '授權推播通知後，系統會在放學時間自動推播明天要交的作業與考試提醒。' }
+        { q: '聯絡簿能與課表連動嗎？', a: '會的！只要您記錄了當日的作業與考試，除了會顯示在首頁的「明日準備事項」中，也會自動吸附在「一週網格課表」對應的日期卡片下方。' },
+        { q: '不想打字怎麼辦？', a: '聯絡簿支援「AI 圖片導入」。直接拍下黑板上的聯絡簿，AI 會自動為您萃取科目、作業及考試內容，並分門別類填入表單！' }
       ]
     },
     {
@@ -67,9 +72,8 @@ const TutorialTab = ({ onOpenFeedback }) => {
       color: 'text-indigo-500',
       bg: 'bg-indigo-50',
       content: [
-        { q: '筆記有哪些功能？', a: '科目分類管理 / 圖片附件上傳 / AI 重點摘要 / AI 隨堂測驗（選擇題）/ Google Drive 雲端備份' },
-        { q: 'AI 出題怎麼用？', a: '進入某科目後，點選右上角「AI 出題」按鈕，系統會根據該科目所有筆記出 3 道選擇題。' },
-        { q: '如何備份到 Google Drive？', a: '先在設定頁連結 Google 帳號，之後新增筆記時即會自動備份，也可以手動點選筆記卡片上的「☁️」圖示。' }
+        { q: '筆記可以怎麼分類？', a: '您可以自由新增科目，並為每個科目挑選專屬的「Emoji 圖示」與「顏色標籤」。筆記內容支援錯題本與課堂筆記等標籤。' },
+        { q: 'AI 出題怎麼用？', a: '進入某科目後，點選右上角「✨ AI 出題」按鈕，系統會詳讀該科目下的所有筆記，為您客製化生成帶有詳解的選擇題測驗。' }
       ]
     },
     {
@@ -78,8 +82,7 @@ const TutorialTab = ({ onOpenFeedback }) => {
       color: 'text-orange-500',
       bg: 'bg-orange-50',
       content: [
-        { q: '特約商店是什麼？', a: '顯示學校附近的特約合作商店，出示學生證可享有專屬折扣優惠。包含外送連結、導航功能。' },
-        { q: '商店資料如何新增？', a: '需要管理員權限（輸入密碼）才能在設定頁新增／編輯／刪除商店資料，資料儲存在 Firebase Firestore。' }
+        { q: '特約商店是什麼？', a: '尋找校園周邊合作的優質店家。結帳時出示學生證與系統畫面，即可享有 GSAT Pro 統整的獨家折扣與外送優惠，並支援一鍵地圖導航。' }
       ]
     },
     {
@@ -88,8 +91,8 @@ const TutorialTab = ({ onOpenFeedback }) => {
       color: 'text-emerald-500',
       bg: 'bg-emerald-50',
       content: [
-        { q: 'YouBike 資料準確嗎？', a: '資料來源為台北市政府開放資料（每30秒自動更新），顯示附近內湖高中相關站點的即時可借／可還數量。' },
-        { q: '為什麼顯示 0 台？', a: '若所有站點可借數量為 0，表示當前附近站點已無車可借。可以點右上角重新整理按鈕手動更新。' }
+        { q: 'YouBike 資料會自動更新嗎？', a: '會的！資料來源為台北市政府開放資料，不僅每 30 秒自動更新，還會精準計算與您的即時距離。' },
+        { q: '如何快速找到想要的車？', a: '您可以使用上方的過濾器篩選「⚡ 電動」或「🚲 一般」車型，並利用排序按鈕依照「距離最近」、「可借最多」或「可還最多」來調整站點順序！' }
       ]
     },
     {
@@ -99,7 +102,7 @@ const TutorialTab = ({ onOpenFeedback }) => {
       bg: 'bg-purple-50',
       content: [
         { q: '如何取得 Gemini API Key？', a: '前往 aistudio.google.com/app/apikey，用 Google 帳號登入後免費建立 API Key。每月有大量免費額度，一般使用完全夠用。' },
-        { q: 'AI 金鑰安全嗎？', a: 'API Key 只儲存在你的瀏覽器 localStorage，不會傳到任何伺服器。每個請求直接從你的裝置傳給 Google AI。' }
+        { q: 'AI 金鑰安全嗎？', a: '絕對安全。API Key 僅存在您的瀏覽器本地端 (LocalStorage) 中，所有的 AI 請求都是由您的裝置直接發送給 Google 伺服器，我們不會經過任何中間層竊取您的金鑰。' }
       ]
     },
     {
@@ -108,18 +111,8 @@ const TutorialTab = ({ onOpenFeedback }) => {
       color: 'text-orange-600',
       bg: 'bg-orange-50',
       content: [
-        { q: '如何開啟課程提醒？', a: '在設定頁點選「授權通知」，允許後即可在課程開始前 5 分鐘接到推播提醒。' },
-        { q: 'iOS 無法收到通知？', a: 'iOS 必須先將網頁「加入主畫面」（Safari ➜ 分享 ➜ 加入主畫面），從主畫面圖示開啟後才支援推播。(系統需要 iOS 18.4 以上才支援喔)' }
-      ]
-    },
-    {
-      title: '☁️ 雲端備份',
-      icon: Cloud,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
-      content: [
-        { q: '哪些資料可以備份？', a: '筆記內容支援 Google Drive 備份。課表、聯絡簿目前存在 localStorage，之後版本會加入備份功能。' },
-        { q: '如何查看備份的筆記？', a: '備份的筆記會儲存在 Google Drive 的「GSAT Pro 筆記」資料夾，按科目分類存放為 .txt 檔案。' }
+        { q: '如何接收班級調課通知？', a: '在設定中允許通知，並綁定您的班級代碼。當班級課表發生「調課」或「重要公告」時，Firebase 會即時將通知推送至您的裝置。' },
+        { q: 'iOS 為什麼收不到通知？', a: 'iOS 系統限制較嚴格，必須先將網頁「加入主畫面」（Safari ➜ 分享 ➜ 加入主畫面），並從主畫面啟動 App 後，才能順利授權並接收推播。' }
       ]
     }
   ];

@@ -175,8 +175,13 @@ const LegalTab = ({ onBack }) => {
           </div>
         </div>
       ) : (
-        <div className="bg-[var(--bg-surface)] backdrop-blur-2xl p-6 md:p-8 rounded-[36px] border border-[var(--border-color)] shadow-soft max-h-[70vh] overflow-y-auto scrollbar-hide glass-effect">
+        <div className="bg-[var(--bg-surface)] backdrop-blur-2xl p-6 md:p-10 rounded-[40px] border border-[var(--border-color)] shadow-soft max-h-[75vh] overflow-y-auto scrollbar-hide glass-effect">
           {view === 'privacy' ? renderPrivacy() : renderTerms()}
+          
+          <div className="mt-12 pt-8 border-t border-[var(--border-color)] text-center">
+            <p className="text-[12px] font-bold text-slate-400">若有任何疑問，請聯絡開發團隊</p>
+            <a href="mailto:support@gsat-pro.web.app" className="text-[14px] font-black text-emerald-600 hover:underline mt-1 inline-block">support@gsat-pro.web.app</a>
+          </div>
         </div>
       )}
     </div>

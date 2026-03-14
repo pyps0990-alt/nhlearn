@@ -10,6 +10,7 @@
     --ease-spring-smooth: cubic-bezier(0.2, 0.8, 0.2, 1);
     --ease-spring-bouncy: cubic-bezier(0.5, 2.5, 0.3, 0.8);
     --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --ease-spring-snappy: cubic-bezier(0.175, 0.885, 0.32, 1.15);
 
     /* --- User Defined Light Palette --- */
     --light-primary-100: #10B981;
@@ -57,8 +58,8 @@
     --radius-xl: 32px;
     --radius-lg: 24px;
 
-    --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.04);
-    --shadow-float: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
+    --shadow-soft: 0 8px 32px -4px rgba(0, 0, 0, 0.04), 0 4px 12px -2px rgba(0, 0, 0, 0.02);
+    --shadow-float: 0 24px 48px -8px rgba(0, 0, 0, 0.08), 0 12px 24px -4px rgba(0, 0, 0, 0.04);
 
     color-scheme: light;
   }
@@ -117,8 +118,8 @@
     --border-input: rgba(255, 255, 255, 0.12);
     --border-subtle: rgba(255, 255, 255, 0.04);
 
-    --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.5);
-    --shadow-float: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    --shadow-soft: 0 8px 32px -4px rgba(0, 0, 0, 0.3), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+    --shadow-float: 0 24px 48px -8px rgba(0, 0, 0, 0.5), 0 12px 24px -4px rgba(0, 0, 0, 0.3);
 
     color-scheme: dark;
   }
@@ -611,4 +612,116 @@
 
 .animate-fadeIn {
   animation: fadeIn 0.15s ease-out forwards;
+}
+.neon-glow-emerald {
+  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4));
+}
+
+@keyframes slide-up-fade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up-fade {
+  animation: slide-up-fade 0.8s var(--ease-spring-smooth) forwards;
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg) scale(0.5); opacity: 0; }
+}
+
+.animate-confetti-fall {
+  animation: confetti-fall linear forwards;
+}
+
+/* ================= Premium Polish ================= */
+
+/* --- Custom Scrollbar (Light Mode) --- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* --- Glass Effect (Glassmorphism) --- */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 8px 32px rgba(0, 0, 0, 0.06);
+}
+.dark .glass-effect {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* --- Text Selection --- */
+::selection { background: rgba(16,185,129,0.25); color: inherit; }
+.dark ::selection { background: rgba(16,185,129,0.35); }
+
+/* --- Focus Ring --- */
+:focus-visible {
+  outline: 2px solid rgba(16,185,129,0.5);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* --- Smooth Scroll and Text Rendering --- */
+html {
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* --- Tab Switch Animation --- */
+@keyframes tab-enter {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); filter: blur(12px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+.animate-tab-enter {
+  animation: tab-enter 0.6s var(--ease-spring-snappy) forwards;
+}
+
+/* --- Enhanced Shadow --- */
+.shadow-glass {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.dark .shadow-glass {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+/* --- Skeleton Loading Shimmer --- */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.04) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite ease-in-out;
+  border-radius: 12px;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+}
+
+/* --- Responsive Typography --- */
+@media (max-width: 380px) {
+  .text-responsive-hero { font-size: 1.5rem !important; }
+}
+@media (min-width: 768px) {
+  .text-responsive-hero { font-size: 2.5rem !important; }
 }

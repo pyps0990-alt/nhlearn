@@ -1,13 +1,15 @@
-import { 
-  BookText, Languages, Calculator, Zap, Beaker, Dna, 
+import {
+  BookText, Languages, Calculator, Zap, Beaker, Dna,
   History, Map, Scale, Library, Globe, GraduationCap, Cloud, Utensils,
-  Clock, Calendar
+  Clock, Calendar, Sparkles, BrainCircuit, Trophy, Target, Activity, Heart,
+  ShoppingCart, Coffee, Music, Gamepad2, Laptop
 } from 'lucide-react';
 
 export const ICON_MAP = {
-  BookText, Languages, Calculator, Zap, Beaker, Dna, 
+  BookText, Languages, Calculator, Zap, Beaker, Dna,
   History, Map, Scale, Library, Globe, GraduationCap, Cloud, Utensils,
-  Clock, Calendar
+  Clock, Calendar, Sparkles, BrainCircuit, Trophy, Target, Activity, Heart,
+  ShoppingCart, Coffee, Music, Gamepad2, Laptop
 };
 
 export const INITIAL_WEEKLY_SCHEDULE = {
@@ -49,9 +51,11 @@ export const INITIAL_STORES = [
   { id: 4, name: '墊腳石 (內湖店)', discount: '文具圖書憑證 85 折', type: '文具', icon: '📚', distance: '步行 8 分鐘' },
 ];
 
-export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '687493999096-ou5u6bug4t9v1u54bp39qauimvedvou9.apps.googleusercontent.com';
-export const GOOGLE_REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || 
-  (import.meta.env.PROD ? 'https://nhlearn.vercel.app/api/auth/callback' : 'http://localhost:5173');
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '288124052978-4f07cnvmck3cl9a645nvd37nei097ev4.apps.googleusercontent.com';
+export const GOOGLE_REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI ||
+  (import.meta.env.PROD
+    ? 'https://nhlearn.vercel.app/api/auth/callback'
+    : 'http://localhost:5173/api/auth/callback'); // 注意：本機端也應指向 callback 雖然 Vite 沒有此路徑
 export const DRIVE_DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 export const PEOPLE_DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/people/v1/rest';
 export const SCOPES = 'openid email profile';
