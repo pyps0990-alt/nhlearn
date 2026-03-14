@@ -503,9 +503,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
 
   const handleAuthClick = async () => {
     const provider = new GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/drive.file');
-    provider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
-    // 確保包含已授予的範圍
+    // 僅包含 OpenID 基礎權限 (openid, email, profile)
+    // 確保支援增量授權 (Incremental Authorization)
     provider.setCustomParameters({
       prompt: 'consent',
       access_type: 'offline',
