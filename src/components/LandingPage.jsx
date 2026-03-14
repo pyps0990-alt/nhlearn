@@ -82,13 +82,22 @@ const LandingPage = ({ onStart }) => (
     </section>
 
     {/* Footer (Google 審核重點：政策連結) */}
-    <footer className="py-12 px-6 border-t border-slate-100 text-center">
-      <div className="flex flex-wrap justify-center gap-6 md:gap-8 mb-6 font-bold text-sm text-slate-400">
-        <a href="/privacy.html" className="hover:text-emerald-500 transition-colors">隱私權政策 (Privacy Policy)</a>
-        <a href="/terms.html" className="hover:text-emerald-500 transition-colors">服務條款 (Terms of Service)</a>
-        <a href="mailto:support@gsat-pro.web.app" className="hover:text-emerald-500 transition-colors">聯絡支援 (Support)</a>
+    <footer className="py-12 px-6 border-t border-slate-100 text-center bg-slate-50/50">
+      <div className="flex flex-wrap justify-center gap-6 md:gap-10 mb-8 font-black text-sm text-slate-500">
+        <a href="/privacy.html" className="flex items-center gap-2 hover:text-emerald-600 transition-colors border-b-2 border-transparent hover:border-emerald-200 pb-1">
+          <ShieldCheck size={16} /> 隱私權政策 (Privacy Policy)
+        </a>
+        <a href="/terms.html" className="hover:text-emerald-600 transition-colors border-b-2 border-transparent hover:border-emerald-200 pb-1">
+          服務條款 (Terms of Service)
+        </a>
+        <a href="mailto:support@gsat-pro.web.app" className="hover:text-emerald-600 transition-colors border-b-2 border-transparent hover:border-emerald-200 pb-1">
+          聯絡支援 (Support)
+        </a>
       </div>
-      <p className="text-xs font-bold text-slate-300">© 2026 GSAT Pro Team. All rights reserved.</p>
+      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-loose">
+        © 2026 GSAT Pro Team. All rights reserved.<br />
+        專為高中生打造的數位備考助手
+      </p>
     </footer>
   </div>
 );

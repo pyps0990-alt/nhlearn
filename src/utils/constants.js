@@ -49,7 +49,8 @@ export const INITIAL_STORES = [
   { id: 4, name: '墊腳石 (內湖店)', discount: '文具圖書憑證 85 折', type: '文具', icon: '📚', distance: '步行 8 分鐘' },
 ];
 
-export const GOOGLE_CLIENT_ID = '687493999096-ou5u6bug4t9v1u54bp39qauimvedvou9.apps.googleusercontent.com';
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '687493999096-ou5u6bug4t9v1u54bp39qauimvedvou9.apps.googleusercontent.com';
+export const GOOGLE_REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI || 'http://localhost:5173';
 export const DRIVE_DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
 export const PEOPLE_DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/people/v1/rest';
-export const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile';
+export const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata.readonly openid email profile';
