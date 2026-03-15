@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import {
   Menu, Settings, LayoutDashboard, BookOpen, Notebook,
   BookMarked, Store, Bus, HelpCircle, ShieldCheck,
-  BellRing, Bell, AlertCircle, RefreshCw, MessageSquare
+  BellRing, Bell, AlertCircle, RefreshCw, MessageSquare, Globe
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -252,6 +252,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   };
 
   useEffect(() => {
+    if (!auth) return; // 💡 防呆：如果 Firebase 初始化失敗，直接跳過監聽
     const unsub = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
         setUser(authUser);
@@ -628,6 +629,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
           setIsAuthLoading(true);
           console.log("📥 從 Callback 取得 ID Token，正在還原 Firebase 演唱會...");
           try {
+            if (!auth) throw new Error("Firebase Auth 未初始化");
             const credential = GoogleAuthProvider.credential(idToken, accessToken);
             const result = await signInWithCredential(auth, credential);
 
@@ -664,7 +666,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
 
         // 處理 Firebase Redirect 結果
         try {
-          const result = await getRedirectResult(auth);
+          const result = auth ? await getRedirectResult(auth) : null;
           if (result) {
             setIsAuthLoading(true); // 確定有導向結果才顯示 Loading，避免每次重整閃爍
             const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -697,6 +699,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   }, [fetchUserInfo, triggerNotification]);
 
   const handleAuthClick = async () => {
+    if (!auth) {
+      triggerNotification('系統錯誤', '環境變數遺失，無法啟動登入。');
+      return;
+    }
+
     setIsAuthLoading(true);
     triggerNotification('連線中', '正在啟動 Google 登入...');
     console.log("📍 Using Redirect URI:", GOOGLE_REDIRECT_URI);
@@ -753,7 +760,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
         <div className="fixed inset-0 z-[9999] bg-slate-900/40 dark:bg-[#020617]/80 backdrop-blur-3xl flex flex-col items-center justify-center animate-fadeIn">
           {/* 背景氛圍光暈 */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/20 blur-[80px] rounded-full animate-pulse-slow pointer-events-none"></div>
-          
+
           <div className="relative bg-white/70 dark:bg-white/5 backdrop-blur-3xl border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_32px_64px_rgba(0,0,0,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_32px_64px_rgba(0,0,0,0.5)] p-12 rounded-[48px] flex flex-col items-center text-center animate-pop-in">
             {/* 質感多層次載入環 */}
             <div className="relative flex items-center justify-center mb-8">
@@ -762,7 +769,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
               <div className="absolute w-12 h-12 border-[3px] border-transparent border-b-blue-500 border-l-blue-500/50 rounded-full animate-[spin_1.5s_linear_infinite_reverse]"></div>
               <Globe size={22} className="absolute text-emerald-600 dark:text-emerald-400 animate-pulse" />
             </div>
-            
+
             <h3 className="text-[22px] font-black text-slate-800 dark:text-white tracking-widest mb-2">安全連線中</h3>
             <p className="text-[13px] font-bold text-slate-500 dark:text-emerald-400/80">正在與 Google 建立加密連線</p>
 
