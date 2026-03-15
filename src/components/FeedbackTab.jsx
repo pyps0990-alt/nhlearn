@@ -62,8 +62,7 @@ const FeedbackTab = ({ userProfile, triggerNotification }) => {
       });
 
       // 🚀 寄送 Email 通知 (透過 Google Apps Script Webhook)
-      // 等您部署好 GAS 後，將下方的 URL 替換掉即可生效！
-      const GAS_EMAIL_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzOPqFB_imMJ5w9T0FTOCHOER2o1Doz3keHavYmvp_DWTXf39rDMK8A1vqdUS-To1GvKg/exec';
+      const GAS_EMAIL_WEBHOOK_URL = import.meta.env.VITE_GAS_EMAIL_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbzOPqFB_imMJ5w9T0FTOCHOER2o1Doz3keHavYmvp_DWTXf39rDMK8A1vqdUS-To1GvKg/exec';
       fetch(GAS_EMAIL_WEBHOOK_URL, {
         method: 'POST',
         mode: 'no-cors', // 避免 CORS 問題
@@ -101,7 +100,7 @@ const FeedbackTab = ({ userProfile, triggerNotification }) => {
       desc: '給予開源項目肯定的最簡單方式。',
       icon: Star,
       color: 'bg-yellow-500',
-      action: () => window.open('https://github.com/pyps0990-alt/nhlearn', '_blank')
+      action: () => window.open('https://github.com/pyps0990-alt/gsat-pro', '_blank')
     },
     {
       title: '推薦給同學',

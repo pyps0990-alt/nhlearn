@@ -37,8 +37,7 @@ const fetchAI = async (prompt, options = {}) => {
   }
 };
 
-// 替換成你最新部署的 GAS Web App URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwjcbklWLkoeC-q_dCiiu0fNSbk7ePDt0bVUQh11O_EuR1_uAAahPClKxHI90eAqgUc/exec';
+const GAS_URL = import.meta.env.VITE_GAS_VOCAB_URL || 'https://script.google.com/macros/s/AKfycbwjcbklWLkoeC-q_dCiiu0fNSbk7ePDt0bVUQh11O_EuR1_uAAahPClKxHI90eAqgUc/exec';
 
 // ─── SRS Algorithm (SM-2 simplified) ────────────────────────────────────────
 const calculateNextReview = (word, quality) => {

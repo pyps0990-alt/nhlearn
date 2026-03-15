@@ -43,11 +43,6 @@ const ENCOURAGEMENTS = [
   "學會休息，是為了走更長遠的路"
 ];
 
-const EXAM_DATES = {
-  gsat: "2027-01-16",
-  midterm: "2026-03-24"
-};
-
 const getDaysLeft = (targetDate) => {
   const diff = new Date(targetDate) - new Date();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -1073,7 +1068,7 @@ const DashboardTab = ({
                         </div>
                         <input type="text" value={item.subject || ''} onChange={e => updateSchedule(item.id, 'subject', e.target.value)} className={`flex-1 bg-transparent font-black text-[20px] ${getSubjectTheme(item, subjects).text} outline-none placeholder:text-slate-400`} placeholder="輸入課程名稱" />
                       </div>
-                      
+
                       <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-slate-200/50 dark:border-white/5">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 w-12 text-right">標籤顏色</span>
@@ -1088,23 +1083,23 @@ const DashboardTab = ({
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 w-12 text-right">自訂圖示</span>
                           <div className="flex items-center bg-slate-100 dark:bg-black/40 px-2 py-1.5 rounded-[10px] border border-slate-200 dark:border-white/5 focus-within:border-emerald-400 transition-colors">
                             <Search size={12} className="text-slate-400 shrink-0" />
-                            <input 
-                              type="text" 
-                              placeholder="搜尋..." 
-                              value={item._iconSearch || ''} 
-                              onChange={e => updateSchedule(item.id, '_iconSearch', e.target.value)} 
-                              className="bg-transparent text-[11px] outline-none ml-1.5 w-14 text-[var(--text-primary)] placeholder:text-slate-400" 
+                            <input
+                              type="text"
+                              placeholder="搜尋..."
+                              value={item._iconSearch || ''}
+                              onChange={e => updateSchedule(item.id, '_iconSearch', e.target.value)}
+                              className="bg-transparent text-[11px] outline-none ml-1.5 w-14 text-[var(--text-primary)] placeholder:text-slate-400"
                             />
                           </div>
                           <div className="flex gap-1 overflow-x-auto scrollbar-hide py-1 mask-fade-edges flex-1">
-                            {((item._iconSearch || '').trim() 
-                              ? Object.keys(ICON_MAP).filter(k => k.toLowerCase().includes(item._iconSearch.toLowerCase())).slice(0, 30) 
+                            {((item._iconSearch || '').trim()
+                              ? Object.keys(ICON_MAP).filter(k => k.toLowerCase().includes(item._iconSearch.toLowerCase())).slice(0, 30)
                               : DASHBOARD_ICONS).map(iconName => {
-                              const IconComp = ICON_MAP[iconName] || BookText;
-                              return (
-                                <button key={iconName} onClick={() => updateSchedule(item.id, 'icon', iconName)} className={`shrink-0 p-1.5 rounded-lg transition-all active:scale-90 ${item.icon === iconName ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-1 ring-emerald-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}><IconComp size={16} /></button>
-                              );
-                            })}
+                                const IconComp = ICON_MAP[iconName] || BookText;
+                                return (
+                                  <button key={iconName} onClick={() => updateSchedule(item.id, 'icon', iconName)} className={`shrink-0 p-1.5 rounded-lg transition-all active:scale-90 ${item.icon === iconName ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-1 ring-emerald-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}><IconComp size={16} /></button>
+                                );
+                              })}
                             <button onClick={() => updateSchedule(item.id, 'icon', '')} className={`shrink-0 px-2 py-1.5 rounded-lg transition-all text-[10px] font-black active:scale-90 ${!item.icon ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-1 ring-emerald-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}>預設</button>
                           </div>
                         </div>
