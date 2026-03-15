@@ -456,7 +456,7 @@ const DashboardTab = ({
 
   // 定期更新時間
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000); // 🚀 更新頻率至每秒，以實現平滑進度條
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000); // 🚀 效能優化：降至每分鐘更新，避免整頁頻繁重繪卡死手機
     return () => clearInterval(timer);
   }, []);
 

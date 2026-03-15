@@ -72,15 +72,15 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
   return (
     <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 animate-fadeIn text-left pt-[env(safe-area-inset-top)]">
       <div className="w-full max-w-sm space-y-6 flex flex-col items-center">
-        <div className="w-24 h-24 bg-emerald-500 rounded-[32px] flex items-center justify-center animate-bounce-soft shadow-2xl shrink-0">
+        <div className="w-24 h-24 bg-emerald-500 rounded-[32px] flex items-center justify-center animate-pop-in shadow-2xl shrink-0" style={{ animationDelay: '100ms' }}>
           <Sparkles size={48} className="text-white shrink-0 neon-glow-emerald" />
         </div>
-        <div className="text-center">
+        <div className="text-center animate-slide-up-fade" style={{ animationDelay: '200ms' }}>
           <h1 className="text-3xl font-black text-slate-900">歡迎來到 GSAT Pro</h1>
           <p className="text-slate-400 font-bold mt-1">讓我們開始這段學習旅程吧！</p>
         </div>
 
-        <div className="w-full space-y-3 bg-slate-50 p-5 rounded-[28px] border border-slate-100">
+        <div className="w-full space-y-3 bg-slate-50 p-5 rounded-[28px] border border-slate-100 animate-slide-up-fade" style={{ animationDelay: '300ms' }}>
           <h3 className="text-[12px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">權限設定</h3>
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${grantedLocation ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400 border border-slate-100'}`}><MapPin size={20} className="shrink-0" /></div>
@@ -95,7 +95,7 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
         </div>
 
         {/* iOS 安裝導引 */}
-        <div className="w-full bg-blue-50/50 p-5 rounded-[28px] border border-blue-100/50 space-y-3 animate-slide-up-fade">
+        <div className="w-full bg-blue-50/50 p-5 rounded-[28px] border border-blue-100/50 space-y-3 animate-slide-up-fade" style={{ animationDelay: '400ms' }}>
           <div className="flex items-center gap-2 mb-1">
             <Smartphone size={16} className="text-blue-600 shrink-0" />
             <h3 className="text-[12px] font-black text-blue-600 uppercase tracking-widest">iOS 安裝建議 (體驗最佳)</h3>
@@ -116,7 +116,7 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
         </div>
 
         {isFirstTime && (
-          <div className="w-full space-y-3 px-1">
+          <div className="w-full space-y-3 px-1 animate-slide-up-fade" style={{ animationDelay: '500ms' }}>
             <label className="flex items-center gap-3 cursor-pointer group">
               <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="w-5 h-5 rounded-lg border-2 border-gray-200 text-emerald-500 focus:ring-emerald-500" />
               <div className="text-[13px] font-bold text-gray-500 group-hover:text-gray-700 transition-colors">
@@ -135,7 +135,8 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
             localStorage.setItem('gsat_legal_accepted', 'true');
             onFinishWelcome();
           }}
-          className={`w-full font-black py-4.5 rounded-[24px] shadow-2xl flex items-center justify-center gap-3 transition-all ${(!isFirstTime || agreed) ? 'bg-gray-900 text-white scale-100' : 'bg-gray-200 text-gray-400 scale-95 cursor-not-allowed'}`}
+          className={`w-full font-black py-4.5 rounded-[24px] shadow-2xl flex items-center justify-center gap-3 transition-all animate-slide-up-fade ${(!isFirstTime || agreed) ? 'bg-gray-900 text-white hover:scale-[1.02] active:scale-[0.98]' : 'bg-gray-200 text-gray-400 scale-95 cursor-not-allowed'}`}
+          style={{ animationDelay: '600ms', padding: '1.125rem' }}
         >
           {isFirstTime ? '同意並進入系統' : '開始使用'} <ChevronRight size={24} />
         </button>
@@ -147,13 +148,13 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
 export const AuthScreen = ({ onLogin, onSkip }) => (
   <div className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 animate-fadeIn text-left pt-[env(safe-area-inset-top)]">
     <div className="w-full max-w-sm space-y-8 flex flex-col items-center">
-      <div className="w-24 h-24 bg-emerald-50 rounded-[32px] flex items-center justify-center shadow-inner mb-2 border border-emerald-100 shrink-0"><Lock className="text-emerald-600 shrink-0" size={40} /></div>
-      <div className="text-center">
+      <div className="w-24 h-24 bg-emerald-50 rounded-[32px] flex items-center justify-center shadow-inner mb-2 border border-emerald-100 shrink-0 animate-pop-in" style={{ animationDelay: '100ms' }}><Lock className="text-emerald-600 shrink-0" size={40} /></div>
+      <div className="text-center animate-slide-up-fade" style={{ animationDelay: '200ms' }}>
         <h2 className="text-3xl font-black text-slate-900">需要登入</h2>
         <p className="text-slate-500 font-bold mt-1 px-4">請連接 Google 帳號以啟用雲端備份與完整功能</p>
       </div>
 
-      <div className="w-full space-y-3">
+      <div className="w-full space-y-3 animate-slide-up-fade" style={{ animationDelay: '300ms' }}>
         <button onClick={onLogin} className="w-full flex items-center justify-center gap-4 bg-white border-2 border-slate-100 text-slate-800 font-black py-5 rounded-[24px] shadow-sm text-xl active:scale-95 transition-all">
           <Globe size={28} className="text-blue-500 shrink-0" /> 使用 Google 登入
         </button>
@@ -163,7 +164,7 @@ export const AuthScreen = ({ onLogin, onSkip }) => (
         </button>
       </div>
 
-      <div className="bg-orange-50/50 p-5 rounded-[24px] border border-orange-100/50">
+      <div className="bg-orange-50/50 p-5 rounded-[24px] border border-orange-100/50 animate-slide-up-fade" style={{ animationDelay: '400ms' }}>
         <p className="text-[12px] text-slate-500 font-bold leading-relaxed text-center">
           如果你想體驗但卻不想分享資訊，請點選「無須登入」開始使用。我們僅會將數據存於您的裝置中。
         </p>

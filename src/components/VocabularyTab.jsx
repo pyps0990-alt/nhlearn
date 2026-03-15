@@ -222,7 +222,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   // 背景學習計時器：只要停留在測驗或複習畫面，每秒累加 1 秒鐘
   useEffect(() => {
     if (subTab === 'review' || subTab === 'quiz') {
-      const timer = setInterval(() => updateStats('time', 1), 1000);
+      const timer = setInterval(() => updateStats('time', 10), 10000); // 🚀 效能優化：每 10 秒批次更新，避免 localStorage 寫入癱瘓主執行緒
       return () => clearInterval(timer);
     }
   }, [subTab, updateStats]);

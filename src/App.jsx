@@ -1037,9 +1037,9 @@ export default function App() {
     <div className={isDark ? 'dark' : ''}>
       <div className="main-container relative h-[100dvh] w-full flex flex-col bg-[#e2e8f0] dark:bg-[#09090b] overflow-hidden font-sans text-slate-800 dark:text-zinc-200">
         {/* Liquid Glass Background Blobs (Fixed Mix-Blend Display Issues) */}
-        <div className="fixed top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-emerald-400/20 dark:bg-emerald-600/10 blur-[120px] rounded-full pointer-events-none animate-float z-0" />
-        <div className="fixed bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-blue-400/20 dark:bg-blue-600/10 blur-[120px] rounded-full pointer-events-none animate-float-delayed z-0" />
-        <div className="fixed top-[30%] left-[20%] w-[40vw] h-[40vw] bg-purple-400/10 dark:bg-purple-600/10 blur-[120px] rounded-full pointer-events-none animate-pulse-slow z-0" />
+        <div className="fixed top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-emerald-400/20 dark:bg-emerald-600/10 blur-[100px] md:blur-[120px] rounded-full pointer-events-none animate-float transform-gpu will-change-transform z-0" />
+        <div className="fixed bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-blue-400/20 dark:bg-blue-600/10 blur-[100px] md:blur-[120px] rounded-full pointer-events-none animate-float-delayed transform-gpu will-change-transform z-0" />
+        <div className="fixed top-[30%] left-[20%] w-[40vw] h-[40vw] bg-purple-400/10 dark:bg-purple-600/10 blur-[100px] md:blur-[120px] rounded-full pointer-events-none animate-pulse-slow transform-gpu will-change-transform z-0" />
 
         <MainApp
           forcedTheme={theme}
