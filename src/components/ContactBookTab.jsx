@@ -31,7 +31,12 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     '其他': { color: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400' },
   };
 
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(now - offset).toISOString().slice(0, 10);
+    return localISOTime;
+  });
   const [newEntry, setNewEntry] = useState({ subject: subjects?.[0]?.name || '國文', homework: '', exam: '', examType: '小考', homeworkDeadline: '', examDeadline: '' });
   const [isParsing, setIsParsing] = useState(false);
   const [sendPush, setSendPush] = useState(true); // 是否發送雲端通知
@@ -284,9 +289,19 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
           <button onClick={() => changeDate(-1)} className="p-4 bg-slate-100/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 rounded-[24px] active:scale-[0.95] text-slate-600 dark:text-gray-300 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] shadow-sm border border-slate-200/50 dark:border-white/5 shrink-0">
             <ChevronLeft size={20} className="shrink-0" />
           </button>
-          <div className="flex flex-col items-center">
-            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-0.5">SELECTED DATE</span>
-            <span className="text-[17px] font-black text-slate-900 dark:text-white">{getFormattedDate(selectedDate)}</span>
+          <div className="flex flex-col items-center relative cursor-pointer group/date" onClick={() => document.getElementById('list-date-picker')?.showPicker()}>
+            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-0.5 flex items-center gap-1.5">
+              <Calendar size={10} className="text-emerald-500" />
+              SELECTED DATE
+            </span>
+            <span className="text-[17px] font-black text-slate-900 dark:text-white group-hover/date:text-emerald-500 transition-colors">{getFormattedDate(selectedDate)}</span>
+            <input 
+              id="list-date-picker"
+              type="date" 
+              className="absolute inset-0 opacity-0 pointer-events-none" 
+              value={selectedDate} 
+              onChange={e => setSelectedDate(e.target.value)} 
+            />
           </div>
           <button onClick={() => changeDate(1)} className="p-4 bg-slate-100/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 rounded-[24px] active:scale-[0.95] text-slate-600 dark:text-gray-300 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] shadow-sm border border-slate-200/50 dark:border-white/5 shrink-0">
             <ChevronRight size={20} className="shrink-0" />
@@ -339,7 +354,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                   type="date"
                   value={newEntry.homeworkDeadline}
                   onChange={e => setNewEntry({ ...newEntry, homeworkDeadline: e.target.value })}
-                  className="bg-transparent text-[11px] font-black outline-none text-emerald-800 dark:text-emerald-400 tracking-wider appearance-none"
+                  className="bg-transparent text-[11px] font-black outline-none text-emerald-800 dark:text-emerald-400 tracking-wider"
                 />
               </div>
             </div>
@@ -368,7 +383,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                   type="date"
                   value={newEntry.examDeadline}
                   onChange={e => setNewEntry({ ...newEntry, examDeadline: e.target.value })}
-                  className="bg-transparent text-[11px] font-black outline-none text-red-800 dark:text-red-400 tracking-wider appearance-none"
+                  className="bg-transparent text-[11px] font-black outline-none text-red-800 dark:text-red-400 tracking-wider"
                 />
               </div>
             </div>
