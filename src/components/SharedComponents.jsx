@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { 
-  Bell, ShieldCheck, Sparkles, GraduationCap, MapPin, CheckCircle2, 
+import {
+  Bell, ShieldCheck, Sparkles, GraduationCap, MapPin, CheckCircle2,
   ChevronRight, Lock, Globe, MessageSquare, X, Share, PlusSquare, Smartphone
 } from 'lucide-react';
 
@@ -39,12 +39,11 @@ export const PrivacyModal = ({ onAccept, title = "隱私權聲明與使用條款
         </div>
         <h2 className="text-2xl font-black text-slate-900 mb-3">{title}</h2>
         <div className="space-y-3 text-slate-500 font-bold leading-relaxed">
-          <p>歡迎使用 GSAT Pro！我們重視您的隱私，特此聲明：</p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>定位權限僅用於尋找附近的 YouBike 站點。</li>
-            <li>通知權限僅用於發送上課提醒與重要通知。</li>
-            <li>所有資料僅存於您的裝置或私人 Google Drive。</li>
-          </ul>
+          <p>歡迎使用 GSAT Pro！為了提供安全的學習環境，我們制定了完整的隱私權與服務規範。請點擊下方連結詳細閱讀：</p>
+          <div className="flex gap-3 pt-2">
+            <a href="/privacy.html" target="_blank" rel="noreferrer" className="flex-1 py-3 bg-emerald-50 text-emerald-600 rounded-xl text-center text-[13px] font-black hover:bg-emerald-100 transition-colors border border-emerald-100">隱私權政策</a>
+            <a href="/terms.html" target="_blank" rel="noreferrer" className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-xl text-center text-[13px] font-black hover:bg-blue-100 transition-colors border border-blue-100">服務條款</a>
+          </div>
         </div>
       </div>
       <div className="p-8 pt-4">
@@ -85,12 +84,12 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
           <h3 className="text-[12px] font-black text-slate-400 uppercase tracking-widest mb-1 px-1">權限設定</h3>
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${grantedLocation ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400 border border-slate-100'}`}><MapPin size={20} className="shrink-0" /></div>
-            <div className="flex-1 text-[12px] font-black text-slate-800">定位<br/><span className="text-[10px] text-slate-400 font-bold">尋找附近的 YouBike</span></div>
+            <div className="flex-1 text-[12px] font-black text-slate-800">定位<br /><span className="text-[10px] text-slate-400 font-bold">尋找附近的 YouBike</span></div>
             {!grantedLocation ? <button onClick={handleLocation} className="px-4 py-2 bg-emerald-600 text-white text-[10px] font-black rounded-lg">開啟</button> : <CheckCircle2 size={20} className="text-emerald-500 shrink-0" />}
           </div>
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${grantedNotif ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-400 border border-slate-100'}`}><Bell size={20} className="shrink-0" /></div>
-            <div className="flex-1 text-[12px] font-black text-slate-800">通知<br/><span className="text-[10px] text-slate-400 font-bold">重要日程與提醒</span></div>
+            <div className="flex-1 text-[12px] font-black text-slate-800">通知<br /><span className="text-[10px] text-slate-400 font-bold">重要日程與提醒</span></div>
             {!grantedNotif ? <button onClick={handleNotif} className="px-4 py-2 bg-emerald-600 text-white text-[10px] font-black rounded-lg">開啟</button> : <CheckCircle2 size={20} className="text-emerald-500 shrink-0" />}
           </div>
         </div>
@@ -121,21 +120,21 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
             <label className="flex items-center gap-3 cursor-pointer group">
               <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="w-5 h-5 rounded-lg border-2 border-gray-200 text-emerald-500 focus:ring-emerald-500" />
               <div className="text-[13px] font-bold text-gray-500 group-hover:text-gray-700 transition-colors">
-                我已閱讀並同意 
-                <a href="/privacy.html" target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-emerald-600 underline mx-1 hover:text-emerald-700">隱私權政策</a> 
-                與 
+                我已閱讀並同意
+                <a href="/privacy.html" target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-emerald-600 underline mx-1 hover:text-emerald-700">隱私權政策</a>
+                與
                 <a href="/terms.html" target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-emerald-600 underline mx-1 hover:text-emerald-700">服務條款</a>
               </div>
             </label>
           </div>
         )}
 
-        <button 
-          onClick={() => { 
+        <button
+          onClick={() => {
             if (isFirstTime && !agreed) return alert('請先勾選同意條款');
             localStorage.setItem('gsat_legal_accepted', 'true');
-            onFinishWelcome(); 
-          }} 
+            onFinishWelcome();
+          }}
           className={`w-full font-black py-4.5 rounded-[24px] shadow-2xl flex items-center justify-center gap-3 transition-all ${(!isFirstTime || agreed) ? 'bg-gray-900 text-white scale-100' : 'bg-gray-200 text-gray-400 scale-95 cursor-not-allowed'}`}
         >
           {isFirstTime ? '同意並進入系統' : '開始使用'} <ChevronRight size={24} />
@@ -153,12 +152,12 @@ export const AuthScreen = ({ onLogin, onSkip }) => (
         <h2 className="text-3xl font-black text-slate-900">需要登入</h2>
         <p className="text-slate-500 font-bold mt-1 px-4">請連接 Google 帳號以啟用雲端備份與完整功能</p>
       </div>
-      
+
       <div className="w-full space-y-3">
         <button onClick={onLogin} className="w-full flex items-center justify-center gap-4 bg-white border-2 border-slate-100 text-slate-800 font-black py-5 rounded-[24px] shadow-sm text-xl active:scale-95 transition-all">
           <Globe size={28} className="text-blue-500 shrink-0" /> 使用 Google 登入
         </button>
-        
+
         <button onClick={onSkip} className="w-full bg-slate-50 text-slate-600 font-bold py-4 rounded-[20px] text-sm active:scale-95 transition-all">
           無須登入直接體驗
         </button>

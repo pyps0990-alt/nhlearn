@@ -7,14 +7,14 @@ export const VAPID_KEY = "BAAIWem3KGfCQyKFE7vgc4sygRAD6LaQhs9vt8JO3_rFW-6gDrGai6
 
 // 1. 取得環境變數
 const firebaseConfig = {
-  apiKey: "AIzaSyDFFtn4Sn5l9LKBV4vpmDohknwr-C42TuY",
-  authDomain: "gsat-pro.firebaseapp.com",
-  databaseURL: "https://gsat-pro-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "gsat-pro",
-  storageBucket: "gsat-pro.firebasestorage.app",
-  messagingSenderId: "288124052978",
-  appId: "1:288124052978:web:37f00d24cfd0322d38376b",
-  measurementId: "G-BFLEWM3GSX"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // 2. 在最外層宣告變數，確保 export 抓得到它們

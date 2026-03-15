@@ -10,10 +10,15 @@ import toast from 'react-hot-toast';
 import { db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
-const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID }) => {
+const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID, user }) => {
   if (!contactBook || !subjects) return (
-    <div className="flex items-center justify-center p-20">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+    <div className="flex flex-col items-center justify-center py-32 animate-fadeIn">
+      <div className="relative flex items-center justify-center mb-6">
+        <div className="absolute inset-0 border-[3px] border-emerald-500/10 dark:border-white/5 rounded-full"></div>
+        <div className="w-14 h-14 border-[3px] border-transparent border-t-emerald-500 rounded-full animate-spin"></div>
+        <div className="absolute w-8 h-8 border-[3px] border-transparent border-b-blue-500 rounded-full animate-[spin_1.5s_linear_infinite_reverse]"></div>
+      </div>
+      <span className="text-[12px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Loading</span>
     </div>
   );
 
@@ -169,6 +174,30 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     }
   };
 
+  // 處理「確認收到」的切換邏輯
+  const handleToggleAck = async (dateStr, id) => {
+    if (!user) {
+      toast.error('請先登入才能確認收到喔！');
+      return;
+    }
+    const currentEntries = contactBook[dateStr] || [];
+    const updatedEntries = currentEntries.map(entry => {
+      if (entry.id === id) {
+        const acks = entry.acknowledgedBy || [];
+        const hasAcked = acks.includes(user.uid);
+        return {
+          ...entry,
+          acknowledgedBy: hasAcked ? acks.filter(uid => uid !== user.uid) : [...acks, user.uid]
+        };
+      }
+      return entry;
+    });
+
+    const newContactBook = { ...contactBook, [dateStr]: updatedEntries };
+    setContactBook(newContactBook);
+    await saveContactBookToFirestore(newContactBook);
+  };
+
   const renderCalendar = () => {
     const year = calendarMonth.getFullYear();
     const month = calendarMonth.getMonth();
@@ -180,7 +209,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
     return (
-      <div className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[40px] shadow-soft border border-[var(--border-color)] glass-effect animate-slide-up-fade relative overflow-hidden">
+      <div key="calendar-view" className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 animate-fadeIn relative overflow-hidden">
         <div className="flex justify-between items-center mb-6">
           <button onClick={() => setCalendarMonth(new Date(year, month - 1, 1))} className="p-3.5 bg-slate-100/50 dark:bg-white/5 rounded-[20px] hover:bg-slate-200 dark:hover:bg-white/10 transition-colors active:scale-95 shadow-sm">
             <ChevronLeft size={20} className="text-slate-600 dark:text-gray-300" />
@@ -209,8 +238,6 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
 
             const handleDateClick = () => {
               setSelectedDate(dateStr);
-              // 延遲一點確保狀態更新後，平滑捲動至新增表單
-              setTimeout(() => addFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
             };
 
             return (
@@ -253,15 +280,15 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       </div>
 
       {viewMode === 'list' ? (
-        <div className="bg-[var(--bg-surface)] p-4 rounded-[36px] shadow-soft border border-[var(--border-color)] flex items-center justify-between transition-all duration-500 hover:shadow-float glass-effect animate-slide-up-fade">
-          <button onClick={() => changeDate(-1)} className="p-4 bg-slate-100/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 rounded-[24px] active:scale-[0.95] text-slate-600 dark:text-gray-300 transition-all duration-500 ease-spring-smooth shadow-sm border border-slate-200/50 dark:border-white/5 shrink-0">
+        <div key="list-view" className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-4 rounded-[36px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 flex items-center justify-between transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] animate-fadeIn">
+          <button onClick={() => changeDate(-1)} className="p-4 bg-slate-100/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 rounded-[24px] active:scale-[0.95] text-slate-600 dark:text-gray-300 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] shadow-sm border border-slate-200/50 dark:border-white/5 shrink-0">
             <ChevronLeft size={20} className="shrink-0" />
           </button>
           <div className="flex flex-col items-center">
             <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mb-0.5">SELECTED DATE</span>
             <span className="text-[17px] font-black text-slate-900 dark:text-white">{getFormattedDate(selectedDate)}</span>
           </div>
-          <button onClick={() => changeDate(1)} className="p-4 bg-slate-100/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 rounded-[24px] active:scale-[0.95] text-slate-600 dark:text-gray-300 transition-all duration-500 ease-spring-smooth shadow-sm border border-slate-200/50 dark:border-white/5 shrink-0">
+          <button onClick={() => changeDate(1)} className="p-4 bg-slate-100/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 rounded-[24px] active:scale-[0.95] text-slate-600 dark:text-gray-300 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] shadow-sm border border-slate-200/50 dark:border-white/5 shrink-0">
             <ChevronRight size={20} className="shrink-0" />
           </button>
         </div>
@@ -270,7 +297,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       )}
 
       {/* 新增區塊 - 開放全班編輯 */}
-      <div ref={addFormRef} className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[36px] shadow-soft border border-[var(--border-color)] overflow-hidden relative group transition-all duration-500 hover:shadow-float glass-effect">
+      <div ref={addFormRef} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[36px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 overflow-hidden relative group transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
         <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 dark:bg-emerald-500/10 rounded-full -mr-12 -mt-12 opacity-40 group-hover:scale-125 transition-transform duration-1000"></div>
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 relative z-10">
@@ -301,7 +328,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
           <div className="flex flex-col gap-4">
             <div className="relative">
               <textarea
-                className="w-full bg-[var(--bg-surface)] backdrop-blur-md border border-[var(--border-color)] rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-md text-[var(--text-primary)] resize-none"
+                className="w-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
                 placeholder="📝 今日指派作業 (例如：完成習作 P.10-15)"
                 value={newEntry.homework}
                 onChange={e => setNewEntry({ ...newEntry, homework: e.target.value })}
@@ -319,7 +346,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
 
             <div className="relative">
               <textarea
-                className="w-full bg-[var(--bg-surface)] backdrop-blur-md border border-[var(--border-color)] rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-red-400 focus:ring-2 focus:ring-red-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-md text-[var(--text-primary)] resize-none"
+                className="w-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-red-400 focus:ring-2 focus:ring-red-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
                 placeholder="💯 明日考試內容 (例如：第一課默寫)"
                 value={newEntry.exam}
                 onChange={e => setNewEntry({ ...newEntry, exam: e.target.value })}
@@ -358,7 +385,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
               </div>
               <input type="checkbox" className="hidden" checked={sendPush} onChange={e => setSendPush(e.target.checked)} />
             </label>
-            <button onClick={handleAddEntry} className="w-full sm:w-auto px-8 py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[16px] shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all duration-500 flex items-center justify-center gap-2 hover:-translate-y-0.5">
+            <button onClick={handleAddEntry} className="w-full sm:w-auto px-8 py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[16px] shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
               儲存與同步 <CheckCircle2 size={20} />
             </button>
           </div>
@@ -385,7 +412,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
             if (!entry) return null;
             const subjectInfo = subjects.find(s => s.name === entry.subject) || { icon: '📝', color: 'text-gray-500' };
             return (
-              <div key={entry.id || idx} className="bg-[var(--bg-surface)] glass-effect p-7 rounded-[40px] border border-[var(--border-color)] shadow-soft hover:shadow-float hover:-translate-y-1 transition-all duration-500 ease-spring-smooth relative group animate-pop-in">
+              <div key={entry.id || idx} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 p-7 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] relative group animate-pop-in">
                 <div className="flex justify-between items-center mb-4 border-b border-[var(--border-color)] pb-4">
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl ${subjectInfo.color.replace('text', 'bg-').replace('500', '50')} dark:bg-emerald-500/10 flex items-center justify-center text-xl shrink-0`}>
@@ -434,6 +461,17 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* 互動區塊：打勾確認收到 */}
+                <div className="mt-5 pt-4 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between">
+                  <div className="text-[11px] font-bold text-slate-400">
+                    {entry.acknowledgedBy?.length > 0 ? `${entry.acknowledgedBy.length} 人已確認` : '尚未有人確認'}
+                  </div>
+                  <button onClick={() => handleToggleAck(selectedDate, entry.id)} className={`flex items-center gap-1.5 px-4 py-2 rounded-[16px] text-[12px] font-black transition-all active:scale-95 ${entry.acknowledgedBy?.includes(user?.uid) ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}>
+                    <CheckCircle2 size={16} className={entry.acknowledgedBy?.includes(user?.uid) ? 'text-white' : 'text-slate-400'} />
+                    {entry.acknowledgedBy?.includes(user?.uid) ? '已確認收到' : '確認收到'}
+                  </button>
                 </div>
               </div>
             );

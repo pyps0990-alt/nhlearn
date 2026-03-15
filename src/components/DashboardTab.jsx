@@ -4,10 +4,11 @@ import {
   Image as ImageIcon, Trash2, MapPin, Plus,
   Globe, AlertCircle, BookText, Utensils, Bell,
   Sun, Moon, Coffee, ChevronRight, ArrowUpDown, Check,
-  Timer, Play, Pause, RotateCcw, Zap, ExternalLink, Notebook
+  Timer, Play, Pause, RotateCcw, Zap, ExternalLink, Notebook, Search, Flame,
+  CheckCircle2
 } from 'lucide-react';
 import {
-  INITIAL_WEEKLY_SCHEDULE, WEEKDAYS, ICON_MAP
+  INITIAL_WEEKLY_SCHEDULE, WEEKDAYS, ICON_MAP, SUBJECTS_LIST
 } from '../utils/constants';
 import { fetchAI } from '../utils/helpers';
 // Firestore moved to App.jsx for global sync
@@ -15,9 +16,9 @@ import { fetchAI } from '../utils/helpers';
 // === 外部函式與常數 ===
 const getGreeting = () => {
   const h = new Date().getHours();
-  if (6 <= h && h < 12) return { text: '早安', icon: Sun };
-  if (12 <= h && h < 16) return { text: '午安', icon: Coffee };
-  return { text: '晚安', icon: Moon };
+  if (5 <= h && h < 12) return { text: '早安', icon: Sun, time: 'morning' };
+  if (12 <= h && h < 18) return { text: '午安', icon: Coffee, time: 'afternoon' };
+  return { text: '晚安', icon: Moon, time: 'evening' };
 };
 
 // --- 快顯時鐘元件解決頻繁重繪問題 ---
@@ -67,6 +68,21 @@ const timeToMins = (timeStr) => {
 
 const getLinkIcon = (iconName) => {
   return (ICON_MAP && ICON_MAP[iconName]) ? ICON_MAP[iconName] : Globe;
+};
+
+// 供課表使用的圖示庫
+const DASHBOARD_ICONS = [
+  'BookText', 'Languages', 'Calculator', 'Zap', 'Beaker', 'Dna',
+  'History', 'Map', 'Scale', 'Library', 'Globe', 'GraduationCap',
+  'Music', 'Palette', 'Trophy', 'Laptop', 'PenTool', 'Lightbulb'
+];
+
+// 判斷課表單項的圖示
+const getSubjectIcon = (item, subjects) => {
+  if (item.icon && ICON_MAP[item.icon]) return ICON_MAP[item.icon];
+  const s = subjects?.find(sub => sub.name === item.subject);
+  if (s && s.icon && ICON_MAP[s.icon]) return ICON_MAP[s.icon];
+  return BookText;
 };
 
 const THEME_COLORS = {
@@ -194,7 +210,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="w-full flex items-center gap-4 p-4 bg-white/40 dark:bg-white/5 backdrop-blur-2xl rounded-[28px] border border-white/20 dark:border-white/5 shadow-soft hover:shadow-float hover:-translate-y-0.5 transition-all duration-300 active:scale-[0.98] group"
+        className="w-full flex items-center gap-4 p-4 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 rounded-[28px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] group"
       >
         <div className={`p-3 rounded-2xl transition-colors ${mode === 'focus' ? 'bg-rose-500/10' : 'bg-emerald-500/10'}`}>
           <Timer size={24} className={mode === 'focus' ? 'text-rose-500' : 'text-emerald-500'} />
@@ -212,7 +228,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
   }
 
   return (
-    <div className="bg-white/40 dark:bg-slate-900/40 backdrop-blur-2xl rounded-[36px] border border-white/20 dark:border-white/5 shadow-soft overflow-hidden transition-all duration-500 animate-slide-up-fade">
+    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 rounded-[36px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] animate-slide-up-fade">
       {/* Header */}
       <div className={`px-6 py-4 flex items-center justify-between ${mode === 'focus' ? 'bg-gradient-to-r from-rose-500/10 to-orange-500/10 dark:from-rose-950/40 dark:to-orange-950/40' : 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-950/40 dark:to-teal-950/40'}`}>
         <div className="flex items-center gap-3">
@@ -229,9 +245,17 @@ const FocusTimerWidget = ({ triggerNotification }) => {
 
       {/* Timer Body */}
       <div className="flex flex-col items-center py-8 px-6">
-        <div className="relative w-36 h-36 mb-6">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r={radius} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-gray-100 dark:text-white/5" />
+        <div className="relative w-40 h-40 mb-8 flex items-center justify-center">
+          <svg className="absolute inset-0 w-full h-full -rotate-90 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_4px_12px_rgba(0,0,0,0.3)]" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r={radius} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-white/60 dark:text-white/5" />
+            <circle
+              cx="60" cy="60" r={radius} fill="none"
+              strokeWidth={stroke} strokeLinecap="round"
+              stroke={mode === 'focus' ? '#f43f5e' : '#10b981'}
+              strokeDasharray={circumference}
+              strokeDashoffset={dashOffset}
+              className="transition-all duration-1000 ease-linear opacity-40 blur-[4px]"
+            />
             <circle
               cx="60" cy="60" r={radius} fill="none"
               strokeWidth={stroke} strokeLinecap="round"
@@ -239,10 +263,10 @@ const FocusTimerWidget = ({ triggerNotification }) => {
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
               className="transition-all duration-1000 ease-linear"
-              style={{ filter: `drop-shadow(0 0 8px ${mode === 'focus' ? 'rgba(244,63,94,0.4)' : 'rgba(16,185,129,0.4)'})` }}
+              style={{ filter: `drop-shadow(0 2px 6px ${mode === 'focus' ? 'rgba(244,63,94,0.6)' : 'rgba(16,185,129,0.6)'})` }}
             />
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="absolute inset-3 rounded-full bg-white/30 dark:bg-black/20 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_4px_16px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_4px_16px_rgba(0,0,0,0.2)] border border-white/50 dark:border-white/10 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-[36px] font-black text-slate-900 dark:text-white font-mono tracking-tight leading-none">{mins}:{secs}</span>
             <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-1">
               {mode === 'focus' ? 'Focus' : 'Break'}
@@ -332,7 +356,7 @@ const SchoolNewsWidget = () => {
   }, []);
 
   return (
-    <div className="bg-white dark:bg-white/5 p-6 rounded-[32px] shadow-sm border border-gray-100 dark:border-white/5 mt-5">
+    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 mt-5 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
       <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <h3 className="text-[16px] font-black text-slate-800 dark:text-gray-100 flex items-center gap-2">
           <MapPin className={error ? "text-orange-400 shrink-0" : "text-blue-500 shrink-0"} size={20} />
@@ -355,7 +379,7 @@ const SchoolNewsWidget = () => {
               href={item.link || NEWS_PAGE_URL}
               target="_blank"
               rel="noreferrer"
-              className="block p-3.5 bg-gray-50/50 dark:bg-white/5 hover:bg-blue-50/50 dark:hover:bg-blue-500/10 border border-gray-100 dark:border-white/5 rounded-2xl transition-all duration-300 ease-spring group active:scale-[0.98] hover:-translate-y-1 hover:shadow-float relative z-10"
+              className="block p-4 bg-white/50 dark:bg-white/5 backdrop-blur-md hover:bg-white/80 dark:hover:bg-white/10 border border-white/60 dark:border-white/10 rounded-[28px] transition-all duration-500 ease-spring group active:scale-[0.98] hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(59,130,246,0.15)] relative z-10"
             >
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
@@ -384,7 +408,8 @@ const SchoolNewsWidget = () => {
 const DashboardTab = ({
   isAdmin, weeklySchedule, setWeeklySchedule, subjects, triggerNotification,
   customLinks, contactBook, isEditingSchedule, setIsEditingSchedule, classID,
-  saveToFirestore, setSettingsOpen, customCountdowns, dashboardLayout
+  saveToFirestore, setSettingsOpen, customCountdowns, dashboardLayout,
+  setContactBook, saveContactBookToFirestore, user
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [scheduleView, setScheduleView] = useState('daily'); // 'daily' | 'weekly'
@@ -398,6 +423,28 @@ const DashboardTab = ({
   const [previewSchedule, setPreviewSchedule] = useState(null);
   const [isSwapMode, setIsSwapMode] = useState(false);
   const [selectedForSwap, setSelectedForSwap] = useState([]); // Array of 2 IDs
+  const [streak, setStreak] = useState(0);
+
+  useEffect(() => {
+    try {
+      const stats = JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {};
+      const todayStr = new Date().toISOString().split('T')[0];
+      let currentStreak = 0;
+      let tempDate = new Date();
+      while (true) {
+        const dStr = tempDate.toISOString().split('T')[0];
+        const s = stats[dStr];
+        if (s && (s.words > 0 || s.time > 0)) {
+          currentStreak++;
+          tempDate.setDate(tempDate.getDate() - 1);
+        } else {
+          if (dStr === todayStr) tempDate.setDate(tempDate.getDate() - 1);
+          else break;
+        }
+      }
+      setStreak(currentStreak);
+    } catch (e) { }
+  }, []);
 
   // 檢查是否有任何課表資料
   const hasScheduleData = useMemo(() => {
@@ -524,9 +571,33 @@ const DashboardTab = ({
 
   const tomorrowsPrep = useMemo(() => {
     if (!contactBook) return [];
-    const allEntries = Object.values(contactBook).flat();
-    return allEntries.filter(entry => entry.homeworkDeadline === targetDateStr || entry.examDeadline === targetDateStr);
+    const matched = [];
+    Object.entries(contactBook).forEach(([dateKey, entries]) => {
+      entries.forEach(entry => {
+        if (entry.homeworkDeadline === targetDateStr || entry.examDeadline === targetDateStr) {
+          matched.push({ ...entry, _originalDateKey: dateKey });
+        }
+      });
+    });
+    return matched;
   }, [contactBook, targetDateStr]);
+
+  // --- 💡 首頁直接「確認收到」聯絡簿邏輯 ---
+  const handleToggleAck = async (dateStr, id) => {
+    if (!user) return triggerNotification('提示', '請先登入才能確認收到喔！');
+    const currentEntries = contactBook[dateStr] || [];
+    const updatedEntries = currentEntries.map(entry => {
+      if (entry.id === id) {
+        const acks = entry.acknowledgedBy || [];
+        const hasAcked = acks.includes(user.uid);
+        return { ...entry, acknowledgedBy: hasAcked ? acks.filter(uid => uid !== user.uid) : [...acks, user.uid] };
+      }
+      return entry;
+    });
+    const newContactBook = { ...contactBook, [dateStr]: updatedEntries };
+    setContactBook(newContactBook);
+    await saveContactBookToFirestore(newContactBook);
+  };
 
   const upcomingDaysSchedule = useMemo(() => {
     const schedules = [];
@@ -576,7 +647,8 @@ const DashboardTab = ({
       teacher: '',
       rescheduled: false,
       link: '',
-      color: ''
+      color: '',
+      icon: ''
     };
     setter(prev => ({
       ...prev,
@@ -645,7 +717,8 @@ const DashboardTab = ({
             teacher: item.teacher || '',
             rescheduled: false, // 預設沒有被調課
             link: item.link || '',
-            color: item.color || ''
+            color: item.color || '',
+            icon: item.icon || ''
           }));
         }
       });
@@ -806,9 +879,11 @@ const DashboardTab = ({
         const days = getDaysLeft(item.date);
         const style = item.style || 'gradient';
         const styles = {
-          simple: "bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 text-slate-800 dark:text-white",
+          simple: "bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] text-slate-800 dark:text-white",
           gradient: "bg-gradient-to-br from-emerald-500 to-teal-600 text-white",
-          neon: "bg-slate-900 border border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.1)]"
+          neon: "bg-slate-900 border border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.1)]",
+          sakura: "bg-gradient-to-br from-pink-400 to-rose-300 text-white shadow-lg shadow-pink-500/20",
+          cyber: "bg-slate-900 border border-fuchsia-500/40 text-fuchsia-400 shadow-[0_0_20px_rgba(217,70,239,0.15)]"
         };
         return (
           <div key={item.id || i} className={`${styles[style] || styles.gradient} rounded-[32px] p-5 shadow-soft relative overflow-hidden group active:scale-[0.98] transition-all`}>
@@ -829,14 +904,20 @@ const DashboardTab = ({
     </div>
   ) : null;
 
+  const greeting = getGreeting();
+  const bgGradients = {
+    morning: "bg-gradient-to-br from-amber-50/70 to-orange-100/70 dark:from-amber-900/30 dark:to-orange-900/30",
+    afternoon: "bg-gradient-to-br from-blue-50/70 to-cyan-100/70 dark:from-blue-900/30 dark:to-cyan-900/30",
+    evening: "bg-gradient-to-br from-indigo-100/70 to-purple-100/70 dark:from-indigo-900/30 dark:to-purple-900/30"
+  };
+
   const widgetGreeting = (
-    <div className="group bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-indigo-950 dark:via-emerald-950 dark:to-slate-950 rounded-[40px] p-8 md:p-10 text-slate-900 dark:text-white shadow-soft hover:shadow-float border border-emerald-100 dark:border-white/10 relative transition-all duration-500 ease-spring-smooth hover:-translate-y-1 overflow-hidden glass-effect">
-      <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+    <div className={`group ${bgGradients[greeting.time]} backdrop-blur-2xl backdrop-saturate-150 p-8 md:p-10 text-slate-900 dark:text-white rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] border border-white/60 dark:border-white/10 relative transition-all duration-500 ease-spring-smooth hover:-translate-y-1 overflow-hidden`}>
       <div className="relative z-10">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-4">
           <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            {React.createElement(getGreeting().icon, { size: 32, className: "shrink-0", strokeWidth: 3 })}
-            <span>{getGreeting().text}</span>
+            {React.createElement(greeting.icon, { size: 32, className: "shrink-0", strokeWidth: 3 })}
+            <span>{greeting.text}</span>
           </h2>
           <div className="flex flex-col items-end">
             <span className="text-emerald-800 dark:text-emerald-100/80 text-[11px] font-black opacity-80 uppercase tracking-widest">Current Time</span>
@@ -846,9 +927,16 @@ const DashboardTab = ({
 
         <div className="flex flex-col gap-3">
           <div className="flex justify-between items-end flex-wrap gap-x-4">
-            <span className="text-emerald-800 dark:text-emerald-100/80 text-[13px] font-black opacity-90 tracking-widest uppercase">
-              {hasClassesToday ? '今日課程進度' : '今日無課程安排'}
-            </span>
+            <div className="flex items-center gap-3 mb-1">
+              <span className="text-emerald-800 dark:text-emerald-100/80 text-[13px] font-black opacity-90 tracking-widest uppercase">
+                {hasClassesToday ? '今日課程進度' : '今日無課程安排'}
+              </span>
+              {streak > 0 && (
+                <span className="flex items-center gap-1 text-[11px] font-black bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2.5 py-0.5 rounded-full border border-orange-500/30">
+                  <Flame size={12} className="shrink-0" /> 連續學習 {streak} 天
+                </span>
+              )}
+            </div>
             <span className="text-emerald-900 dark:text-white text-[20px] font-black">{Math.round(currentProgress)}%</span>
           </div>
           <div className="h-3 bg-emerald-200/50 dark:bg-black/20 rounded-full overflow-hidden backdrop-blur-sm border border-emerald-100/50 dark:border-white/5 relative">
@@ -909,7 +997,7 @@ const DashboardTab = ({
   const widgetPomodoro = <FocusTimerWidget triggerNotification={triggerNotification} />;
 
   const widgetSchedule = (
-    <div id="schedule-section" className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[40px] border border-[var(--border-color)] shadow-soft relative overflow-hidden transition-all duration-500">
+    <div id="schedule-section" className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] relative overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
       {isWeekendRest && !isEditingSchedule ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
@@ -973,7 +1061,7 @@ const DashboardTab = ({
 
           <div className="space-y-4">
             {(displaySchedule[editDayTab] || []).map(item => (
-              <div key={item.id} className={`p-6 bg-[var(--bg-surface)] glass-effect rounded-[32px] border ${getSubjectTheme(item, subjects).border} relative group transition-all duration-500 ease-spring hover:shadow-float animate-slide-up-fade`}>
+              <div key={item.id} className={`p-6 bg-white/50 dark:bg-black/20 backdrop-blur-xl rounded-[32px] border ${getSubjectTheme(item, subjects).border} relative group transition-all duration-500 ease-spring hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] animate-slide-up-fade`}>
                 <div className="flex flex-col gap-4">
 
                   {/* Row 1: Subject, Color Picker and Time */}
@@ -981,16 +1069,45 @@ const DashboardTab = ({
                     <div className="flex flex-col justify-between flex-1 bg-slate-50/50 dark:bg-black/20 p-4 rounded-[24px] border border-slate-200/50 dark:border-white/5 shadow-sm focus-within:border-emerald-400 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className={`w-12 h-12 rounded-[20px] ${getSubjectTheme(item, subjects).bg} ${getSubjectTheme(item, subjects).text} flex items-center justify-center shrink-0 shadow-inner transition-colors`}>
-                          <BookText size={22} />
+                          {React.createElement(getSubjectIcon(item, subjects), { size: 22 })}
                         </div>
                         <input type="text" value={item.subject || ''} onChange={e => updateSchedule(item.id, 'subject', e.target.value)} className={`flex-1 bg-transparent font-black text-[20px] ${getSubjectTheme(item, subjects).text} outline-none placeholder:text-slate-400`} placeholder="輸入課程名稱" />
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-200/50 dark:border-white/5">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">標籤顏色</span>
-                        {Object.entries(THEME_COLORS).map(([key, config]) => (
-                          <button key={key} onClick={() => updateSchedule(item.id, 'color', key)} className={`w-5 h-5 rounded-full ${config.hex} shadow-sm transition-transform hover:scale-110 active:scale-95 ${item.color === key ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-slate-600 scale-110' : ''}`} />
-                        ))}
-                        <button onClick={() => updateSchedule(item.id, 'color', '')} className={`w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-600 dark:text-slate-300 font-black shadow-sm hover:scale-110 active:scale-95 transition-transform ${!item.color ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-slate-600 scale-110' : ''}`}>A</button>
+                      
+                      <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-slate-200/50 dark:border-white/5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 w-12 text-right">標籤顏色</span>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(THEME_COLORS).map(([key, config]) => (
+                              <button key={key} onClick={() => updateSchedule(item.id, 'color', key)} className={`w-5 h-5 rounded-full ${config.hex} shadow-sm transition-transform hover:scale-110 active:scale-95 ${item.color === key ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-slate-600 scale-110' : ''}`} />
+                            ))}
+                            <button onClick={() => updateSchedule(item.id, 'color', '')} className={`w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-600 dark:text-slate-300 font-black shadow-sm hover:scale-110 active:scale-95 transition-transform ${!item.color ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-slate-600 scale-110' : ''}`}>A</button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 w-12 text-right">自訂圖示</span>
+                          <div className="flex items-center bg-slate-100 dark:bg-black/40 px-2 py-1.5 rounded-[10px] border border-slate-200 dark:border-white/5 focus-within:border-emerald-400 transition-colors">
+                            <Search size={12} className="text-slate-400 shrink-0" />
+                            <input 
+                              type="text" 
+                              placeholder="搜尋..." 
+                              value={item._iconSearch || ''} 
+                              onChange={e => updateSchedule(item.id, '_iconSearch', e.target.value)} 
+                              className="bg-transparent text-[11px] outline-none ml-1.5 w-14 text-[var(--text-primary)] placeholder:text-slate-400" 
+                            />
+                          </div>
+                          <div className="flex gap-1 overflow-x-auto scrollbar-hide py-1 mask-fade-edges flex-1">
+                            {((item._iconSearch || '').trim() 
+                              ? Object.keys(ICON_MAP).filter(k => k.toLowerCase().includes(item._iconSearch.toLowerCase())).slice(0, 30) 
+                              : DASHBOARD_ICONS).map(iconName => {
+                              const IconComp = ICON_MAP[iconName] || BookText;
+                              return (
+                                <button key={iconName} onClick={() => updateSchedule(item.id, 'icon', iconName)} className={`shrink-0 p-1.5 rounded-lg transition-all active:scale-90 ${item.icon === iconName ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-1 ring-emerald-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}><IconComp size={16} /></button>
+                              );
+                            })}
+                            <button onClick={() => updateSchedule(item.id, 'icon', '')} className={`shrink-0 px-2 py-1.5 rounded-lg transition-all text-[10px] font-black active:scale-90 ${!item.icon ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-1 ring-emerald-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}>預設</button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-col justify-center gap-2 bg-slate-50/50 dark:bg-black/20 p-4 rounded-[24px] border border-slate-200/50 dark:border-white/5 shadow-sm shrink-0 w-full md:w-auto">
@@ -1187,10 +1304,10 @@ const DashboardTab = ({
                               {/* Pill Card */}
                               <div
                                 onClick={() => toggleSwapSelect(item.id)}
-                                className={`relative overflow-hidden flex items-center gap-4 px-6 py-4 rounded-[32px] border transition-all duration-300 cursor-pointer active:scale-[0.96] hover:shadow-float backdrop-blur-md
+                                className={`relative overflow-hidden flex items-center gap-4 px-6 py-4 rounded-[32px] border transition-all duration-300 cursor-pointer active:scale-[0.96] hover:shadow-[0_12px_24px_rgba(0,0,0,0.15)] backdrop-blur-md
                                    ${isActive ? `${theme.activeBg} border-white/30 shadow-lg scale-[1.02] ring-4 ${theme.ring}` :
                                     item.rescheduled ? 'bg-orange-50/30 dark:bg-orange-950/30 border-orange-500/60 shadow-[0_0_20px_rgba(255,152,0,0.15)] hover:scale-[1.01]' :
-                                      `bg-[var(--bg-surface)] glass-effect shadow-sm dark:shadow-none ${theme.border} hover:-translate-y-0.5 hover:scale-[1.01]`}
+                                      `bg-white/60 dark:bg-white/5 shadow-sm dark:shadow-none ${theme.border} hover:-translate-y-0.5 hover:scale-[1.01]`}
                                    ${selectedForSwap.includes(item.id) ? 'border-orange-500 ring-4 ring-orange-500/20 scale-105' : ''}`}
                                 style={item.rescheduled && !isActive ? { border: '2px solid #ff9800', boxShadow: '0 0 15px rgba(255, 152, 0, 0.3)' } : {}}
                               >
@@ -1217,8 +1334,9 @@ const DashboardTab = ({
 
                                 <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 overflow-hidden">
                                   <div className="flex flex-col min-w-0">
-                                    <span className={`text-[18px] font-black truncate flex items-center gap-1.5 leading-tight ${isActive ? 'text-white' : 'text-slate-800 dark:text-gray-100'}`}>
+                                    <span className={`text-[18px] font-black truncate flex items-center gap-2 leading-tight ${isActive ? 'text-white' : 'text-slate-800 dark:text-gray-100'}`}>
                                       {item.rescheduled && <span className="text-xl" title="有調課變動">🔔</span>}
+                                      {React.createElement(getSubjectIcon(item, subjects), { size: 18, className: isActive ? 'text-white/80' : getSubjectTheme(item, subjects).text })}
                                       {item.subject}
                                     </span>
                                     <div className="flex items-center gap-2 flex-wrap mt-0.5">
@@ -1264,25 +1382,38 @@ const DashboardTab = ({
     </div>
   );
 
+  const LINK_COLORS = {
+    blue: { text: 'text-blue-600 dark:text-blue-400', groupText: 'group-hover:text-blue-700 dark:group-hover:text-blue-300', bgHover: 'group-hover:bg-blue-600 group-hover:text-white', shadow: 'group-hover:shadow-[0_0_24px_rgba(59,130,246,0.4)] dark:group-hover:shadow-[0_0_24px_rgba(59,130,246,0.3)]' },
+    emerald: { text: 'text-emerald-600 dark:text-emerald-400', groupText: 'group-hover:text-emerald-700 dark:group-hover:text-emerald-300', bgHover: 'group-hover:bg-emerald-500 group-hover:text-white', shadow: 'group-hover:shadow-[0_0_24px_rgba(16,185,129,0.4)] dark:group-hover:shadow-[0_0_24px_rgba(16,185,129,0.3)]' },
+    orange: { text: 'text-orange-600 dark:text-orange-400', groupText: 'group-hover:text-orange-700 dark:group-hover:text-orange-300', bgHover: 'group-hover:bg-orange-500 group-hover:text-white', shadow: 'group-hover:shadow-[0_0_24px_rgba(249,115,22,0.4)] dark:group-hover:shadow-[0_0_24px_rgba(249,115,22,0.3)]' },
+    rose: { text: 'text-rose-600 dark:text-rose-400', groupText: 'group-hover:text-rose-700 dark:group-hover:text-rose-300', bgHover: 'group-hover:bg-rose-500 group-hover:text-white', shadow: 'group-hover:shadow-[0_0_24px_rgba(244,63,94,0.4)] dark:group-hover:shadow-[0_0_24px_rgba(244,63,94,0.3)]' },
+    purple: { text: 'text-purple-600 dark:text-purple-400', groupText: 'group-hover:text-purple-700 dark:group-hover:text-purple-300', bgHover: 'group-hover:bg-purple-500 group-hover:text-white', shadow: 'group-hover:shadow-[0_0_24px_rgba(168,85,247,0.4)] dark:group-hover:shadow-[0_0_24px_rgba(168,85,247,0.3)]' },
+    indigo: { text: 'text-indigo-600 dark:text-indigo-400', groupText: 'group-hover:text-indigo-700 dark:group-hover:text-indigo-300', bgHover: 'group-hover:bg-indigo-500 group-hover:text-white', shadow: 'group-hover:shadow-[0_0_24px_rgba(99,102,241,0.4)] dark:group-hover:shadow-[0_0_24px_rgba(99,102,241,0.3)]' },
+    slate: { text: 'text-slate-600 dark:text-slate-400', groupText: 'group-hover:text-slate-700 dark:group-hover:text-slate-300', bgHover: 'group-hover:bg-slate-600 group-hover:text-white', shadow: 'group-hover:shadow-[0_0_24px_rgba(71,85,105,0.4)] dark:group-hover:shadow-[0_0_24px_rgba(71,85,105,0.3)]' }
+  };
+
   const widgetLinks = (
-    <div className="bg-[var(--bg-surface)] glass-effect p-6 md:p-8 rounded-[40px] border border-[var(--border-color)] shadow-soft hover:shadow-float transition-all duration-500">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-          <Globe className="text-blue-500" size={22} />
+    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] relative overflow-hidden group/links">
+      <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none mix-blend-multiply dark:mix-blend-lighten"></div>
+      <div className="flex items-center gap-3 mb-6 relative z-10">
+        <div className="w-12 h-12 rounded-[24px] bg-white/50 dark:bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/60 dark:border-white/20 shadow-sm">
+          <Globe className="text-blue-600 dark:text-blue-400" size={24} />
         </div>
-        <h3 className="text-[20px] font-black text-[var(--text-primary)]">外部連結</h3>
+        <h3 className="text-[22px] font-black text-slate-800 dark:text-white tracking-tight">外部連結</h3>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 relative z-10">
         {customLinks.map((link, idx) => {
           const IconComp = getLinkIcon(link.icon);
+          const col = LINK_COLORS[link.themeColor] || LINK_COLORS.blue;
           return (
             <a key={link.id || `custom-link-${idx}`} href={link.url} target="_blank" rel="noreferrer"
-              className="flex flex-col items-center gap-3 p-5 bg-slate-50/50 dark:bg-white/5 rounded-[28px] active:scale-[0.95] transition-all duration-500 ease-spring-smooth border border-slate-200/50 dark:border-white/5 hover:bg-white dark:hover:bg-white/10 hover:-translate-y-1 hover:shadow-md group">
-              <div className="p-3 bg-blue-50 dark:bg-blue-500/20 rounded-[20px] group-hover:scale-110 group-hover:-rotate-3 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300 shrink-0 text-blue-500 shadow-sm group-hover:shadow-md group-hover:shadow-blue-500/30">
-                <IconComp size={28} className="shrink-0" />
+              className="flex flex-col items-center gap-3 p-5 bg-white/40 dark:bg-white/5 backdrop-blur-xl rounded-[32px] active:scale-[0.95] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] border border-white/50 dark:border-white/10 hover:bg-white/80 dark:hover:bg-white/10 hover:-translate-y-2 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_20px_40px_rgba(59,130,246,0.15)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_20px_40px_rgba(59,130,246,0.25)] group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-colors duration-[600ms]"></div>
+              <div className={`p-4 bg-white/60 dark:bg-black/20 backdrop-blur-md rounded-[24px] group-hover:scale-[1.15] group-hover:-rotate-6 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 shadow-sm border border-white/60 dark:border-white/5 relative z-10 ${col.text} ${col.shadow} ${col.bgHover}`}>
+                <IconComp size={28} className="shrink-0 drop-shadow-sm" />
               </div>
-              <span className="text-[14px] font-black text-slate-700 dark:text-gray-300 text-center truncate w-full px-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{link.title}</span>
+              <span className={`text-[14px] font-black text-slate-700 dark:text-gray-200 text-center w-full px-1 transition-colors duration-[600ms] relative z-10 ${col.groupText}`}>{link.title}</span>
             </a>
           );
         })}
@@ -1292,24 +1423,50 @@ const DashboardTab = ({
 
   const widgetNews = <SchoolNewsWidget />;
 
+  const hasExam = tomorrowsPrep.some(item => item.exam);
+
   const widgetPrep = tomorrowsPrep.length > 0 && !isEditingSchedule ? (
-    <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 p-6 rounded-[36px] border border-orange-100 dark:border-orange-900/30 shadow-sm animate-pop-in">
-      <h3 className="text-[16px] font-black text-orange-800 dark:text-orange-400 flex items-center gap-2 mb-4">
-        <BellRing size={20} className="text-orange-500" /> 明日準備事項
-      </h3>
-      <div className="flex flex-col gap-3">
-        {tomorrowsPrep.map((item, idx) => (
-          <div key={item.id || `prep-${idx}`} className="bg-white/70 dark:bg-slate-800/40 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/20 shadow-sm flex items-start gap-3">
-            <div className="p-2 bg-orange-100 dark:bg-orange-900/40 rounded-xl text-orange-600 dark:text-orange-400">
-              <Clock size={20} />
+    <div className="relative animate-pop-in group/prep">
+      <style>{`
+        @keyframes warning-shake {
+          0%, 85%, 100% { transform: translateX(0) rotate(0); }
+          88% { transform: translateX(-3px) rotate(-1deg); }
+          91% { transform: translateX(3px) rotate(1deg); }
+          94% { transform: translateX(-3px) rotate(-1deg); }
+          97% { transform: translateX(2px) rotate(1deg); }
+        }
+        .animate-warning-shake { animation: warning-shake 4s infinite cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+      `}</style>
+      {hasExam && <div className="absolute inset-0 bg-rose-500/20 dark:bg-rose-500/30 blur-xl rounded-[36px] animate-[pulse_3s_ease-in-out_infinite] pointer-events-none" />}
+      <div className={`relative z-10 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[36px] border ${hasExam ? 'border-rose-400/50 dark:border-rose-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(244,63,94,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(244,63,94,0.3)] animate-warning-shake' : 'border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]'} transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1`}>
+        <h3 className={`text-[16px] font-black ${hasExam ? 'text-rose-600 dark:text-rose-400' : 'text-orange-800 dark:text-orange-400'} flex items-center gap-2 mb-4`}>
+          <BellRing size={20} className={hasExam ? 'text-rose-500 animate-bounce-soft' : 'text-orange-500'} /> 明日準備事項
+        </h3>
+        <div className="flex flex-col gap-3">
+          {tomorrowsPrep.map((item, idx) => (
+            <div key={item.id || `prep-${idx}`} className={`bg-white/70 dark:bg-slate-800/40 p-4 rounded-[20px] border shadow-sm flex flex-col transition-colors duration-500 ${item.exam ? 'border-rose-200 dark:border-rose-900/30' : 'border-orange-100 dark:border-orange-900/20'}`}>
+              <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-xl ${item.exam ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400' : 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'}`}>
+                  <Clock size={20} />
+                </div>
+                <div className="flex-1">
+                  <span className={`text-[12px] font-black px-2 py-0.5 rounded-lg mb-2 inline-block ${item.exam ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300' : 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300'}`}>{item.subject}</span>
+                  {item.homeworkDeadline === targetDateStr && <p className="text-[14px] font-bold text-slate-800 dark:text-gray-200">📝 {item.homework}</p>}
+                  {item.examDeadline === targetDateStr && <p className="text-[14px] font-bold text-slate-800 dark:text-gray-200 mt-1">💯 考試：{item.exam}</p>}
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between">
+                <div className="text-[11px] font-bold text-slate-400">
+                  {item.acknowledgedBy?.length > 0 ? `${item.acknowledgedBy.length} 人已確認` : '尚未有人確認'}
+                </div>
+                <button onClick={() => handleToggleAck(item._originalDateKey, item.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] text-[11px] font-black transition-all active:scale-95 ${item.acknowledgedBy?.includes(user?.uid) ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/10'}`}>
+                  <CheckCircle2 size={14} className={item.acknowledgedBy?.includes(user?.uid) ? 'text-white' : 'text-slate-400'} />
+                  {item.acknowledgedBy?.includes(user?.uid) ? '已確認' : '確認收到'}
+                </button>
+              </div>
             </div>
-            <div>
-              <span className="text-[12px] font-black bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-lg mb-2 inline-block">{item.subject}</span>
-              {item.homeworkDeadline === targetDateStr && <p className="text-[14px] font-bold text-slate-800 dark:text-gray-200">📝 {item.homework}</p>}
-              {item.examDeadline === targetDateStr && <p className="text-[14px] font-bold text-slate-800 dark:text-gray-200 mt-1">💯 考試：{item.exam}</p>}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   ) : null;

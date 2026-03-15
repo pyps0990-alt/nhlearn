@@ -85,7 +85,7 @@ const StoresTab = ({ isAdmin, campusName }) => {
           <div
             key={store.id}
             style={{ animationDelay: `${idx * 80}ms` }}
-            className="bg-[var(--bg-surface)] p-7 rounded-[40px] shadow-soft border border-[var(--border-color)] flex flex-col relative transition-all duration-500 ease-spring-smooth group hover:shadow-float hover:-translate-y-2 animate-slide-up-fade overflow-hidden glass-effect"
+            className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 p-7 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 flex flex-col relative transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] group hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-2 animate-slide-up-fade overflow-hidden"
           >
             {/* 標題與圖示區塊 */}
             <div className="flex items-center gap-4 mb-5">
@@ -120,7 +120,7 @@ const StoresTab = ({ isAdmin, campusName }) => {
 
             {/* 專屬優惠區塊 */}
             <div className="flex items-start gap-3 bg-orange-50 dark:bg-orange-500/10 p-4 rounded-3xl border border-orange-100 dark:border-orange-500/20 shadow-inner mb-6 relative overflow-hidden transition-colors group-hover:bg-orange-100/50 dark:group-hover:bg-orange-500/20">
-              <div className="absolute -right-2 -top-2 p-2 opacity-5 pointer-events-none transition-transform duration-500 group-hover:scale-110">
+              <div className="absolute -right-2 -top-2 p-2 opacity-5 pointer-events-none transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-110">
                 <CreditCard size={80} className="text-orange-900 dark:text-orange-300" />
               </div>
               <CreditCard size={20} className="text-orange-500 shrink-0 mt-0.5 relative z-10" />
@@ -149,7 +149,7 @@ const StoresTab = ({ isAdmin, campusName }) => {
 
               <button
                 onClick={() => handleNavigate(store.name, store.address)}
-                className="flex items-center justify-center gap-2 px-5 py-3.5 bg-emerald-500 text-white rounded-[20px] text-[13px] font-black shadow-lg shadow-emerald-500/20 active:scale-95 transition-all duration-300 ease-spring hover:bg-emerald-600 hover:shadow-emerald-500/40 shrink-0"
+                className="flex items-center justify-center gap-2 px-5 py-3.5 bg-emerald-500 text-white rounded-[20px] text-[13px] font-black shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-emerald-600 hover:shadow-emerald-500/40 shrink-0"
               >
                 <Navigation size={16} /> 導航
               </button>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import {
   Menu, Settings, LayoutDashboard, BookOpen, Notebook,
-  Library, Store, Bus, HelpCircle, ShieldCheck,
+  BookMarked, Store, Bus, HelpCircle, ShieldCheck,
   BellRing, Bell, AlertCircle, RefreshCw, MessageSquare
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
@@ -22,7 +23,7 @@ export const DEFAULT_DASHBOARD_LAYOUT = [
   { id: 'prep', visible: true, label: '明日準備事項' }
 ];
 import { db, auth, messaging, firebaseError, VAPID_KEY } from './firebase';
-import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signInWithCredential } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 import DashboardTab from './components/DashboardTab';
@@ -84,9 +85,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     if (tabId === activeTab) return;
     setPreviousTab(activeTab);
     setActiveTab(tabId);
-    if (contentRef.current) {
-      contentRef.current.scrollTo({ top: 0, behavior: 'auto' });
-    }
+    if (contentRef.current) contentRef.current.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   const [isAdmin, setIsAdmin] = useState(false);
@@ -112,7 +111,16 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   const lastNoticeTimestamp = useRef(Date.now()); // 🔴 紀錄 App 啟動時間，只推播比這更新的通知
   const [campusName, setCampusName] = useState(() => localStorage.getItem('gsat_campus_name') || '內湖高中');
   const [campusAddress, setCampusAddress] = useState(() => localStorage.getItem('gsat_campus_address') || '台北市內湖區文德路218號');
+  const [campusLat, setCampusLat] = useState(() => localStorage.getItem('gsat_campus_lat') || '25.078410');
+  const [campusLng, setCampusLng] = useState(() => localStorage.getItem('gsat_campus_lng') || '121.587152');
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+
+  // 初始化時檢查網址是否有登入回傳的 Token，若有則直接進入 Loading 狀態
+  const [isAuthLoading, setIsAuthLoading] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.has('id_token') || params.has('code') || params.has('auth_error');
+  });
 
   // 全域快捷鍵 Ctrl+K 開啟指令面板
   useEffect(() => {
@@ -139,10 +147,26 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     try { return JSON.parse(localStorage.getItem('gsat_subjects')) || SUBJECTS_LIST; } catch { return SUBJECTS_LIST; }
   });
   const [customLinks, setCustomLinks] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('gsat_custom_links')) || DEFAULT_LINKS; } catch { return DEFAULT_LINKS; }
+    try {
+      const data = JSON.parse(localStorage.getItem('gsat_custom_links'));
+      if (data && data.length > 0) return data;
+      return [
+        { id: 'default-link-1', title: '學校官網', url: 'https://www.nhsh.tp.edu.tw/', icon: 'Globe', themeColor: 'blue' },
+        { id: 'default-link-2', title: '學習歷程', url: 'https://ep.tcivs.tc.edu.tw/', icon: 'BookOpen', themeColor: 'emerald' },
+        { id: 'default-link-3', title: '酷課雲', url: 'https://cooc.tp.edu.tw/', icon: 'Cloud', themeColor: 'indigo' },
+        { id: 'default-link-4', title: '成績查詢', url: 'https://sschool.tp.edu.tw/', icon: 'LayoutDashboard', themeColor: 'orange' }
+      ];
+    } catch { return []; }
   });
   const [customCountdowns, setCustomCountdowns] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('gsat_custom_countdowns')) || []; } catch { return []; }
+    try {
+      const data = JSON.parse(localStorage.getItem('gsat_custom_countdowns'));
+      if (data && data.length > 0) return data;
+      return [
+        { id: 'default-cd-1', title: '學科能力測驗', date: '2026-01-16', icon: '🎯', style: 'gradient' },
+        { id: 'default-cd-2', title: '畢業典禮', date: '2026-06-01', icon: '🎓', style: 'neon' }
+      ];
+    } catch { return []; }
   });
   const [dashboardLayout, setDashboardLayout] = useState(() => {
     try {
@@ -168,6 +192,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
   useEffect(() => { localStorage.setItem('gsat_custom_countdowns', JSON.stringify(customCountdowns)); }, [customCountdowns]);
   useEffect(() => { localStorage.setItem('gsat_class_id', classID); }, [classID]);
   useEffect(() => { localStorage.setItem('gsat_dashboard_layout', JSON.stringify(dashboardLayout)); }, [dashboardLayout]);
+  useEffect(() => { localStorage.setItem('gsat_campus_lat', campusLat); }, [campusLat]);
+  useEffect(() => { localStorage.setItem('gsat_campus_lng', campusLng); }, [campusLng]);
 
   // ─── 清除 iOS App 圖示紅點 (當使用者開啟/回到 App 時) ─────────────────────
   useEffect(() => {
@@ -180,6 +206,15 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
+
+  // ─── 初始頁面優化版授權通知彈窗 ─────────────────────────────────
+  useEffect(() => {
+    // 如果瀏覽器支援通知、目前是預設狀態，且已經進入 App 模式，則延遲 1.5 秒後彈出優化版玻璃彈窗
+    if ('Notification' in window && Notification.permission === 'default' && appPhase === 'app') {
+      const timer = setTimeout(() => setShowPushPrompt(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [appPhase]);
 
   // 全域自動置頂
   useEffect(() => {
@@ -304,7 +339,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
 
               // 🚀 僅觸發原生 Web Push 通知 (前景)，移除 App 內橫幅
               triggerNativeNotification(data.title || '系統通知', data.content || '');
-              
+
               // 🔴 更新 iOS / Android 桌面 App 圖示的未讀紅點 (Badge API)
               setUnreadCount(prev => {
                 const nextCount = prev + 1;
@@ -435,7 +470,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
         const tomorrowStr = tomorrow.toISOString().split('T')[0];
         const cb = contactBookRef.current || {};
         const tomorrowsEntries = cb[tomorrowStr] || [];
-        
+
         if (tomorrowsEntries.length > 0) {
           const exams = tomorrowsEntries.filter(e => e.exam).length;
           const hws = tomorrowsEntries.filter(e => e.homework).length;
@@ -513,18 +548,31 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     }
   }, [triggerNotification]);
 
-  const handleSignoutClick = useCallback(() => {
+  const handleSignoutClick = useCallback(async () => {
+    triggerNotification('處理中', '正在中斷連線...');
+    try {
+      await signOut(auth); // 正確登出 Firebase
+    } catch (err) {
+      console.error("Firebase SignOut Error:", err);
+    }
+
     const token = window.gapi?.client?.getToken();
     if (token) {
-      window.google?.accounts.oauth2.revoke(token.access_token, () => {
-        window.gapi.client.setToken('');
-        localStorage.removeItem('gsat_google_token');
-        localStorage.removeItem('gsat_user_profile');
-        setIsGoogleConnected(false);
-        setUserProfile(null);
-        triggerNotification('已登出', 'Google 帳號連線已中斷。');
-      });
+      try {
+        window.google?.accounts.oauth2.revoke(token.access_token, () => {
+          window.gapi?.client?.setToken('');
+        });
+      } catch (e) {
+        console.error(e);
+      }
     }
+
+    // 無論 Google Token 是否存在，都確保清除本地狀態與畫面連線指示
+    localStorage.removeItem('gsat_google_token');
+    localStorage.removeItem('gsat_user_profile');
+    setIsGoogleConnected(false);
+    setUserProfile(null);
+    triggerNotification('已登出', 'Google 帳號連線已成功中斷。');
   }, [triggerNotification]);
 
   useEffect(() => {
@@ -577,6 +625,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
         const idToken = urlParams.get('id_token');
 
         if (idToken) {
+          setIsAuthLoading(true);
           console.log("📥 從 Callback 取得 ID Token，正在還原 Firebase 演唱會...");
           try {
             const credential = GoogleAuthProvider.credential(idToken, accessToken);
@@ -617,6 +666,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
         try {
           const result = await getRedirectResult(auth);
           if (result) {
+            setIsAuthLoading(true); // 確定有導向結果才顯示 Loading，避免每次重整閃爍
             const credential = GoogleAuthProvider.credentialFromResult(result);
             const token = credential?.accessToken;
             if (token) localStorage.setItem('gsat_google_token', token);
@@ -639,12 +689,16 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
         }
       } catch (err) {
         console.error("❌ Main Initialization Error:", err);
+      } finally {
+        setIsAuthLoading(false); // 無論成功或失敗，初始化結束後都關閉 Loading
       }
     };
     init();
   }, [fetchUserInfo, triggerNotification]);
 
   const handleAuthClick = async () => {
+    setIsAuthLoading(true);
+    triggerNotification('連線中', '正在啟動 Google 登入...');
     console.log("📍 Using Redirect URI:", GOOGLE_REDIRECT_URI);
     if (tokenClientRef.current) {
       console.log("🚀 啟動 Google Authorization Code Flow (requestCode)");
@@ -653,6 +707,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
       } catch (err) {
         console.error("requestCode failed:", err);
         triggerNotification('啟動登入失敗', '請重新整理頁面再試。');
+        setIsAuthLoading(false);
       }
     } else {
       // 回退方案
@@ -661,6 +716,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
         await signInWithRedirect(auth, provider);
       } catch (error) {
         console.error("Fallback Auth error:", error);
+        setIsAuthLoading(false);
       }
     }
   };
@@ -675,11 +731,12 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     { id: 'dashboard', icon: LayoutDashboard, label: '日常課表' },
     { id: 'english', icon: BookOpen, label: '單字特訓' },
     { id: 'contactBook', icon: Notebook, label: '電子聯絡簿' },
-    { id: 'notes', icon: Library, label: '知識筆記' },
+    { id: 'notes', icon: BookMarked, label: '知識筆記' },
     { id: 'stores', icon: Store, label: '特約商店' },
     { id: 'traffic', icon: Bus, label: '交通與 YouBike' },
     { id: 'feedback', icon: MessageSquare, label: '回饋與支持' },
     { id: 'help', icon: HelpCircle, label: '如何使用' },
+    { id: 'legal', icon: ShieldCheck, label: '隱私與條款' },
   ];
 
   const getTabName = id => navItems.find(n => n.id === id)?.label || 'GSAT Pro';
@@ -691,7 +748,60 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
 
   return (
     <>
+      {/* 🚀 全螢幕登入載入動畫 (Auth Loading Overlay) */}
+      {isAuthLoading && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/40 dark:bg-[#020617]/80 backdrop-blur-3xl flex flex-col items-center justify-center animate-fadeIn">
+          {/* 背景氛圍光暈 */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/20 blur-[80px] rounded-full animate-pulse-slow pointer-events-none"></div>
+          
+          <div className="relative bg-white/70 dark:bg-white/5 backdrop-blur-3xl border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_32px_64px_rgba(0,0,0,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_32px_64px_rgba(0,0,0,0.5)] p-12 rounded-[48px] flex flex-col items-center text-center animate-pop-in">
+            {/* 質感多層次載入環 */}
+            <div className="relative flex items-center justify-center mb-8">
+              <div className="absolute inset-0 border-[3px] border-emerald-500/10 dark:border-white/5 rounded-full"></div>
+              <div className="w-20 h-20 border-[3px] border-transparent border-t-emerald-500 border-r-emerald-500/50 rounded-full animate-spin"></div>
+              <div className="absolute w-12 h-12 border-[3px] border-transparent border-b-blue-500 border-l-blue-500/50 rounded-full animate-[spin_1.5s_linear_infinite_reverse]"></div>
+              <Globe size={22} className="absolute text-emerald-600 dark:text-emerald-400 animate-pulse" />
+            </div>
+            
+            <h3 className="text-[22px] font-black text-slate-800 dark:text-white tracking-widest mb-2">安全連線中</h3>
+            <p className="text-[13px] font-bold text-slate-500 dark:text-emerald-400/80">正在與 Google 建立加密連線</p>
+
+            {/* 掃光進度條 */}
+            <div className="w-48 h-1.5 bg-slate-200 dark:bg-white/10 rounded-full mt-8 overflow-hidden relative shadow-inner">
+              <div className="absolute top-0 bottom-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-emerald-500 to-transparent animate-[shimmer-slide_1.5s_infinite_linear]"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPrivacyModal && <PrivacyModal onAccept={() => { setShowPrivacyModal(false); setAppPhase('app'); }} />}
+
+      {/* 🚀 全新液態玻璃設計：推播通知授權彈窗 */}
+      {showPushPrompt && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm animate-fadeIn" onClick={() => setShowPushPrompt(false)} />
+          <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-[32px] border border-white/60 dark:border-white/10 p-8 md:p-10 rounded-[48px] shadow-[0_40px_80px_rgba(0,0,0,0.2)] relative w-full max-w-sm animate-pop-in text-center overflow-hidden">
+            <div className="absolute -top-20 -left-20 w-48 h-48 bg-emerald-400/30 blur-[50px] rounded-full pointer-events-none"></div>
+            <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-blue-400/30 blur-[50px] rounded-full pointer-events-none"></div>
+
+            <div className="w-20 h-20 bg-white/50 dark:bg-white/10 border border-white/60 dark:border-white/20 rounded-[28px] mx-auto flex items-center justify-center mb-6 shadow-sm relative z-10 backdrop-blur-md">
+              <BellRing size={36} className="text-emerald-600 dark:text-emerald-400 animate-bounce-soft" />
+            </div>
+            <h3 className="text-[24px] font-black text-slate-800 dark:text-white mb-3 relative z-10 tracking-tight">開啟智慧通知</h3>
+            <p className="text-[14px] text-slate-500 dark:text-slate-300 font-bold mb-8 relative z-10 leading-relaxed">
+              不再錯過任何重要考試與作業提醒！<br />請允許我們傳送背景推播。
+            </p>
+            <div className="flex gap-3 relative z-10">
+              <button onClick={() => setShowPushPrompt(false)} className="flex-1 py-4 bg-white/50 dark:bg-white/5 hover:bg-white/70 backdrop-blur-md border border-white/60 dark:border-white/10 rounded-[24px] font-black text-[15px] text-slate-600 dark:text-slate-300 transition-all active:scale-95 shadow-sm">稍後再說</button>
+              <button onClick={async () => {
+                await testPushNotification();
+                setShowPushPrompt(false);
+              }} className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-[24px] font-black text-[15px] shadow-[0_10px_20px_rgba(16,185,129,0.3)] transition-all active:scale-95 border border-emerald-400/50">立即啟用</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <IosNotification notification={notification} />
       <CommandPalette
         isOpen={cmdPaletteOpen}
@@ -703,71 +813,79 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
         }}
       />
 
-      {/* 🚀 加入智慧通知導引，放置在 UI 最頂層 */}
-      {appPhase === 'app' && (
+      {/* 移除固定在下方的通知導引橫幅，避免阻擋畫面 */}
+      {/* {appPhase === 'app' && (
         <SmartNotificationBanner onActivate={testPushNotification} />
-      )}
+      )} */}
 
       {/* Fixed Top Navigation & Legal */}
       {appPhase === 'app' && (
-        <div className="fixed top-0 left-0 right-0 z-[1000] pointer-events-none pt-[calc(env(safe-area-inset-top)+16px)] px-4 sm:px-6 transition-all duration-500">
-          <div className="pointer-events-auto max-w-screen-xl mx-auto h-[68px] glass-effect rounded-[32px] flex items-center justify-between px-3 shadow-float border border-white/40 dark:border-white/10 transition-all duration-500">
-            {/* 選單區域 */}
-            <div className="relative">
-              <button
-                onClick={() => setIsNavOpen(!isNavOpen)}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-[24px] transition-all duration-500 ease-spring-smooth active:scale-95 overflow-hidden ${isNavOpen ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'hover:bg-slate-100/50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-200'}`}
-              >
-                <Menu size={20} strokeWidth={isNavOpen ? 2.5 : 2} className="transition-transform duration-500 shrink-0" style={{ transform: isNavOpen ? 'rotate(90deg)' : 'none' }} />
-                <div className="flex items-center gap-2">
-                  <span className="text-[15px] sm:text-[16px] font-black tracking-tight truncate max-w-[120px] sm:max-w-none">{getTabName(activeTab)}</span>
-                  <span className="hidden md:flex items-center justify-center px-1.5 py-0.5 rounded border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 text-[10px] font-black text-slate-400">⌘K</span>
-                </div>
-              </button>
+        <>
+          {/* 🚀 隱形點擊遮罩：只負責捕捉點擊以關閉選單，移除全螢幕黑底與模糊干擾 */}
+          {isNavOpen && (
+            <div className="fixed inset-0 z-[990]" onClick={() => setIsNavOpen(false)} />
+          )}
 
-              {isNavOpen && (
-                <>
-                  <div className="fixed inset-0 z-[-1] bg-black/5 dark:bg-black/20 backdrop-blur-sm animate-fadeIn" onClick={() => setIsNavOpen(false)} />
-                  <div className="absolute top-full left-0 mt-4 w-[280px] bg-white/80 dark:bg-slate-900/80 backdrop-blur-[64px] rounded-[36px] shadow-[0_40px_100px_rgba(0,0,0,0.15)] dark:shadow-[0_40px_100px_rgba(0,0,0,0.6)] border border-white/60 dark:border-white/10 overflow-hidden z-[1010] animate-apple-linear origin-top-left p-3">
+          <div className="fixed top-0 left-0 right-0 z-[1000] pointer-events-none pt-[calc(env(safe-area-inset-top)+16px)] px-4 sm:px-6 transition-all duration-500">
+            <div className="pointer-events-auto max-w-screen-xl mx-auto h-[68px] bg-white/60 dark:bg-[#0f172a]/60 backdrop-blur-[32px] backdrop-saturate-[1.5] rounded-[36px] flex items-center justify-between px-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_8px_32px_rgba(0,0,0,0.06)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_8px_32px_rgba(0,0,0,0.4)] border border-white/60 dark:border-white/10 transition-all duration-500">
+              {/* 選單區域 */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsNavOpen(!isNavOpen)}
+                  className={`group flex items-center gap-3 px-4 py-2.5 rounded-[24px] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.95] overflow-hidden border ${isNavOpen ? 'bg-emerald-500 text-white shadow-[0_8px_24px_rgba(16,185,129,0.3)] border-emerald-400 dark:border-emerald-500' : 'bg-transparent hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-slate-200 border-transparent hover:border-black/5 dark:hover:border-white/10'}`}
+                >
+                  <Menu size={20} strokeWidth={isNavOpen ? 2.5 : 2} className="transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0" style={{ transform: isNavOpen ? 'rotate(90deg) scale(1.1)' : 'rotate(0deg) scale(1)' }} />
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[15px] sm:text-[16px] font-black tracking-tight truncate max-w-[120px] sm:max-w-none transition-colors duration-[600ms] ${isNavOpen ? 'text-white' : 'text-slate-800 dark:text-slate-100'}`}>{getTabName(activeTab)}</span>
+                    <span className={`hidden md:flex items-center justify-center px-1.5 py-0.5 rounded border text-[10px] font-black transition-colors duration-[600ms] ${isNavOpen ? 'border-emerald-400/50 bg-emerald-600 text-emerald-100' : 'border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 text-slate-400'}`}>⌘K</span>
+                  </div>
+                </button>
+
+                {isNavOpen && (
+                  <div className="absolute top-full left-0 mt-4 w-[280px] bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-[48px] backdrop-saturate-[2] rounded-[36px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_32px_64px_rgba(0,0,0,0.12)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_32px_64px_rgba(0,0,0,0.6)] border border-white/80 dark:border-white/10 overflow-hidden z-[1010] origin-top-left" style={{ animation: 'apple-linear 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards' }}>
                     <div className="px-4 py-3 mb-1">
                       <span className="text-[11px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-[0.25em]">功能選單</span>
                     </div>
-                    <div className="max-h-[60vh] overflow-y-auto scrollbar-hide space-y-1">
-                      {navItems.map((item) => (
+                    <div className="max-h-[60vh] overflow-y-auto scrollbar-hide space-y-1.5 p-1">
+                      {navItems.map((item, idx) => (
                         <button
                           key={item.id}
                           onClick={() => { navTo(item.id); setIsNavOpen(false); }}
-                          className={`w-full flex items-center gap-4 px-4 py-3.5 text-left rounded-[24px] transition-all duration-300 ease-spring-smooth active:scale-[0.98] ${activeTab === item.id ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 shadow-sm' : 'text-slate-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-emerald-600 dark:hover:text-emerald-400'}`}
+                          style={{ animationDelay: `${idx * 35}ms` }}
+                          className={`group w-full flex items-center gap-3 px-4 py-3.5 text-left rounded-[24px] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.96] border animate-slide-up-fade opacity-0 fill-mode-forwards ${activeTab === item.id ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),0_4px_12px_rgba(16,185,129,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_4px_12px_rgba(16,185,129,0.2)] border-emerald-200/50 dark:border-emerald-500/20' : 'border-transparent text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'}`}
                         >
-                          <item.icon size={22} strokeWidth={activeTab === item.id ? 2.5 : 2} className={`shrink-0 transition-transform duration-300 ${activeTab === item.id ? 'text-emerald-500 scale-110' : 'text-slate-400'}`} />
-                          <span className="text-[16px] font-bold">{item.label}</span>
+                          <div className={`p-2.5 rounded-[16px] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${activeTab === item.id ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-105' : 'bg-transparent text-slate-400 dark:text-slate-500 group-hover:bg-black/5 dark:group-hover:bg-white/10 group-hover:text-slate-700 dark:group-hover:text-white group-hover:scale-110'}`}>
+                            <item.icon size={18} strokeWidth={activeTab === item.id ? 2.5 : 2} className="shrink-0" />
+                          </div>
+                          <span className={`text-[15px] font-bold transition-colors ${activeTab === item.id ? 'font-black' : ''}`}>{item.label}</span>
+                          {activeTab === item.id && <div className="ml-auto w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)] animate-pulse-live"></div>}
                         </button>
                       ))}
                     </div>
                   </div>
-                </>
-              )}
-            </div>
-
-            {/* 法律與設定區域 */}
-            <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center bg-slate-100/50 dark:bg-white/5 px-3 py-2 rounded-full border border-slate-200/50 dark:border-white/5 backdrop-blur-sm">
-                <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[10px] font-black text-slate-400 hover:text-emerald-500 transition-colors uppercase tracking-widest px-2" onClick={(e) => e.stopPropagation()}>Privacy</a>
-                <span className="text-slate-300 dark:text-white/10 text-[10px]">·</span>
-                <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[10px] font-black text-slate-400 hover:text-emerald-500 transition-colors uppercase tracking-widest px-2" onClick={(e) => e.stopPropagation()}>Terms</a>
+                )}
               </div>
-              <button
-                onClick={() => {
-                  if (activeTab === 'settings') navTo(previousTab);
-                  else navTo('settings');
-                }}
-                className={`p-3 rounded-full transition-all duration-500 ease-spring-smooth active:scale-90 shadow-sm shrink-0 ${activeTab === 'settings' ? 'bg-emerald-500 text-white shadow-emerald-500/25 rotate-180 scale-105' : 'bg-slate-100/80 dark:bg-white/5 text-slate-500 dark:text-slate-400 border border-slate-200/50 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10'}`}
-              >
-                <Settings size={22} strokeWidth={activeTab === 'settings' ? 2.5 : 2} />
-              </button>
+
+              {/* 法律與設定區域 */}
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center bg-white/40 dark:bg-[#0f172a]/60 px-3 py-2 rounded-[20px] border border-white/60 dark:border-white/10 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_4px_12px_rgba(0,0,0,0.3)]">
+                  <a href="/privacy.html" target="_blank" rel="noreferrer" className="text-[10px] font-black text-slate-400 hover:text-emerald-500 transition-colors uppercase tracking-widest px-2" onClick={(e) => e.stopPropagation()}>Privacy</a>
+                  <span className="text-slate-300 dark:text-white/10 text-[10px]">·</span>
+                  <a href="/terms.html" target="_blank" rel="noreferrer" className="text-[10px] font-black text-slate-400 hover:text-emerald-500 transition-colors uppercase tracking-widest px-2" onClick={(e) => e.stopPropagation()}>Terms</a>
+                </div>
+                <button
+                  onClick={() => {
+                    if (activeTab === 'settings') navTo(previousTab);
+                    else navTo('settings');
+                  }}
+                  className={`p-3 rounded-[20px] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-90 shadow-sm shrink-0 border ${activeTab === 'settings' ? 'bg-emerald-500 text-white shadow-[0_8px_24px_rgba(16,185,129,0.3)] border-emerald-400 dark:border-emerald-500 rotate-180 scale-105' : 'bg-white/50 dark:bg-[#0f172a]/60 backdrop-blur-xl text-slate-500 dark:text-slate-400 border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6),0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_4px_12px_rgba(0,0,0,0.3)] hover:bg-white/80 dark:hover:bg-white/10'}`}
+                >
+                  <Settings size={22} strokeWidth={activeTab === 'settings' ? 2.5 : 2} />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       <Toaster position="bottom-center" toastOptions={{ duration: 6000, style: { fontSize: '14px', fontWeight: '900', borderRadius: '24px', padding: '16px 24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' } }} />
@@ -775,7 +893,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
       {/* Content */}
       <div
         ref={contentRef}
-        className="flex-1 overflow-y-auto w-full px-4 pt-32 sm:pt-[140px] ios-safe-pb touch-pan-y scrollbar-hide bg-transparent scroll-smooth transition-all duration-300 relative z-10"
+        className="flex-1 overflow-y-auto w-full px-4 pt-[140px] sm:pt-[150px] ios-safe-pb touch-pan-y scrollbar-hide bg-transparent scroll-smooth transition-all duration-300 relative z-10"
       >
         <div key={activeTab} className="animate-tab-enter">
           {activeTab === 'dashboard' && (
@@ -790,6 +908,9 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
               setSettingsOpen={() => navTo('settings')}
               isGoogleConnected={isGoogleConnected}
               contactBook={contactBook}
+              setContactBook={setContactBook}
+              saveContactBookToFirestore={saveContactBookToFirestore}
+              user={user}
               customLinks={customLinks}
               isEditingSchedule={isEditingSchedule}
               setIsEditingSchedule={setIsEditingSchedule}
@@ -808,6 +929,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
               isAdmin={isAdmin}
               saveContactBookToFirestore={saveContactBookToFirestore}
               classID={classID}
+              user={user}
             />
           )}
           {activeTab === 'notes' && (
@@ -820,7 +942,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
             />
           )}
           {activeTab === 'stores' && <StoresTab isAdmin={isAdmin} campusName={campusName} />}
-          {activeTab === 'traffic' && <TrafficTab campusName={campusName} campusAddress={campusAddress} />}
+          {activeTab === 'traffic' && <TrafficTab campusName={campusName} campusAddress={campusAddress} campusLat={campusLat} campusLng={campusLng} />}
           {activeTab === 'feedback' && <FeedbackTab userProfile={userProfile} triggerNotification={triggerNotification} onBack={() => navTo(previousTab)} onSuccess={() => navTo('dashboard')} />}
           {activeTab === 'help' && <TutorialTab onOpenFeedback={() => navTo('feedback')} campusName={campusName} />}
           {activeTab === 'settings' && (
@@ -853,6 +975,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
               setCampusName={setCampusName}
               campusAddress={campusAddress}
               setCampusAddress={setCampusAddress}
+              campusLat={campusLat}
+              setCampusLat={setCampusLat}
+              campusLng={campusLng}
+              setCampusLng={setCampusLng}
               dashboardLayout={dashboardLayout}
               setDashboardLayout={setDashboardLayout}
             />
@@ -902,10 +1028,12 @@ export default function App() {
 
   return (
     <div className={isDark ? 'dark' : ''}>
-      <div className="main-container relative h-[100dvh] w-full flex flex-col bg-slate-50 dark:bg-zinc-950 overflow-hidden font-sans text-slate-800 dark:text-zinc-200">
-        {/* Subtle Ambient Mesh Background */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-emerald-500/5 dark:bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none animate-float" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 dark:bg-blue-500/10 blur-[120px] rounded-full pointer-events-none animate-float-delayed" />
+      <div className="main-container relative h-[100dvh] w-full flex flex-col bg-[#e2e8f0] dark:bg-[#09090b] overflow-hidden font-sans text-slate-800 dark:text-zinc-200">
+        {/* Liquid Glass Background Blobs (Fixed Mix-Blend Display Issues) */}
+        <div className="fixed top-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-emerald-400/20 dark:bg-emerald-600/10 blur-[120px] rounded-full pointer-events-none animate-float z-0" />
+        <div className="fixed bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-blue-400/20 dark:bg-blue-600/10 blur-[120px] rounded-full pointer-events-none animate-float-delayed z-0" />
+        <div className="fixed top-[30%] left-[20%] w-[40vw] h-[40vw] bg-purple-400/10 dark:bg-purple-600/10 blur-[120px] rounded-full pointer-events-none animate-pulse-slow z-0" />
+
         <MainApp
           forcedTheme={theme}
           setForcedTheme={setTheme}

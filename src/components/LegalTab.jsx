@@ -1,125 +1,18 @@
 import React, { useState } from 'react';
-import { ShieldCheck, FileText, ChevronLeft, Scale, Lock, Globe, Eye } from 'lucide-react';
+import { ShieldCheck, FileText, ChevronLeft, Scale, Globe, Eye, ExternalLink } from 'lucide-react';
+import PrivacyTab from './PrivacyTab';
+import TermsTab from './TermsTab';
 
 const LegalTab = ({ onBack }) => {
   const [view, setView] = useState('menu'); // 'menu', 'privacy', 'terms'
 
-  const lastUpdated = "2024年3月8日";
-
-  const renderPrivacy = () => (
-    <div className="space-y-6 animate-slide-up-fade">
-      <div className="flex items-center gap-4 mb-2">
-        <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0">
-          <Eye size={24} className="shrink-0" />
-        </div>
-        <div>
-          <h3 className="text-xl font-black text-[var(--text-primary)]">隱私權政策</h3>
-          <p className="text-[12px] font-bold text-slate-400">最後更新：{lastUpdated}</p>
-        </div>
-      </div>
-
-      <div className="space-y-4 text-[14px] text-gray-600 leading-relaxed font-bold">
-        <section>
-          <h4 className="text-gray-950 font-black flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
-            1. 資料收集與使用
-          </h4>
-          <p>GSAT Pro (以下簡稱「本程式」) 收集以下資料以提供核心功能：</p>
-          <ul className="list-disc pl-5 mt-2 space-y-1">
-            <li><span className="text-emerald-600">Google 帳戶資訊：</span> 當您連接 Google 時，我們會讀取您的名稱、電子郵件及大頭貼，僅用於顯示個人化介面及驗證管理員權限。</li>
-            <li><span className="text-emerald-600">Google Drive 權限：</span> 若您啟用雲端備份，本程式會在您的雲端硬碟建立專屬資料夾，用於備份筆記與設定。我們不會讀取您硬碟中非本程式建立的其他檔案。</li>
-            <li><span className="text-emerald-600">本地儲存 (LocalStorage)：</span> 您的課表、聯絡簿及單字紀錄預設存於您的瀏覽器中。</li>
-          </ul>
-        </section>
-
-        <section>
-          <h4 className="text-gray-950 font-black flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
-            2. 裝置權限說明
-          </h4>
-          <ul className="list-disc pl-5 space-y-2">
-            <li><span className="text-emerald-600">定位權限：</span> 僅用於計算「附近 YouBike 站點」的距離，定位點不會被上傳至任何伺服器。</li>
-            <li><span className="text-emerald-600">通知權限：</span> 用於發送上課前 5 分鐘提醒、作業催繳及考試預告。</li>
-          </ul>
-        </section>
-
-        <section>
-          <h4 className="text-gray-950 font-black flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
-            3. 第三方服務與 AI
-          </h4>
-          <p>當您使用「AI 單字分析」或「智慧課表解析」時，您輸入的文字/圖片會傳送至 <span className="text-purple-600">Google Gemini API</span> 處理。我們建議不要在 AI 功能中輸入過於私人的資訊。</p>
-        </section>
-
-        <section>
-          <h4 className="text-gray-950 font-black flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-4 bg-emerald-500 rounded-full"></span>
-            4. 資料刪除
-          </h4>
-          <p>您可以隨時於設定中清除本地資料。若需刪除雲端備份，請至您的 Google Drive 刪除本程式相關資料夾。</p>
-        </section>
-      </div>
-    </div>
-  );
-
-  const renderTerms = () => (
-    <div className="space-y-6 animate-slide-up-fade">
-      <div className="flex items-center gap-4 mb-2">
-        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">
-          <Scale size={24} className="shrink-0" />
-        </div>
-        <div>
-          <h3 className="text-xl font-black text-[var(--text-primary)]">服務條款</h3>
-          <p className="text-[12px] font-bold text-slate-400">最後更新：{lastUpdated}</p>
-        </div>
-      </div>
-
-      <div className="space-y-4 text-[14px] text-gray-600 leading-relaxed font-bold">
-        <section>
-          <h4 className="text-gray-950 font-black flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
-            1. 服務宗旨
-          </h4>
-          <p>GSAT Pro 旨在協助學生更有效地管理學習生活。本程式由開發者個人維護，並非學校官方強制軟體。</p>
-        </section>
-
-        <section>
-          <h4 className="text-gray-950 font-black flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
-            2. 使用限制
-          </h4>
-          <p>使用者不得利用本程式進行任何違法活動、惡意破解伺服器或干擾其他使用者。若發現有影響系統穩定之行為，管理員有權限制該帳號存取權限。</p>
-        </section>
-
-        <section>
-          <h4 className="text-gray-950 font-black flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
-            3. 免責聲明
-          </h4>
-          <ul className="list-disc pl-5 space-y-2">
-            <li><span className="text-blue-600">AI 準確性：</span> AI 生成的單字定義及例句僅供參考，請務必搭配權威辭典服用。</li>
-            <li><span className="text-blue-600">資料遺失：</span> 雖有備份功能，但不保證 100% 資料安全。重要資料建議進行額外外部存檔。</li>
-            <li><span className="text-blue-600">服務中斷：</span> 因 API 額度限制或維護導致的短暫停用，開發團隊不負賠償責任。</li>
-          </ul>
-        </section>
-
-        <section>
-          <h4 className="text-gray-950 font-black flex items-center gap-2 mb-2">
-            <span className="w-1.5 h-4 bg-blue-500 rounded-full"></span>
-            4. 條款修改
-          </h4>
-          <p>本團隊保留隨時修改本條款之權利，修改後將於程式內部公告。繼續使用本服務即代表您同意最新版條款。</p>
-        </section>
-      </div>
-    </div>
-  );
 
   return (
     <div className="space-y-6 flex flex-col w-full text-left mb-8">
       {/* 頂部導航 */}
       <div className="flex items-center gap-4 px-1">
         {view !== 'menu' && (
-          <button 
+          <button
             onClick={() => setView('menu')}
             className="p-3 bg-slate-50 dark:bg-white/10 rounded-xl shadow-sm border border-slate-200 dark:border-white/10 active:scale-90 transition-all shrink-0"
           >
@@ -133,9 +26,9 @@ const LegalTab = ({ onBack }) => {
 
       {view === 'menu' ? (
         <div className="grid grid-cols-1 gap-4 animate-slide-up-fade px-1">
-          <button 
+          <button
             onClick={() => setView('privacy')}
-            className="group bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft hover:shadow-float transition-all duration-500 text-left flex items-center justify-between glass-effect"
+            className="group bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] text-left flex items-center justify-between"
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0 border border-transparent dark:border-white/10 group-hover:scale-110 transition-transform">
@@ -149,9 +42,9 @@ const LegalTab = ({ onBack }) => {
             <ChevronLeft size={20} className="text-slate-300 rotate-180 shrink-0 transition-transform group-hover:translate-x-1" />
           </button>
 
-          <button 
+          <button
             onClick={() => setView('terms')}
-            className="group bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft hover:shadow-float transition-all duration-500 text-left flex items-center justify-between glass-effect"
+            className="group bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] text-left flex items-center justify-between"
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-600 shrink-0 border border-transparent dark:border-white/10 group-hover:scale-110 transition-transform">
@@ -165,7 +58,7 @@ const LegalTab = ({ onBack }) => {
             <ChevronLeft size={20} className="text-slate-300 rotate-180 shrink-0 transition-transform group-hover:translate-x-1" />
           </button>
 
-          <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] mt-4 glass-effect">
+          <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] mt-4">
             <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-2 flex items-center gap-2">
               <Globe size={16} className="text-slate-400 shrink-0" /> 資料合規性
             </h4>
@@ -175,9 +68,9 @@ const LegalTab = ({ onBack }) => {
           </div>
         </div>
       ) : (
-        <div className="bg-[var(--bg-surface)] backdrop-blur-2xl p-6 md:p-10 rounded-[40px] border border-[var(--border-color)] shadow-soft max-h-[75vh] overflow-y-auto scrollbar-hide glass-effect">
-          {view === 'privacy' ? renderPrivacy() : renderTerms()}
-          
+        <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-10 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] max-h-[75vh] overflow-y-auto scrollbar-hide">
+          {view === 'privacy' ? <PrivacyTab /> : <TermsTab />}
+
           <div className="mt-12 pt-8 border-t border-[var(--border-color)] text-center">
             <p className="text-[12px] font-bold text-slate-400">若有任何疑問，請聯絡開發團隊</p>
             <a href="mailto:support@gsat-pro.web.app" className="text-[14px] font-black text-emerald-600 hover:underline mt-1 inline-block">support@gsat-pro.web.app</a>

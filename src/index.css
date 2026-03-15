@@ -135,7 +135,7 @@
 
 .main-container {
   background-color: var(--bg-app) !important;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.15s linear; /* 降低原生過渡的干擾，主要交由 View Transition 處理 */
 }
 
 .dark .main-container {
@@ -724,4 +724,25 @@ html {
 }
 @media (min-width: 768px) {
   .text-responsive-hero { font-size: 2.5rem !important; }
+}
+
+/* ================= Theme View Transitions (Apple Style Crossfade) ================= */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+::view-transition-old(root) {
+  animation-name: theme-fade-out;
+}
+::view-transition-new(root) {
+  animation-name: theme-fade-in;
+}
+@keyframes theme-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes theme-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }

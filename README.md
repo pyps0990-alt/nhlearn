@@ -1,16 +1,103 @@
-# React + Vite
+<div align="center">
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# 🎓 GSAT Pro | 學測數位神助手
 
-Currently, two official plugins are available:
+**專為台灣高中生打造的頂級數位學習與班級管理助理**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+[![React](https://img.shields.io/badge/React-18.x-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.x-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+[![Firebase](https://img.shields.io/badge/Firebase-V10-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Gemini API](https://img.shields.io/badge/AI-Gemini_2.5_Flash-8E75B2?style=for-the-badge&logo=googlebard&logoColor=white)](https://aistudio.google.com/)
 
-## React Compiler
+[線上體驗 (Live Demo)](#) • [功能介紹](#核心功能-sparkles) • [安裝指南](#本地開發與部署-wrench)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+</div>
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🌟 關於專案 (About)
+
+**GSAT Pro** 是一款具備 Apple iOS 原生級操作手感（Liquid Glass 液態玻璃設計、Cubic-bezier 阻尼動畫）的 Progressive Web App (PWA)。
+
+它不僅結合了 **Google Gemini 2.5 flash** 強大的影像辨識與語意分析能力，更深度整合了 **Firebase** 雲端即時同步技術。從「AI 自動解析課表」、「單字記憶曲線 (SRS) 特訓」、「班級聯絡簿雲端同步」到「校園周邊 YouBike 即時動態」，全方位解決高中生在學測備考期間的痛點。
+
+---
+
+## 📸 畫面預覽 (Screenshots)
+
+> **💡 提示：** 建議在此處放入實際的 App 截圖或 GIF 動畫
+> 
+> <div align="center">
+>   <img src="./public/photo/dashborad.png" width="24%">
+>   <img src="./public/photo/vocabulary.png" width="24%">
+>   <img src="./public/photo/contactbook.png" width="24%">
+>   <img src="./public/photo/traffic.png" width="24%">
+> </div>
+
+---
+
+## 🔥 核心功能 (Features)
+
+### 🤖 AI 智慧驅動 (Powered by Gemini)
+*   **AI 課表/聯絡簿解析：** 隨手拍下黑板照片，AI 自動萃取科目、作業、考試內容與時間，一鍵匯入系統。
+*   **AI 單字深度解析：** 自動補齊單字詞性、中文解釋，並生成「學測必考搭配詞」、「情境例句」與「易混淆字」。
+*   **AI 動態測驗生成：** 根據你收藏的單字或筆記，瞬間生成「AI 文法題」與「克漏字 (Cloze) 情境測驗」。
+
+### 🧠 單字特訓與記憶曲線 (SRS)
+*   **科學複習：** 內建 6000 單字庫，根據使用者的作答回饋（秒答 / 模糊 / 忘了），系統自動排程最佳的複習日期。
+*   **3D 翻轉閃卡：** 結合精緻的 3D 翻轉動畫與真人發音，提供沉浸式背誦體驗。
+*   **IG 限動分享：** 獨家 Canvas 繪圖引擎，一鍵將單字解析生成高質感的 9:16 玻璃風圖片，並附帶專屬 QR Code 下載連結，輕鬆分享至 Instagram。
+
+### 🏫 班級雲端同步 (Classroom Sync)
+*   **電子聯絡簿：** 綁定「班級代碼」後，全班共享考試與作業清單。
+*   **已讀確認系統：** 內建「確認收到」按讚功能，小老師輕鬆掌握同學閱讀狀況。
+*   **即時推播通知 (FCM)：** 課程異動、明日考試提醒，透過 Service Worker 即時推播至手機鎖定畫面。
+
+### 🧭 交通與校園生活 (Campus Life)
+*   **天氣預報與倒數：** 根據早中晚自動變換首頁漸層，自訂專屬目標倒數（支援霓虹、櫻花粉等主題）。
+*   **YouBike 2.0 整合：** 透過政府 Open Data API 即時抓取周邊車輛，支援「走路可達」標示與「星號置頂收藏」。
+*   **一鍵導航與叫車：** 內建 Uber Deep Link（直接帶入學校精準座標）與公車動態跳轉功能。
+
+### 🎨 頂級工藝體驗 (Premium UI/UX)
+*   **Liquid Glass 液態玻璃：** 全面採用高飽和度毛玻璃 (`backdrop-blur` & `saturate`)。
+*   **Command Palette：** 支援鍵盤快捷鍵 `CMD/CTRL + K`，快速全域搜尋與導航。
+*   **Apple 級流暢過渡：** 採用 `View Transitions API` 達成完美的深/淺色主題無縫溶解切換。
+
+---
+
+## 🛠️ 技術棧 (Tech Stack)
+
+*   **前端框架：** React 18 (Vite)
+*   **樣式與動畫：** Tailwind CSS, CSS Keyframes (`cubic-bezier` 阻尼動畫)
+*   **雲端後端 (BaaS)：** Firebase (Authentication, Firestore, Cloud Messaging, Hosting)
+*   **圖示庫：** Lucide React
+*   **AI 引擎：** Google Gemini 2.5 Flash API
+*   **資料處理：** SheetJS (XLSX 解析), React Markdown
+*   **外部 API：** YouBike 2.0 Open Data, Open-Meteo API (天氣)
+
+
+---
+
+## 📂 專案目錄結構 (Folder Structure)
+
+```text
+gsat-pro/
+├── api/                   # Vercel Serverless Functions (校園公告抓取 API)
+├── functions/             # Firebase Cloud Functions (定時推播、通知處理)
+├── public/                # 靜態資源 (PWA Manifest, Icons, 預設圖片)
+├── src/
+│   ├── components/        # React 獨立 UI 元件 (各個主要分頁與共用模組)
+│   │   ├── DashboardTab.jsx   # 日常課表與儀表板
+│   │   ├── VocabularyTab.jsx  # 單字特訓 (SRS 記憶曲線與測驗)
+│   │   ├── ContactBookTab.jsx # 班級電子聯絡簿
+│   │   └── ...
+│   ├── utils/             # 專案輔助函式與常數 (模板、工具函式)
+│   ├── App.jsx            # 主應用程式進入點與全域路由/狀態管理
+│   ├── firebase.js        # Firebase SDK 初始化與設定
+│   └── index.css          # 全域 Tailwind CSS 與特調動畫 (Liquid Glass)
+├── tailwind.config.js     # Tailwind CSS 客製化設定檔
+└── vite.config.js         # Vite 打包編譯設定
+```
+
+
+

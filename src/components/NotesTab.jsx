@@ -3,18 +3,16 @@ import {
   BrainCircuit, X, CheckCircle2, Library, Edit3, Trash2, Plus,
   ArrowLeft, Wand2, RefreshCw, Upload, Sparkles, Save, Calendar,
   FolderPlus, FileText, ChevronLeft, Book, BookOpen, FlaskConical,
-  Palette, Languages, Globe, Timer, Lightbulb, PenTool, Trophy, Music, Layout
+  Palette, Languages, Globe, Timer, Lightbulb, PenTool, Trophy, Music, Layout, BookMarked
 } from 'lucide-react';
-import { NOTE_CATEGORIES } from '../utils/constants';
+import { NOTE_CATEGORIES, ICON_MAP } from '../utils/constants';
 import { fetchAI } from '../utils/helpers';
 
-// 1. 補上缺失的圖標映射表，解決黑屏與圖標顯示問題
-const ICON_MAP = {
-  '📘': Book, '📕': BookOpen, '📗': FlaskConical, '📙': Palette, '📓': Languages, 
-  '🎨': Palette, '🧪': FlaskConical, '📏': PenTool, '💻': Layout, 
-  '🇬🇧': Globe, '🌍': Globe, '⏳': Timer, '💡': Lightbulb, 
-  '✍️': PenTool, '🏀': Trophy, '🎵': Music
-};
+const SUBJECT_ICONS = [
+  'BookText', 'Languages', 'Calculator', 'Zap', 'Beaker', 'Dna',
+  'History', 'Map', 'Scale', 'Library', 'Globe', 'GraduationCap',
+  'Music', 'Palette', 'Trophy', 'Laptop', 'PenTool', 'Lightbulb'
+];
 
 const COLOR_CLASSES = [
   { key: 'emerald', hex: 'bg-emerald-500' },
@@ -57,7 +55,7 @@ const QuizModal = ({ isOpen, onClose, quizData, subject }) => {
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-[450px] bg-[var(--bg-surface)] rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-[var(--border-color)]">
+      <div className="w-full max-w-[450px] bg-white/70 dark:bg-zinc-800/70 backdrop-blur-3xl backdrop-saturate-200 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_24px_64px_rgba(0,0,0,0.2)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_24px_64px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col max-h-[90vh] border border-white/60 dark:border-white/10">
         <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
           <div>
             <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><BrainCircuit size={24} /> AI 隨堂測驗</h3>
@@ -73,7 +71,7 @@ const QuizModal = ({ isOpen, onClose, quizData, subject }) => {
               </div>
               <div className="flex flex-col gap-3">
                 {q.options.map((opt, idx) => {
-                  let statusClass = "bg-[var(--bg-surface)] border-[var(--border-color)] text-[var(--text-primary)] hover:border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-500/10";
+                  let statusClass = "bg-white/50 dark:bg-slate-800/50 backdrop-blur-md border-white/60 dark:border-white/10 text-[var(--text-primary)] hover:border-emerald-200 hover:bg-emerald-50/80 dark:hover:bg-emerald-500/20";
                   if (selectedAnswer === idx) {
                     statusClass = isCorrect ? "bg-emerald-500 text-white border-emerald-500 scale-[1.02] shadow-lg shadow-emerald-500/30" : "bg-red-500 text-white border-red-500 scale-[1.02] shadow-lg shadow-red-500/30";
                   } else if (selectedAnswer !== null && idx === q.answerIndex) {
@@ -104,6 +102,18 @@ const QuizModal = ({ isOpen, onClose, quizData, subject }) => {
   );
 };
 
+// 輔助函式：確保向下相容舊版 Emoji，同時支援新版 Lucide 圖標
+const renderSubjectIcon = (iconVal, size = 48) => {
+  if (ICON_MAP[iconVal]) {
+    const IconComp = ICON_MAP[iconVal];
+    return <IconComp size={size} className="shrink-0" />;
+  }
+  if (typeof iconVal === 'string' && /\p{Emoji}/u.test(iconVal)) {
+    return <span style={{ fontSize: `${size * 0.8}px` }} className="leading-none select-none">{iconVal}</span>;
+  }
+  return <BookMarked size={size} className="shrink-0" />;
+};
+
 const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, setSelectedSubject, triggerNotification, isGoogleConnected }) => {
   const [newNote, setNewNote] = useState({ category: '課堂筆記', title: '', content: '' });
   const [attachments, setAttachments] = useState([]);
@@ -113,14 +123,14 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
   const [quizData, setQuizData] = useState([]);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [showAddSubject, setShowAddSubject] = useState(false);
-  const [newSub, setNewSub] = useState({ name: '', icon: '📘', color: 'emerald' });
+  const [newSub, setNewSub] = useState({ name: '', icon: 'BookText', color: 'emerald' });
 
   // ----------------邏輯函式保持不變 (handleAddSubject, handleDeleteNote 等)----------------
   const handleAddSubject = () => {
     if (!newSub.name) return;
     if (subjects.find(s => s.name === newSub.name)) { triggerNotification('重複科目', '該科目已存在！'); return; }
     setSubjects(prev => [...prev, { ...newSub }]);
-    setNewSub({ name: '', icon: '📘', color: 'emerald' });
+    setNewSub({ name: '', icon: 'BookText', color: 'emerald' });
     setShowAddSubject(false);
     triggerNotification('新增成功', `已新增科目：${newSub.name}`);
   };
@@ -191,49 +201,51 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
       <div className="space-y-8 flex flex-col w-full text-left mb-12">
         <div className="flex justify-between items-center px-2">
           <h2 className="text-3xl font-black text-emerald-600 flex items-center gap-3 tracking-tight">
-            <Library size={28} className="shrink-0 neon-glow-emerald" /> 知識筆記
+            <BookMarked size={28} className="shrink-0 neon-glow-emerald" /> 知識筆記
           </h2>
           <button
             onClick={() => setIsEditMode(!isEditMode)}
-            className={`p-3.5 rounded-[20px] transition-all active:scale-[0.95] duration-500 ease-spring-smooth ${isEditMode ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 rotate-12' : 'bg-[var(--bg-surface)] text-slate-500 border border-[var(--border-color)] shadow-sm hover:shadow-md hover:-translate-y-0.5 glass-effect'}`}
+            className={`p-3.5 rounded-[20px] transition-all active:scale-[0.95] duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${isEditMode ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 rotate-12' : 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-[24px] text-slate-500 border border-white/60 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] hover:-translate-y-0.5'}`}
           >
             {isEditMode ? <CheckCircle2 size={20} /> : <Edit3 size={20} />}
           </button>
         </div>
 
         {showAddSubject && (
-          <div className="bg-[var(--bg-surface)] p-5 rounded-[32px] border border-[var(--border-color)] shadow-soft animate-slide-up-fade flex flex-col gap-3">
+          <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-5 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] animate-slide-up-fade flex flex-col gap-3">
             <h4 className="text-[14px] font-black text-[var(--text-primary)] flex items-center gap-2">
               <FolderPlus size={16} className="text-emerald-500" /> 新增科目
             </h4>
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  placeholder="圖示"
-                  className="w-16 p-3 bg-slate-50 dark:bg-white/5 border border-[var(--border-color)] rounded-2xl text-center text-xl outline-none"
-                  value={newSub.icon}
-                  readOnly
-                />
+                <div className="w-14 h-14 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-2xl flex items-center justify-center text-emerald-500 shadow-inner">
+                  {renderSubjectIcon(newSub.icon, 28)}
+                </div>
                 <input
                   type="text"
                   placeholder="科目名稱"
-                  className="flex-1 p-3 bg-slate-50 dark:bg-white/5 border border-[var(--border-color)] rounded-2xl text-sm font-bold outline-none focus:border-emerald-400"
+                  className="flex-1 p-4 bg-slate-50 dark:bg-white/5 border border-[var(--border-color)] rounded-2xl text-sm font-bold outline-none focus:border-emerald-400"
                   value={newSub.name}
                   onChange={e => setNewSub({ ...newSub, name: e.target.value })}
                   onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
                 />
               </div>
-              <div className="flex flex-wrap gap-2 p-1">
-                {Object.keys(ICON_MAP).map(emoji => (
-                  <button
-                    key={emoji}
-                    onClick={() => setNewSub({ ...newSub, icon: emoji })}
-                    className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${newSub.icon === emoji ? 'bg-emerald-100 dark:bg-emerald-500/20 scale-110 shadow-sm' : 'bg-slate-50 dark:bg-white/5 hover:bg-slate-100'}`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
+              <div className="flex flex-col gap-2 mt-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">選擇圖示</span>
+                <div className="grid grid-cols-6 sm:grid-cols-9 gap-2 p-1">
+                  {SUBJECT_ICONS.map(iconName => {
+                    const IconComp = ICON_MAP[iconName] || BookMarked;
+                    return (
+                      <button
+                        key={iconName}
+                        onClick={() => setNewSub({ ...newSub, icon: iconName })}
+                        className={`aspect-square flex items-center justify-center rounded-xl transition-all active:scale-90 ${newSub.icon === iconName ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 scale-110 shadow-sm ring-2 ring-emerald-500/30' : 'bg-slate-50 dark:bg-white/5 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10'}`}
+                      >
+                        <IconComp size={20} />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
               <div className="flex flex-col gap-2 mt-1">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">科目標籤顏色</span>
@@ -255,15 +267,14 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {subjects.map(s => {
-            const IconComp = ICON_MAP[s.icon] || Library;
             return (
               <div key={s.name} className="relative group animate-pop-in">
                 <button
                   onClick={() => !isEditMode && setSelectedSubject(s)}
-                  className={`relative w-full aspect-square bg-[var(--bg-surface)] shadow-soft border border-[var(--border-color)] rounded-[40px] flex flex-col items-center justify-center gap-4 transition-all duration-500 ease-spring-smooth glass-effect ${isEditMode ? 'opacity-50 grayscale scale-[0.98]' : 'hover:shadow-float hover:-translate-y-2 active:scale-[0.95] hover:bg-white/80 dark:hover:bg-white/10'}`}
+                  className={`relative w-full aspect-square bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 rounded-[40px] flex flex-col items-center justify-center gap-4 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${isEditMode ? 'opacity-50 grayscale scale-[0.98]' : 'hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-2 active:scale-[0.95] hover:bg-white/60 dark:hover:bg-white/10'}`}
                 >
-                  <div className="text-emerald-500 transform group-hover:scale-110 transition-transform duration-500">
-                    <IconComp size={48} className="shrink-0" />
+                  <div className="text-emerald-500 transform group-hover:scale-110 transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
+                    {renderSubjectIcon(s.icon, 48)}
                   </div>
                   <span className="text-[16px] font-black text-[var(--text-primary)] tracking-wide">{s.name}</span>
                 </button>
@@ -278,7 +289,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
               </div>
             );
           })}
-          <button onClick={() => setShowAddSubject(true)} className="aspect-square border-2 border-dashed border-[var(--border-color)] rounded-[40px] flex flex-col items-center justify-center text-slate-400 hover:text-emerald-500 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-500 ease-spring-smooth active:scale-[0.95] group"><Plus size={36} className="group-hover:scale-125 transition-transform duration-500 ease-spring-bouncy" /></button>
+          <button onClick={() => setShowAddSubject(true)} className="aspect-square border-2 border-dashed border-[var(--border-color)] rounded-[40px] flex flex-col items-center justify-center text-slate-400 hover:text-emerald-500 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.95] group"><Plus size={36} className="group-hover:scale-125 transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]" /></button>
         </div>
       </div>
     );
@@ -292,7 +303,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
       <QuizModal isOpen={isQuizOpen} onClose={() => setIsQuizOpen(false)} quizData={quizData} subject={selectedSubject?.name} />
       <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-6 px-2">
         <div className="flex items-center gap-4">
-          <button onClick={() => setSelectedSubject(null)} className="p-4 bg-[var(--bg-surface)] rounded-[24px] shadow-sm hover:shadow-md active:scale-95 border border-[var(--border-color)] transition-all duration-300 ease-spring glass-effect"><ArrowLeft size={22} className="text-slate-600 dark:text-gray-300" /></button>
+          <button onClick={() => setSelectedSubject(null)} className="p-4 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 rounded-[24px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_12px_32px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_12px_32px_rgba(0,0,0,0.3)] active:scale-[0.95] border border-white/60 dark:border-white/10 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)]"><ArrowLeft size={22} className="text-slate-600 dark:text-gray-300" /></button>
           <div>
             <h2 className="text-[24px] font-black text-emerald-600 tracking-tight">{selectedSubject?.name}</h2>
             <p className="text-[12px] font-bold text-slate-400">{sn.length} 則筆記</p>
@@ -303,7 +314,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
         </button>
       </div>
 
-      <div className="bg-[var(--bg-surface)] p-6 md:p-8 rounded-[40px] border border-[var(--border-color)] shadow-soft space-y-5 glass-effect hover:shadow-float transition-all duration-500 ease-spring-smooth">
+      <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] space-y-5 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
         <div className="flex flex-col sm:flex-row gap-2.5">
           <select className="bg-slate-50 dark:bg-white/5 border border-[var(--border-color)] rounded-2xl px-3 py-4 text-xs font-black text-[var(--text-primary)] outline-none" value={newNote.category} onChange={e => setNewNote({ ...newNote, category: e.target.value })}>
             {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -326,7 +337,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
       <div className="space-y-4 mt-4">
         {sn.map(n => (
-          <div key={n.id} className="p-7 bg-[var(--bg-surface)] rounded-[40px] border border-[var(--border-color)] shadow-soft hover:shadow-float hover:-translate-y-1 transition-all duration-500 ease-spring-smooth group glass-effect">
+          <div key={n.id} className="p-7 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] group">
             <div className="flex justify-between items-start mb-4">
               <span className={`px-3 py-1.5 ${n.category === '錯題本' ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'} rounded-lg text-[10px] font-black`}>{n.category}</span>
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BookOpen, Plus, Upload, Brain, Trophy, Search, Trash2, Check, X,
   RefreshCw, Sparkles, Shuffle, PenTool, CheckCircle2, XCircle, Heart,
   FileSpreadsheet, Bug, Terminal, ChevronDown, ChevronUp, ChevronRight, Wand2, Volume2,
-  FileText
+  FileText, BarChart2, Flame, Clock, TrendingUp, Share2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ReactMarkdown from 'react-markdown';
@@ -94,6 +95,100 @@ const Confetti = ({ score, total }) => {
   return <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">{particles.map(p => <div key={p.id} className="absolute -top-10 animate-confetti-fall" style={{ left: p.left, width: p.size, height: p.size, backgroundColor: p.color, animationDuration: p.animationDuration, animationDelay: p.animationDelay, borderRadius: p.shape }} />)}</div>;
 };
 
+// ─── 學習報表元件 (Stats Modal) ──────────────────────────────────────────────
+const StatsModal = ({ isOpen, onClose, stats }) => {
+  if (!isOpen) return null;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const currentMonthPrefix = todayStr.substring(0, 7); // YYYY-MM
+
+  let monthlyWords = 0;
+  let monthlyTime = 0;
+  let activeDays = 0;
+  let currentStreak = 0;
+
+  // 計算連續學習天數 (Streak)
+  let tempDate = new Date();
+  while (true) {
+    const dStr = tempDate.toISOString().split('T')[0];
+    const s = stats[dStr];
+    if (s && (s.words > 0 || s.time > 0)) {
+      currentStreak++;
+      tempDate.setDate(tempDate.getDate() - 1);
+    } else {
+      // 允許今天還沒開始，但昨天有記錄
+      if (dStr === todayStr) {
+        tempDate.setDate(tempDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+  }
+
+  Object.entries(stats).forEach(([date, data]) => {
+    if (date.startsWith(currentMonthPrefix)) {
+      monthlyWords += data.words || 0;
+      monthlyTime += data.time || 0;
+      if (data.words > 0 || data.time > 0) activeDays++;
+    }
+  });
+
+  const mHour = Math.floor(monthlyTime / 3600);
+  const mMin = Math.floor((monthlyTime % 3600) / 60);
+
+  let encouragement = "種一棵樹最好的時間是十年前，其次是現在。開始累積吧！🌱";
+  if (activeDays >= 20) encouragement = "你這個月的毅力驚人！學測一定沒問題的！🎯";
+  else if (activeDays >= 10) encouragement = "穩紮穩打，保持這個節奏繼續前進！💪";
+  else if (activeDays >= 3) encouragement = "好的開始是成功的一半，堅持下去喔！✨";
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn" onClick={onClose}>
+      <div className="bg-white/70 dark:bg-zinc-800/70 backdrop-blur-3xl backdrop-saturate-200 w-full max-w-sm rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_24px_64px_rgba(0,0,0,0.2)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_24px_64px_rgba(0,0,0,0.5)] border border-white/60 dark:border-white/10 p-6 md:p-8 animate-pop-in" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-500/20 shadow-inner">
+              <BarChart2 size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800 dark:text-white leading-tight">學習報表</h3>
+              <p className="text-[11px] font-bold text-slate-400">{currentMonthPrefix.replace('-', '年')}月統計資料</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2.5 bg-white/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-full text-slate-500 hover:bg-white transition-colors active:scale-90 shadow-sm"><X size={18} /></button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-white/50 dark:bg-black/20 p-4 rounded-[28px] border border-white/60 dark:border-white/5 shadow-[0_4px_16px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center text-center">
+            <Flame size={20} className="text-orange-500 mb-1.5" />
+            <div className="text-2xl font-black text-slate-800 dark:text-white leading-none mb-0.5">{currentStreak} <span className="text-[11px] text-slate-400 font-bold">天</span></div>
+            <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest">連續學習</div>
+          </div>
+          <div className="bg-white/50 dark:bg-black/20 p-4 rounded-[28px] border border-white/60 dark:border-white/5 shadow-[0_4px_16px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center text-center">
+            <TrendingUp size={20} className="text-blue-500 mb-1.5" />
+            <div className="text-2xl font-black text-slate-800 dark:text-white leading-none mb-0.5">{monthlyWords} <span className="text-[11px] text-slate-400 font-bold">字</span></div>
+            <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest">本月總複習</div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 p-6 rounded-[32px] border border-emerald-100 dark:border-emerald-500/20 mb-6 shadow-inner relative overflow-hidden">
+          <Sparkles className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-emerald-500 opacity-10 rotate-12" />
+          <div className="flex items-center gap-2 mb-3 text-emerald-700 dark:text-emerald-400 font-black text-[12px] uppercase tracking-widest relative z-10">
+            <Clock size={16} /> 本月總學習時數
+          </div>
+          <div className="flex items-baseline gap-1 text-emerald-900 dark:text-emerald-50 relative z-10">
+            <span className="text-5xl font-black tracking-tighter">{mHour}</span> <span className="text-[13px] font-bold opacity-80 mr-1">小時</span>
+            <span className="text-5xl font-black tracking-tighter">{mMin}</span> <span className="text-[13px] font-bold opacity-80">分鐘</span>
+          </div>
+        </div>
+
+        <div className="bg-white/60 dark:bg-white/5 p-5 rounded-[24px] text-center border border-white/50 dark:border-white/5 shadow-sm">
+          <p className="text-[13px] font-bold text-slate-700 dark:text-slate-300 leading-relaxed">「{encouragement}」</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -104,6 +199,37 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [userWords, setUserWords] = useState([]); // 個人學習進度
   const [currentSet, setCurrentSet] = useState('6000 words'); // 目前選擇的單字庫來源
+  const [showStatsModal, setShowStatsModal] = useState(false);
+
+  // --- 學習統計邏輯 ---
+  const [stats, setStats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {}; }
+    catch { return {}; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('gsat_vocab_stats', JSON.stringify(stats));
+  }, [stats]);
+
+  const updateStats = useCallback((type, amount = 1) => {
+    const today = new Date().toISOString().split('T')[0];
+    setStats(prev => {
+      const todayStats = prev[today] || { words: 0, time: 0 };
+      return { ...prev, [today]: { ...todayStats, [type]: todayStats[type] + amount } };
+    });
+  }, []);
+
+  // 背景學習計時器：只要停留在測驗或複習畫面，每秒累加 1 秒鐘
+  useEffect(() => {
+    if (subTab === 'review' || subTab === 'quiz') {
+      const timer = setInterval(() => updateStats('time', 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [subTab, updateStats]);
+
+  const incrementWordCount = useCallback(() => {
+    updateStats('words', 1);
+  }, [updateStats]);
 
   // Debug 模式狀態
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -341,8 +467,144 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至 ${targetSet}`);
   }, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet]);
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayMinutes = Math.floor((stats[todayStr]?.time || 0) / 60);
+
+  // IG 限動小卡匯出功能 (原生 Canvas 繪圖)
+  const handleExportIG = useCallback(async (wordObj, analysis) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const ctx = canvas.getContext('2d');
+
+    // 1. 繪製深色漸層背景
+    const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
+    grad.addColorStop(0, '#020617'); // slate-950
+    grad.addColorStop(1, '#064e3b'); // emerald-900
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // 2. 裝飾性彩色光暈
+    ctx.beginPath(); ctx.arc(200, 300, 500, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.15)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(900, 1500, 600, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'; ctx.fill();
+
+    // 3. 中央半透明玻璃卡片
+    ctx.beginPath();
+    ctx.roundRect(90, 400, 900, 1120, 60);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.stroke();
+
+    // 4. 文字排版
+    ctx.textAlign = 'center';
+
+    // App 品牌與等級
+    ctx.font = 'bold 36px sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.fillText(`LEVEL ${wordObj.level || 1}  •  GSAT PRO`, 540, 500);
+
+    // 英文單字
+    ctx.font = 'bold 130px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(wordObj.word, 540, 680);
+
+    // 詞性
+    ctx.font = 'bold 45px sans-serif';
+    ctx.fillStyle = '#34d399';
+    ctx.fillText(`[ ${wordObj.partOfSpeech || wordObj.pos || 'n.'} ]`, 540, 800);
+
+    // 中文解釋
+    ctx.font = 'bold 75px sans-serif';
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText(wordObj.meaning || wordObj.chinese || '', 540, 930);
+
+    // 分隔線
+    ctx.beginPath(); ctx.moveTo(200, 1050); ctx.lineTo(880, 1050);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.stroke();
+
+    // AI 解析或例句 (自動換行)
+    ctx.font = '45px sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    let details = wordObj.example ? `【例句】\n${wordObj.example}` : '';
+    if (analysis) details = analysis.replace(/\*\*/g, '').replace(/#/g, '').replace(/-/g, '•').trim();
+
+    const drawMultiline = (text, x, y, maxWidth, lineHeight, maxLines) => {
+      let currentY = y; let linesDrawn = 0; const paragraphs = text.split('\n');
+      for (const p of paragraphs) {
+        if (linesDrawn >= maxLines) break;
+        let line = '';
+        for (let i = 0; i < p.length; i++) {
+          let testLine = line + p[i];
+          if (ctx.measureText(testLine).width > maxWidth && i > 0) {
+            ctx.fillText(line, x, currentY); line = p[i]; currentY += lineHeight; linesDrawn++;
+            if (linesDrawn >= maxLines) break;
+          } else line = testLine;
+        }
+        if (linesDrawn < maxLines) { ctx.fillText(line, x, currentY); currentY += lineHeight; linesDrawn++; }
+      }
+    };
+
+    if (details) drawMultiline(details, 540, 1150, 780, 65, 5);
+    else { ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'; ctx.fillText('持續累積，迎戰學測 🚀', 540, 1250); }
+
+    // 5. 生成並繪製 QR Code (指向本專案網址)
+    const qrSize = 160;
+    const qrX = 1080 / 2 - qrSize / 2;
+    const qrY = 1550;
+    try {
+      const qrImg = new Image();
+      qrImg.crossOrigin = "Anonymous";
+      const url = encodeURIComponent(window.location.origin || 'https://gsat-pro.web.app');
+      // 調用外部穩定的 QR Code API 產生白底黑字圖碼
+      qrImg.src = `https://quickchart.io/qr?text=${url}&size=${qrSize}&margin=1&dark=020617&light=ffffff`;
+
+      await new Promise((resolve, reject) => {
+        qrImg.onload = resolve;
+        qrImg.onerror = reject;
+        setTimeout(resolve, 3000); // 避免 API 異常卡死下載 (3秒超時繼續執行)
+      });
+
+      // 為 QR Code 畫一個白色圓角底框使其更凸顯
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.roundRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20, 20); ctx.fill();
+      ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+    } catch (e) {
+      console.error('QR failed', e);
+    }
+
+    // 底部浮水印
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillText('長按掃描 / 進入 GSAT Pro 數位助手', 540, 1800);
+
+    // 下載圖片
+    const link = document.createElement('a');
+    link.download = `GSAT-Pro-${wordObj.word}.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    link.click();
+  }, []);
+
   return (
     <div className="flex flex-col w-full h-full animate-fadeIn pb-8 space-y-4 relative">
+      {/* 利用 createPortal 將 Modal 抽離，避免受父層 transform 動畫影響導致版面錯位 */}
+      {showStatsModal && createPortal(
+        <StatsModal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} stats={stats} />,
+        document.body
+      )}
+
+      {/* 注入答錯時的微震動動畫 */}
+      <style>{`
+        @keyframes vocab-shake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-6px); }
+          40%, 80% { transform: translateX(6px); }
+        }
+        .animate-vocab-shake { animation: vocab-shake 0.4s ease-in-out; }
+      `}</style>
       {/* Header */}
       <div className="flex justify-between items-center px-1 shrink-0">
         <div className="flex items-center gap-3">
@@ -353,26 +615,18 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
             <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">單字特訓</h2>
             <div className="flex items-center gap-2">
               <p className="text-[11px] font-bold text-slate-400">{mergedWords.length} 個單字 · {todayReview.length} 個待複習</p>
-              <button
-                onClick={() => syncFromGAS(true)}
-                disabled={isSyncing}
-                className="p-1 hover:bg-slate-100 dark:hover:bg-white/10 rounded-lg transition-colors text-slate-400"
-                title="與 Google Sheet 同步"
-              >
-                <RefreshCw size={12} className={isSyncing ? 'animate-spin' : ''} />
-              </button>
             </div>
           </div>
         </div>
 
-        {/* Debug Toggle Button */}
-        <button
-          onClick={() => setIsDebugMode(!isDebugMode)}
-          className={`p-2 rounded-xl transition-all ${isDebugMode ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500'}`}
-          title="切換偵錯模式"
-        >
-          <Bug size={20} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* 學習時數膠囊按鈕 */}
+          <button onClick={() => setShowStatsModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-[12px] active:scale-95 transition-all border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm">
+            <Clock size={14} className="shrink-0" /> <span className="hidden sm:inline">今日 </span>{todayMinutes}m
+          </button>
+
+          <button onClick={() => setIsDebugMode(!isDebugMode)} className={`hidden sm:block p-2 rounded-xl transition-all ${isDebugMode ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500'}`} title="切換偵錯模式"><Bug size={16} /></button>
+        </div>
       </div>
 
       {/* Sub-tabs */}
@@ -382,7 +636,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
             <button
               key={tab.id}
               onClick={() => setSubTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-[20px] font-black text-[13px] whitespace-nowrap transition-all duration-500 ease-spring-smooth active:scale-[0.98] ${subTab === tab.id
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-[20px] font-black text-[13px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] ${subTab === tab.id
                 ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-100 dark:border-slate-600'
                 : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-white/5'
                 }`}
@@ -416,10 +670,11 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
             setCurrentSet={setCurrentSet}
             geminiKey={geminiKey}
             isAdmin={isAdmin}
+            handleExportIG={handleExportIG}
           />
         )}
-        {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} setWords={setWords} />}
-        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} geminiKey={geminiKey} />}
+        {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} />}
+        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} geminiKey={geminiKey} incrementWordCount={incrementWordCount} />}
         {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} geminiKey={geminiKey} />}
       </div>
 
@@ -470,7 +725,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // WORD BANK
 // ═══════════════════════════════════════════════════════════════════════════════
-const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, currentSet, setCurrentSet, geminiKey, isAdmin }) => {
+const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, currentSet, setCurrentSet, geminiKey, isAdmin, handleExportIG }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [newWord, setNewWord] = useState('');
   const [newMeaning, setNewMeaning] = useState('');
@@ -597,7 +852,7 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
         </div>
 
         <div className="flex gap-3 px-1">
-          <div className="flex-1 flex items-center gap-3 bg-[var(--bg-surface)] glass-effect border border-[var(--border-color)] rounded-[24px] px-5 py-3.5 shadow-sm focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/30 transition-all duration-300">
+          <div className="flex-1 flex items-center gap-3 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl backdrop-saturate-200 border border-white/60 dark:border-white/10 rounded-[24px] px-5 py-3.5 shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.2)] focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/30 transition-all duration-300 transform-gpu will-change-transform">
             <Search size={18} className="text-slate-400 shrink-0" />
             <input
               type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -605,6 +860,15 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
               className="flex-1 bg-transparent text-[15px] font-bold text-[var(--text-primary)] outline-none placeholder:text-slate-400 w-full"
             />
           </div>
+          <button onClick={() => {
+            if (words.length === 0) return;
+            const randomWord = words[Math.floor(Math.random() * words.length)];
+            setFilterPos('all');
+            setSearch(randomWord.word);
+          }}
+            className="p-4 rounded-[24px] shadow-sm bg-white dark:bg-white/5 border border-slate-200/50 dark:border-white/10 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 active:scale-[0.95] transition-all duration-300 ease-spring shrink-0" title="隨機抽背">
+            <Shuffle size={20} />
+          </button>
           <button onClick={() => setShowAdd(!showAdd)}
             className={`p-4 rounded-[24px] shadow-lg active:scale-[0.95] transition-all duration-300 ease-spring shrink-0 ${showAdd ? 'bg-slate-100 dark:bg-white/10 text-slate-500 rotate-45 shadow-none' : 'bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600'}`}>
             <Plus size={20} />
@@ -614,7 +878,7 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
 
       {/* 新增單字表單 */}
       {showAdd && (
-        <div className="bg-[var(--bg-surface)] px-6 py-7 rounded-[32px] border border-emerald-500/30 shadow-lg shadow-emerald-500/10 mx-1 animate-slide-up-fade relative overflow-hidden glass-effect">
+        <div className="bg-white/40 dark:bg-white/5 backdrop-blur-[24px] px-6 py-7 rounded-[32px] border border-emerald-500/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(16,185,129,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] mx-1 animate-slide-up-fade relative overflow-hidden">
           <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
           <div className="flex items-center justify-between mb-5 relative z-10">
             <h3 className="text-[16px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-2 uppercase tracking-widest">
@@ -669,7 +933,7 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
       <div className="flex gap-2 overflow-x-auto scrollbar-hide px-1 py-1">
         {['all', 'n.', 'v.', 'adj.', 'adv.', 'prep.', 'conj.'].map(pos => (
           <button key={pos} onClick={() => setFilterPos(pos)}
-            className={`px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all duration-300 active:scale-95 ${filterPos === pos ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-[var(--bg-surface)] border border-[var(--border-color)] text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-white/10'}`}>
+            className={`px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-95 ${filterPos === pos ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/60 dark:border-white/10 text-slate-500 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-white/10 shadow-sm'}`}>
             {pos === 'all' ? '全部詞性' : pos}
           </button>
         ))}
@@ -697,7 +961,7 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
               <div
                 key={w.id}
                 style={{ animationDelay: `${Math.min(idx * 30, 600)}ms` }}
-                className={`group flex flex-col bg-[var(--bg-surface)] glass-effect border border-[var(--border-color)] rounded-[32px] overflow-hidden transition-all duration-500 ease-spring-smooth animate-slide-up-fade ${active ? 'shadow-float ring-2 ring-emerald-500/30 scale-[1.01] my-2' : 'hover:bg-white/80 dark:hover:bg-white/10 hover:-translate-y-1 hover:shadow-soft'}`}
+                className={`group flex flex-col bg-white/50 dark:bg-zinc-900/40 backdrop-blur-md backdrop-saturate-150 border border-white/60 dark:border-white/10 rounded-[32px] overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] animate-slide-up-fade shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transform-gpu will-change-transform ${active ? 'ring-2 ring-emerald-500/30 scale-[1.01] my-2' : 'hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1'}`}
               >
                 <div
                   className="flex items-center gap-4 px-6 py-5 cursor-pointer"
@@ -728,7 +992,7 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
                     )}
                   </div>
 
-                  <ChevronRight size={20} className={`text-slate-300 transition-transform duration-500 ease-spring-bouncy ${active ? 'rotate-90 text-emerald-500' : 'group-hover:translate-x-1 group-hover:text-emerald-400'}`} />
+                  <ChevronRight size={20} className={`text-slate-300 transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${active ? 'rotate-90 text-emerald-500' : 'group-hover:translate-x-1 group-hover:text-emerald-400'}`} />
                 </div>
 
                 {/* 展開詳情區域 */}
@@ -781,6 +1045,9 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
                       <button className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[20px] text-[13px] font-black active:scale-95 transition-all shadow-lg hover:shadow-float">
                         <Heart size={16} /> 加入個人收藏
                       </button>
+                      <button onClick={(e) => { e.stopPropagation(); handleExportIG(w, analysis); }} className="p-3.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 rounded-[20px] hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-transparent active:scale-95 shadow-sm" title="匯出成 IG 限動圖片">
+                        <Share2 size={16} />
+                      </button>
                       {(isAdmin || currentSet === 'Personal') && (
                         <button onClick={() => deleteWord(w.id)} className="p-3.5 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-[20px] hover:bg-rose-100 transition-all border border-rose-100 dark:border-transparent">
                           <Trash2 size={16} />
@@ -801,13 +1068,42 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
 // ═══════════════════════════════════════════════════════════════════════════════
 // REVIEW MODE (Flashcards with SRS)
 // ═══════════════════════════════════════════════════════════════════════════════
-const ReviewMode = ({ words, updateWord, setWords }) => {
+const ReviewMode = ({ words, updateWord, incrementWordCount }) => {
+  const [sessionWords, setSessionWords] = useState([]);
+  const [initialized, setInitialized] = useState(false);
   const [idx, setIdx] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [done, setDone] = useState(false);
   const [startX, setStartX] = useState(null);
   const [offsetX, setOffsetX] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [results, setResults] = useState({ correct: 0, blurry: 0, wrong: 0 });
   const audioCtx = useRef(null);
+
+  // --- 動畫用圓環狀態 ---
+  const radius = 54;
+  const stroke = 8;
+  const circumference = 2 * Math.PI * radius;
+  const [animatedOffset, setAnimatedOffset] = useState(circumference);
+
+  // 🚀 建立 Session Snapshot：避免複習過程中陣列長度縮水導致 Bug
+  useEffect(() => {
+    if (!initialized && words.length > 0) {
+      setSessionWords([...words]);
+      setInitialized(true);
+    }
+  }, [words, initialized]);
+
+  // 觸發結算圓環動畫
+  useEffect(() => {
+    if (done) {
+      const pct = Math.round((results.correct / sessionWords.length) * 100) || 0;
+      const timeout = setTimeout(() => setAnimatedOffset(circumference - (pct / 100) * circumference), 150);
+      return () => clearTimeout(timeout);
+    } else {
+      setAnimatedOffset(circumference);
+    }
+  }, [done, results.correct, sessionWords.length, circumference]);
 
   const playDing = useCallback(() => {
     try {
@@ -828,24 +1124,52 @@ const ReviewMode = ({ words, updateWord, setWords }) => {
       audioCtx.current = ctx;
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(150, ctx.currentTime); // 起始頻率降低
-      osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.3); // 滑落至更低沉的 80Hz
-      gain.gain.setValueAtTime(0.1, ctx.currentTime); // 音量調小，避免刺耳
+      osc.type = 'triangle'; // 改用更柔和的三角波
+      osc.frequency.setValueAtTime(250, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
     } catch { }
   }, []);
 
-  const current = words[idx];
+  // --- 防呆與空狀態處理 ---
+  if (!initialized) {
+    if (words.length === 0) {
+      return (
+        <div className="flex flex-col items-center py-20 text-center animate-slide-up-fade">
+          <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6">
+            <CheckCircle2 size={40} className="text-emerald-500" />
+          </div>
+          <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2">今日複習完成 🎉</h4>
+          <p className="text-[13px] font-bold text-slate-400 max-w-[240px]">所有單字都已複習，明天再來！</p>
+        </div>
+      );
+    }
+    return null;
+  }
+
+  const current = sessionWords[idx];
 
   const handleRate = (quality) => {
     const updated = calculateNextReview(current, quality);
-    setWords(prev => prev.map(w => w.id === current.id ? updated : w));
+    updateWord(current.id, updated);
     setShowAnswer(false);
-    if (quality === 5) playDing();
-    else if (quality === 1) playBuzzer(); // 忘記時播放低沉音
-    if (idx + 1 >= words.length) setDone(true);
+    incrementWordCount(); // 觸發單字統計
+
+    if (quality === 5) {
+      playDing();
+      setShowConfetti(true);
+      setResults(r => ({ ...r, correct: r.correct + 1 }));
+      setTimeout(() => setShowConfetti(false), 1500); // 1.5秒後關閉紙花
+    } else if (quality === 3) {
+      setResults(r => ({ ...r, blurry: r.blurry + 1 }));
+    } else if (quality === 1) {
+      playBuzzer(); // 忘記時播放低沉音
+      setResults(r => ({ ...r, wrong: r.wrong + 1 }));
+    }
+
+    if (idx + 1 >= sessionWords.length) setDone(true);
     else setIdx(idx + 1);
   };
 
@@ -867,52 +1191,77 @@ const ReviewMode = ({ words, updateWord, setWords }) => {
     setOffsetX(0);
   };
 
-  if (words.length === 0) {
+  if (done) {
+    const pct = Math.round((results.correct / sessionWords.length) * 100) || 0;
     return (
-      <div className="flex flex-col items-center py-20 text-center animate-slide-up-fade">
-        <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle2 size={40} className="text-emerald-500" />
+      <div className="flex flex-col items-center py-12 text-center animate-slide-up-fade relative">
+        {pct >= 50 && <Confetti score={results.correct} total={sessionWords.length} />}
+
+        {/* 環形進度圖表 */}
+        <div className="relative w-40 h-40 mb-8 flex items-center justify-center">
+          <svg className="absolute inset-0 w-full h-full -rotate-90 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_4px_12px_rgba(0,0,0,0.3)]" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r={radius} fill="none" stroke="currentColor" strokeWidth={stroke} className="text-slate-100 dark:text-white/5" />
+            <circle
+              cx="60" cy="60" r={radius} fill="none"
+              strokeWidth={stroke} strokeLinecap="round"
+              stroke={pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#f43f5e'}
+              strokeDasharray={circumference}
+              strokeDashoffset={animatedOffset}
+              className="transition-all duration-[1500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
+            />
+          </svg>
+          <div className="absolute inset-3 rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_4px_16px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_4px_16px_rgba(0,0,0,0.2)] border border-white/50 dark:border-white/10 flex flex-col items-center justify-center pointer-events-none">
+            <span className={`text-[36px] font-black tracking-tight leading-none ${pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>{pct}%</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">秒答率</span>
+          </div>
         </div>
-        <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2">今日複習完成 🎉</h4>
-        <p className="text-[13px] font-bold text-slate-400 max-w-[240px]">所有單字都已複習，明天再來！</p>
+
+        <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2">本輪複習完成！</h4>
+
+        {/* 數據統計面板 */}
+        <div className="flex gap-3 mb-8 mt-2 w-full max-w-xs px-2">
+          <div className="flex-1 flex flex-col items-center bg-white/50 dark:bg-white/5 backdrop-blur-md p-3 rounded-[20px] border border-white/60 dark:border-white/10 shadow-sm">
+            <div className="text-emerald-500 font-black text-xl mb-1">{results.correct}</div>
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">😎 秒答</div>
+          </div>
+          <div className="flex-1 flex flex-col items-center bg-white/50 dark:bg-white/5 backdrop-blur-md p-3 rounded-[20px] border border-white/60 dark:border-white/10 shadow-sm">
+            <div className="text-amber-500 font-black text-xl mb-1">{results.blurry}</div>
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">🤔 模糊</div>
+          </div>
+          <div className="flex-1 flex flex-col items-center bg-white/50 dark:bg-white/5 backdrop-blur-md p-3 rounded-[20px] border border-white/60 dark:border-white/10 shadow-sm">
+            <div className="text-rose-500 font-black text-xl mb-1">{results.wrong}</div>
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">😵 忘了</div>
+          </div>
+        </div>
+
+        <button onClick={() => {
+          setInitialized(false); // 重置快照，載入下一批單字
+          setIdx(0);
+          setDone(false);
+          setResults({ correct: 0, blurry: 0, wrong: 0 });
+        }}
+          className="px-8 py-4 w-full max-w-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">繼續複習</button>
       </div>
     );
   }
 
-  if (done) {
-    return (
-      <div className="flex flex-col items-center py-20 text-center animate-slide-up-fade">
-        <div className="w-24 h-24 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 shadow-inner border border-emerald-100 dark:border-emerald-500/20">
-          <Trophy size={40} className="text-emerald-500" />
-        </div>
-        <h4 className="text-xl font-black text-slate-800 dark:text-white mb-2">本輪複習完成！</h4>
-        <p className="text-[13px] font-bold text-slate-400 mb-6">已複習 {words.length} 個單字</p>
-        <button onClick={() => { setIdx(0); setDone(false); }}
-          className="px-6 py-3 bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all">再複習一次</button>
-      </div>
-    );
-  }
+  if (!current) return null; // Safe guard
 
   return (
-    <div className="flex flex-col items-center py-4 space-y-8 px-2">
+    <div className="relative flex flex-col items-center py-4 space-y-8 px-2">
+      {/* 答對時的撒花特效 */}
+      {showConfetti && <Confetti score={1} total={1} />}
+
       {/* Progress */}
       <div className="w-full flex items-center gap-3 px-1">
-        <span className="text-[11px] font-black text-slate-400">{idx + 1}/{words.length}</span>
+        <span className="text-[11px] font-black text-slate-400">{idx + 1}/{sessionWords.length}</span>
         <div className="flex-1 h-2 bg-[var(--border-color)] rounded-full overflow-hidden">
-          <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${((idx + 1) / words.length) * 100}%` }} />
+          <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${((idx + 1) / sessionWords.length) * 100}%` }} />
         </div>
       </div>
 
-      {/* Card */}
+      {/* 3D Flip Card Container */}
       <div
-        onClick={() => {
-          if (!showAnswer) {
-            setShowAnswer(true);
-            const utterance = new SpeechSynthesisUtterance(current.word);
-            utterance.lang = 'en-US';
-            window.speechSynthesis.speak(utterance);
-          }
-        }}
         onTouchStart={e => handleDragStart(e.touches[0].clientX)}
         onTouchMove={e => handleDragMove(e.touches[0].clientX)}
         onTouchEnd={handleDragEnd}
@@ -920,31 +1269,54 @@ const ReviewMode = ({ words, updateWord, setWords }) => {
         onMouseMove={e => handleDragMove(e.clientX)}
         onMouseUp={handleDragEnd}
         onMouseLeave={handleDragEnd}
-        style={{ transform: showAnswer && startX !== null ? `translateX(${offsetX}px) rotate(${offsetX * 0.05}deg)` : 'none' }}
-        className={`relative overflow-hidden w-full min-h-[340px] flex flex-col items-center justify-center p-10 rounded-[48px] border cursor-pointer select-none ${startX === null ? 'transition-all duration-700 ease-spring-bouncy' : ''} ${showAnswer
-          ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border-emerald-200/50 dark:border-emerald-500/20 shadow-float scale-[1.02]'
-          : 'bg-[var(--bg-surface)] glass-effect border-[var(--border-color)] hover:shadow-float hover:-translate-y-2'
-          }`}
+        style={{
+          perspective: '1000px', // 建立 3D 空間透視點
+          transform: startX !== null ? `translateX(${offsetX}px) rotate(${offsetX * 0.05}deg)` : 'none'
+        }}
+        className={`w-full min-h-[340px] cursor-pointer select-none ${startX === null ? 'transition-transform duration-700 ease-spring-bouncy' : ''} hover:-translate-y-2 transform-gpu will-change-transform`}
       >
-        {showAnswer && offsetX > 20 && <div className="absolute inset-0 bg-emerald-400/20 flex items-center justify-end p-8 transition-opacity duration-300 pointer-events-none"><span className="text-6xl drop-shadow-lg">😎</span></div>}
-        {showAnswer && offsetX < -20 && <div className="absolute inset-0 bg-rose-400/20 flex items-center justify-start p-8 transition-opacity duration-300 pointer-events-none"><span className="text-6xl drop-shadow-lg">😵</span></div>}
+        <div
+          key={current.id} // 🔥 關鍵修復：強制讓每個單字的卡片都是獨立的 DOM，切換時動畫瞬間重置，絕不穿幫
+          onClick={() => {
+            if (!showAnswer) {
+              setShowAnswer(true);
+              const utterance = new SpeechSynthesisUtterance(current.word);
+              utterance.lang = 'en-US';
+              window.speechSynthesis.speak(utterance);
+            }
+          }}
+          style={{
+            transformStyle: 'preserve-3d', // 允許子元素在 3D 空間中翻轉
+            transform: showAnswer ? 'rotateY(180deg)' : 'rotateY(0deg)'
+          }}
+          className="relative w-full h-full min-h-[340px] transition-transform duration-[800ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
+        >
+          {/* FRONT FACE (未翻面) */}
+          <div
+            style={{ backfaceVisibility: 'hidden' }}
+            className="absolute inset-0 flex flex-col items-center justify-center p-10 rounded-[48px] bg-white/50 dark:bg-zinc-900/50 backdrop-blur-2xl backdrop-saturate-200 border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_12px_40px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_12px_40px_rgba(0,0,0,0.3)] overflow-hidden"
+          >
+            <span className="text-[42px] font-black text-slate-900 dark:text-white mb-4 text-center tracking-tight leading-none pointer-events-none">{current.word}</span>
+            {current.partOfSpeech && <span className="text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg mb-6 pointer-events-none">{current.partOfSpeech}</span>}
+            <p className="text-[13px] font-black text-slate-400 uppercase tracking-widest mt-4 flex items-center gap-2 pointer-events-none"><Sparkles size={14} /> 點擊翻面</p>
+          </div>
 
-        <span className="text-[42px] font-black text-slate-900 dark:text-white mb-4 text-center tracking-tight leading-none pointer-events-none">{current.word}</span>
-        {current.partOfSpeech && (
-          <span className="text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg mb-6 pointer-events-none">{current.partOfSpeech}</span>
-        )}
-        {showAnswer ? (
-          <div className="animate-fadeIn text-center flex flex-col items-center pointer-events-none">
-            <div className="w-12 h-1 bg-emerald-200 dark:bg-emerald-500/30 rounded-full mb-6"></div>
-            <p className="text-[22px] font-black text-emerald-700 dark:text-emerald-400 mb-4">{current.meaning}</p>
-            {current.example && <p className="text-[14px] font-bold text-slate-500 dark:text-emerald-100/60 italic max-w-sm">"{current.example}"</p>}
-            <p className="text-[11px] font-black text-slate-400/60 mt-8 flex items-center gap-2">
-              <span className="bg-slate-200 dark:bg-white/10 px-2 py-1 rounded">← 忘記</span>左右滑動卡片<span className="bg-slate-200 dark:bg-white/10 px-2 py-1 rounded">記得 →</span>
+          {/* BACK FACE (已翻面) */}
+          <div
+            style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+            className="absolute inset-0 flex flex-col items-center justify-center p-10 rounded-[48px] bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200/50 dark:border-emerald-500/20 shadow-[0_20px_50px_rgba(16,185,129,0.2)] overflow-hidden"
+          >
+            {showAnswer && offsetX > 20 && <div className="absolute inset-0 bg-emerald-400/20 flex items-center justify-end p-8 transition-opacity duration-300 pointer-events-none"><span className="text-6xl drop-shadow-lg">😎</span></div>}
+            {showAnswer && offsetX < -20 && <div className="absolute inset-0 bg-rose-400/20 flex items-center justify-start p-8 transition-opacity duration-300 pointer-events-none"><span className="text-6xl drop-shadow-lg">😵</span></div>}
+
+            <div className="w-12 h-1 bg-emerald-200 dark:bg-emerald-500/30 rounded-full mb-6 pointer-events-none"></div>
+            <p className="text-[22px] font-black text-emerald-700 dark:text-emerald-400 mb-4 pointer-events-none">{current.meaning}</p>
+            {current.example && <p className="text-[14px] font-bold text-slate-500 dark:text-emerald-100/60 italic max-w-sm pointer-events-none text-center">"{current.example}"</p>}
+            <p className="text-[11px] font-black text-slate-400/60 mt-8 flex items-center gap-2 pointer-events-none">
+              <span className="bg-slate-200 dark:bg-white/10 px-2 py-1 rounded">← 忘記</span>左右滑動<span className="bg-slate-200 dark:bg-white/10 px-2 py-1 rounded">記得 →</span>
             </p>
           </div>
-        ) : (
-          <p className="text-[13px] font-black text-slate-400 uppercase tracking-widest mt-4 flex items-center gap-2 pointer-events-none"><Sparkles size={14} /> 點擊翻面</p>
-        )}
+        </div>
       </div>
 
       {/* Rating buttons */}
@@ -968,7 +1340,7 @@ const ReviewMode = ({ words, updateWord, setWords }) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // QUIZ MODE (Multiple Choice + Spelling + Grammar)
 // ═══════════════════════════════════════════════════════════════════════════════
-const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
+const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }) => {
   const [quizType, setQuizType] = useState(null); // null | 'choice' | 'spell' | 'grammar'
   const [questions, setQuestions] = useState([]);
   const [qIdx, setQIdx] = useState(0);
@@ -1002,10 +1374,10 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
       audioCtx.current = ctx;
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(150, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.3);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      osc.type = 'triangle'; // 改用更柔和的三角波
+      osc.frequency.setValueAtTime(250, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
     } catch { }
@@ -1125,6 +1497,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
     if (showResult) return;
     setSelected(opt);
     setShowResult(true);
+    incrementWordCount(); // 觸發單字統計
     const isCorrect = opt === questions[qIdx].answer;
     if (isCorrect) {
       setScore(s => s + 1);
@@ -1145,6 +1518,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
 
   const handleSpellSubmit = () => {
     setShowResult(true);
+    incrementWordCount(); // 觸發單字統計
     const isCorrect = spellInput.trim().toLowerCase() === questions[qIdx].answer;
     if (isCorrect) {
       setScore(s => s + 1);
@@ -1166,6 +1540,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
     if (showResult) return;
     setSelected(opt);
     setShowResult(true);
+    incrementWordCount(); // 觸發單字統計
     if (opt === questions[qIdx].answer) {
       setScore(s => s + 1);
       playDing();
@@ -1183,7 +1558,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
     return (
       <div className="space-y-4 py-4">
         {/* 題數設定區域 */}
-        <div className="flex items-center justify-between bg-[var(--bg-surface)] glass-effect p-4 rounded-[28px] border border-[var(--border-color)] shadow-sm">
+        <div className="flex items-center justify-between bg-white/40 dark:bg-white/5 backdrop-blur-[24px] p-4 rounded-[28px] border border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)]">
           <span className="text-[14px] font-black text-[var(--text-primary)] ml-2 tracking-tight">測驗題數</span>
           <div className="flex gap-2 bg-slate-100/50 dark:bg-white/5 p-1 rounded-[20px] border border-slate-200/50 dark:border-white/5">
             {[10, 20, 30].map(n => (
@@ -1204,24 +1579,24 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
           </div>
         )}
         <button onClick={generateChoiceQuiz} disabled={words.length < 4}
-          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-[32px] border border-blue-100 dark:border-blue-500/20 active:scale-[0.98] transition-all duration-500 hover:shadow-float disabled:opacity-40 group text-left">
+          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-[32px] border border-blue-100 dark:border-blue-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
           <div className="p-4 bg-blue-500 rounded-2xl text-white shadow-lg shadow-blue-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0"><Shuffle size={28} /></div>
           <div><span className="text-[16px] font-black text-slate-800 dark:text-white block">選擇題模式</span><span className="text-[12px] font-bold text-slate-400">看英文選中文，{quizCount} 題快速測驗</span></div>
         </button>
         <button onClick={generateSpellQuiz} disabled={words.length < 1}
-          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-[32px] border border-purple-100 dark:border-purple-500/20 active:scale-[0.98] transition-all duration-500 hover:shadow-float disabled:opacity-40 group text-left">
+          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-[32px] border border-purple-100 dark:border-purple-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
           <div className="p-4 bg-purple-500 rounded-2xl text-white shadow-lg shadow-purple-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0"><PenTool size={28} /></div>
           <div><span className="text-[16px] font-black text-slate-800 dark:text-white block">拼寫測驗</span><span className="text-[12px] font-bold text-slate-400">看中文拼英文，{quizCount} 題訓練記憶</span></div>
         </button>
         <button onClick={generateGrammarQuiz} disabled={words.length < 3 || loading}
-          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-[32px] border border-emerald-100 dark:border-emerald-500/20 active:scale-[0.98] transition-all duration-500 hover:shadow-float disabled:opacity-40 group text-left">
+          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-[32px] border border-emerald-100 dark:border-emerald-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
           <div className="p-4 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0">
             {loading && loadingType === 'grammar' ? <RefreshCw size={28} className="animate-spin" /> : <Sparkles size={28} />}
           </div>
           <div><span className="text-[16px] font-black text-slate-800 dark:text-white block">AI 文法測驗</span><span className="text-[12px] font-bold text-slate-400">AI 動態生成 {Math.min(quizCount, 10)} 題文法題</span></div>
         </button>
         <button onClick={generateClozeQuiz} disabled={words.length < 4 || loading}
-          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-[32px] border border-orange-100 dark:border-orange-500/20 active:scale-[0.98] transition-all duration-500 hover:shadow-float disabled:opacity-40 group text-left">
+          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-[32px] border border-orange-100 dark:border-orange-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
           <div className="p-4 bg-orange-500 rounded-2xl text-white shadow-lg shadow-orange-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0">
             {loading && loadingType === 'cloze' ? <RefreshCw size={28} className="animate-spin" /> : <FileText size={28} />}
           </div>
@@ -1267,16 +1642,16 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
           </div>
           <span className="text-[13px] font-black text-emerald-500">✓ {score}</span>
         </div>
-        <div className="text-center py-8 bg-[var(--bg-surface)] glass-effect border border-[var(--border-color)] rounded-[40px] shadow-sm mb-6">
+        <div className="text-center py-8 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-6">
           <span className="text-[36px] font-black text-slate-900 dark:text-white tracking-tight">{q.word.word}</span>
           <p className="text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg inline-block mt-3">{q.word.partOfSpeech}</p>
         </div>
         <div className="space-y-3">
           {q.options.map((opt, i) => {
-            let cls = 'bg-[var(--bg-surface)] glass-effect border-[var(--border-color)] hover:border-blue-500/50 hover:shadow-md';
+            let cls = 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-white/60 dark:border-white/10 hover:border-blue-500/50 hover:bg-white/60 dark:hover:bg-white/10 hover:shadow-md';
             if (showResult) {
               if (opt === q.answer) cls = 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30 scale-[1.02] z-10 relative';
-              else if (opt === selected) cls = 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30 scale-[1.02] z-10 relative';
+              else if (opt === selected) cls = 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30 scale-[1.02] z-10 relative animate-vocab-shake';
             }
             return (
               <button key={i} onClick={() => handleChoiceAnswer(opt)}
@@ -1304,7 +1679,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
           </div>
           <span className="text-[13px] font-black text-emerald-500">✓ {score}</span>
         </div>
-        <div className="text-center py-10 bg-[var(--bg-surface)] glass-effect border border-[var(--border-color)] rounded-[40px] shadow-sm mb-6">
+        <div className="text-center py-10 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-6">
           <p className="text-[12px] font-bold text-slate-400 mb-3 uppercase tracking-widest">請拼出以下中文的英文</p>
           <span className="text-[32px] font-black text-slate-900 dark:text-white">{q.word.meaning}</span>
           {q.word.partOfSpeech && <p className="text-[12px] font-bold text-slate-400 mt-2">({q.word.partOfSpeech})</p>}
@@ -1315,7 +1690,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
             disabled={showResult}
             className={`w-full text-center text-[24px] font-black py-5 rounded-[24px] border-2 outline-none transition-all duration-300 tracking-widest ${showResult
               ? isCorrect ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]' : 'bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-500/30 scale-[1.02]'
-              : 'bg-[var(--bg-surface)] glass-effect border-[var(--border-color)] focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
+              : 'bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] focus:bg-white/60 dark:focus:bg-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
               }`} placeholder="..." />
           {showResult && !isCorrect && (
             <div className="flex flex-col items-center gap-3 animate-slide-up-fade">
@@ -1358,7 +1733,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
           </div>
           <span className="text-[13px] font-black text-emerald-500">✓ {score}</span>
         </div>
-        <div className="bg-[var(--bg-surface)] glass-effect rounded-[32px] p-8 border border-[var(--border-color)] shadow-sm">
+        <div className="bg-white/40 dark:bg-white/5 backdrop-blur-[24px] rounded-[32px] p-8 border border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)]">
           <div className="flex items-center gap-2 mb-3">
             {quizType === 'cloze' ? <FileText size={16} className="text-orange-500" /> : <Sparkles size={16} className="text-emerald-500" />}
             <span className={`text-[11px] font-black uppercase tracking-widest ${quizType === 'cloze' ? 'text-orange-500' : 'text-emerald-500'}`}>{quizType === 'cloze' ? 'AI Cloze Test' : 'AI Grammar'}</span>
@@ -1367,10 +1742,10 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey }) => {
         </div>
         <div className="space-y-3">
           {q.options.map((opt, i) => {
-            let cls = 'bg-[var(--bg-surface)] glass-effect border-[var(--border-color)] hover:border-emerald-500/50 hover:shadow-md';
+            let cls = 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-white/60 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 hover:border-emerald-500/50 hover:shadow-md';
             if (showResult) {
               if (opt === q.answer) cls = 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30 scale-[1.02] z-10 relative';
-              else if (opt === selected) cls = 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30 scale-[1.02] z-10 relative';
+              else if (opt === selected) cls = 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30 scale-[1.02] z-10 relative animate-vocab-shake';
             }
             return (
               <button key={i} onClick={() => handleGrammarAnswer(opt)}

@@ -146,7 +146,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
 
       {/* FAQ Accordion */}
       {sections.map((sec, idx) => (
-        <div key={idx} className="bg-[var(--bg-surface)] rounded-[28px] border border-[var(--border-color)] shadow-soft overflow-hidden glass-effect">
+        <div key={idx} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 rounded-[28px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] overflow-hidden">
           <button
             onClick={() => setOpenSection(openSection === idx ? null : idx)}
             className="w-full flex justify-between items-center p-5 active:bg-slate-50 dark:active:bg-white/5 transition-colors group"
@@ -155,9 +155,9 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
               <div className={`w-10 h-10 ${sec.bg} dark:bg-opacity-10 rounded-2xl flex items-center justify-center shrink-0 border border-transparent dark:border-[var(--border-color)]`}>
                 <sec.icon size={20} className={`${sec.color} shrink-0`} />
               </div>
-              <span className="font-black text-[var(--text-primary)] text-[15px] group-hover:translate-x-1 transition-transform">{sec.title.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/g, '')}</span>
+              <span className="font-black text-[var(--text-primary)] text-[15px] group-hover:translate-x-1 transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">{sec.title.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/g, '')}</span>
             </div>
-            <ChevronRight size={18} className={`text-slate-300 transition-transform duration-300 shrink-0 ${openSection === idx ? 'rotate-90 text-emerald-500' : 'group-hover:translate-x-1'}`} />
+            <ChevronRight size={18} className={`text-slate-300 transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 ${openSection === idx ? 'rotate-90 text-emerald-500' : 'group-hover:translate-x-1'}`} />
           </button>
           {openSection === idx && (
             <div className="px-5 pb-5 space-y-4 border-t border-[var(--border-color)] pt-4 animate-fadeIn bg-slate-50/5">
@@ -179,7 +179,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
 
       {/* Feedback */}
       <div className="bg-emerald-600 p-6 rounded-[28px] text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-[1000ms] ease-[cubic-bezier(0.23,1,0.32,1)]"></div>
         <h3 className="font-black text-[16px] flex items-center gap-2 mb-2 relative z-10">
           <MessageSquare size={18} className="shrink-0" /> 還有問題？
         </h3>

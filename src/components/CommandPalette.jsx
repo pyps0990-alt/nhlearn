@@ -56,10 +56,10 @@ const CommandPalette = ({ isOpen, onClose, onSelectTab }) => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh] animate-fadeIn transition-all" onClick={onClose}>
-      <div className="absolute inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-slate-900/30 dark:bg-slate-900/60 backdrop-blur-md" />
       <div
         onClick={e => e.stopPropagation()}
-        className="relative w-[90%] max-w-xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-[64px] rounded-[32px] border border-white/60 dark:border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.2)] overflow-hidden animate-slide-up-fade transform transition-all duration-500 ease-spring-snappy"
+        className="relative w-[90%] max-w-xl bg-white/70 dark:bg-zinc-800/70 backdrop-blur-3xl backdrop-saturate-200 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_24px_64px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_24px_64px_rgba(0,0,0,0.4)] overflow-hidden animate-slide-up-fade transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
       >
         {/* Search Input */}
         <div className="flex items-center gap-4 px-6 py-5 border-b border-gray-200/50 dark:border-white/10">
@@ -90,9 +90,9 @@ const CommandPalette = ({ isOpen, onClose, onSelectTab }) => {
               <button
                 key={tab.id}
                 onClick={() => handleSelect(tab.id)}
-                className={`w-full flex items-center gap-4 px-4 py-4 rounded-[20px] hover:bg-white dark:hover:bg-white/5 transition-all duration-300 group active:scale-[0.98] focus:bg-white dark:focus:bg-white/5 focus:outline-none ${idx === 0 && query ? 'bg-white/60 dark:bg-white/5 shadow-sm ring-1 ring-emerald-500/20' : ''}`}
+                className={`w-full flex items-center gap-4 px-4 py-4 rounded-[20px] hover:bg-white dark:hover:bg-white/5 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] group active:scale-[0.98] focus:bg-white dark:focus:bg-white/5 focus:outline-none ${idx === 0 && query ? 'bg-white/60 dark:bg-white/5 shadow-sm ring-1 ring-emerald-500/20' : ''}`}
               >
-                <div className={`p-2.5 rounded-[14px] transition-colors duration-300 ${idx === 0 && query ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-emerald-500/30'}`}>
+                <div className={`p-2.5 rounded-[14px] transition-colors duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${idx === 0 && query ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-emerald-500/30'}`}>
                   {React.createElement(tab.icon, { size: 20 })}
                 </div>
                 <span className="flex-1 text-left text-[16px] font-black text-slate-800 dark:text-gray-200">{tab.label}</span>

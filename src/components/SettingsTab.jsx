@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import {
   Settings, User, Monitor, Sun, Moon, Edit3,
   Bell, Sparkles, Cloud, BrainCircuit, RefreshCw, GraduationCap,
@@ -17,12 +18,15 @@ const SettingsTab = ({
   classID, setClassID, setIsEditingSchedule, navTo,
   handleImport206Template, customCountdowns, setCustomCountdowns,
   campusName, setCampusName, campusAddress, setCampusAddress,
-  dashboardLayout, setDashboardLayout
+  dashboardLayout, setDashboardLayout,
+  campusLat, setCampusLat, campusLng, setCampusLng
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
   const [editingCampus, setEditingCampus] = useState(false);
   const [tempName, setTempName] = useState(campusName);
   const [tempAddr, setTempAddr] = useState(campusAddress);
+  const [tempLat, setTempLat] = useState(campusLat || '25.078410');
+  const [tempLng, setTempLng] = useState(campusLng || '121.587152');
 
   const SETTINGS_TABS = [
     { id: 'general', label: '一般與外觀', icon: Palette },
@@ -73,6 +77,19 @@ const SettingsTab = ({
     { value: 'dark', label: '深色模式', icon: Moon },
   ];
 
+  // 🚀 Apple 級頂級主題切換動畫引擎
+  const handleThemeChange = (newTheme) => {
+    if (!document.startViewTransition) {
+      setTheme(newTheme);
+      return;
+    }
+    document.startViewTransition(() => {
+      flushSync(() => {
+        setTheme(newTheme);
+      });
+    });
+  };
+
   const [stores, setStores] = useState([]);
   const [editingStore, setEditingStore] = useState(null);
   const [newStore, setNewStore] = useState({
@@ -97,7 +114,10 @@ const SettingsTab = ({
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [newLinkColor, setNewLinkColor] = useState('blue');
   const [editingLink, setEditingLink] = useState(null); // id, title, url
+
+  const LINK_THEMES = { blue: 'bg-blue-500', emerald: 'bg-emerald-500', orange: 'bg-orange-500', rose: 'bg-rose-500', purple: 'bg-purple-500', indigo: 'bg-indigo-500', slate: 'bg-slate-500' };
 
   const handleAddCustomLink = () => {
     if (!newLinkTitle.trim() || !newLinkUrl.trim()) {
@@ -106,9 +126,10 @@ const SettingsTab = ({
     }
     let url = newLinkUrl.trim();
     if (!url.startsWith('http')) url = 'https://' + url;
-    setCustomLinks([...customLinks, { title: newLinkTitle.trim(), url, id: Date.now() }]);
+    setCustomLinks([...customLinks, { title: newLinkTitle.trim(), url, themeColor: newLinkColor, id: Date.now() }]);
     setNewLinkTitle('');
     setNewLinkUrl('');
+    setNewLinkColor('blue');
     setIsAddingLink(false);
     triggerNotification('新增成功', `已加入：${newLinkTitle}`);
   };
@@ -175,11 +196,30 @@ const SettingsTab = ({
   const handleSaveCampus = () => {
     const name = tempName.trim() || '內湖高中';
     const addr = tempAddr.trim() || '台北市內湖區文德路218號';
+    const lat = tempLat || '25.078410';
+    const lng = tempLng || '121.587152';
     setCampusName(name); setCampusAddress(addr);
+    setCampusLat(lat); setCampusLng(lng);
     localStorage.setItem('gsat_campus_name', name);
     localStorage.setItem('gsat_campus_address', addr);
+    localStorage.setItem('gsat_campus_lat', lat);
+    localStorage.setItem('gsat_campus_lng', lng);
     setEditingCampus(false);
     triggerNotification('已儲存', '校園資訊已更新');
+  };
+
+  const handleGetLocation = () => {
+    if (navigator.geolocation) {
+      triggerNotification('定位中', '正在獲取您的目前位置...');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setTempLat(pos.coords.latitude.toFixed(6));
+          setTempLng(pos.coords.longitude.toFixed(6));
+          triggerNotification('成功', '已更新為目前座標');
+        },
+        () => triggerNotification('錯誤', '無法獲取位置，請確認瀏覽器權限')
+      );
+    }
   };
 
   const handleAddOrUpdateStore = async () => {
@@ -224,12 +264,12 @@ const SettingsTab = ({
 
       {/* 分頁選單列 */}
       <div className="px-1 mb-4">
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide bg-[var(--bg-surface)] p-2 rounded-[28px] border border-[var(--border-color)] shadow-sm glass-effect">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-2 rounded-[28px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
           {SETTINGS_TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-[20px] font-black text-[14px] whitespace-nowrap transition-all duration-300 ease-spring-smooth active:scale-[0.95] ${activeSubTab === tab.id
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-[20px] font-black text-[14px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.95] ${activeSubTab === tab.id
                 ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
                 : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-white'
                 }`}
@@ -254,10 +294,10 @@ const SettingsTab = ({
                 <Palette size={16} className="text-emerald-500 shrink-0" />
                 <h3 className="text-sm font-black uppercase tracking-wider">外觀主題</h3>
               </div>
-              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect transition-all duration-500">
+              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
                 <div className="grid grid-cols-3 gap-3">
                   {themeOptions.map(opt => (
-                    <button key={opt.value} onClick={() => { setTheme(opt.value); localStorage.setItem('gsat_theme', opt.value); }}
+                    <button key={opt.value} onClick={() => handleThemeChange(opt.value)}
                       className={`flex flex-col items-center gap-3 p-5 rounded-2xl border-2 transition-all active:scale-95 ${theme === opt.value ? 'border-emerald-400 bg-emerald-50/50 dark:bg-emerald-500/10 shadow-sm' : 'border-transparent bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10'}`}>
                       <opt.icon size={28} className={`shrink-0 ${theme === opt.value ? 'text-emerald-600' : 'text-slate-400'}`} />
                       <span className={`text-[12px] font-black ${theme === opt.value ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}>{opt.label}</span>
@@ -272,7 +312,7 @@ const SettingsTab = ({
                 <LayoutTemplate size={16} className="text-indigo-600 neon-glow-indigo" />
                 <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">首頁排版設定</h3>
               </div>
-              <div className="bg-[var(--bg-surface)] p-3 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-3 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
                 <div className="space-y-2 p-1">
                   {dashboardLayout?.map((item, idx) => (
                     <div
@@ -336,29 +376,33 @@ const SettingsTab = ({
               </div>
 
               {isAddingCountdown && (
-                <div className="bg-[var(--bg-surface)] border border-emerald-100 dark:border-emerald-500/20 rounded-[32px] p-6 shadow-soft animate-slide-up-fade glass-effect">
+                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 border border-emerald-300/50 dark:border-emerald-500/30 rounded-[32px] p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(16,185,129,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(16,185,129,0.2)] animate-slide-up-fade">
                   <div className="space-y-4">
-                    <div className="flex gap-3">
-                      <div className="flex-1">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">事件名稱</label>
-                        <input
-                          placeholder="例如：畢業典禮"
-                          className="w-full p-4 rounded-2xl border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-white/5 outline-none focus:ring-2 focus:ring-emerald-500 text-[var(--text-primary)]"
-                          value={newCountdown.title}
-                          onChange={e => setNewCountdown({ ...newCountdown, title: e.target.value })}
-                        />
-                      </div>
-                      <div className="w-24">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">圖標</label>
-                        <select
-                          className="w-full p-4 rounded-2xl border border-[var(--border-color)] text-lg bg-white dark:bg-white/5 outline-none appearance-none text-center"
-                          value={newCountdown.icon || '📅'}
-                          onChange={e => setNewCountdown({ ...newCountdown, icon: e.target.value })}
-                        >
-                          {['📅', '🎯', '🎓', '🏆', '🔥', '🎨', '🧪', '💻', '📚', '📝', '🏃', '✈️', '🎮', '💡', '🌟'].map(emoji => (
-                            <option key={emoji} value={emoji}>{emoji}</option>
-                          ))}
-                        </select>
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">事件名稱</label>
+                      <input
+                        placeholder="例如：畢業典禮"
+                        className="w-full p-4 rounded-[20px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none focus:ring-2 focus:ring-emerald-500 text-[var(--text-primary)] transition-all shadow-sm"
+                        value={newCountdown.title}
+                        onChange={e => setNewCountdown({ ...newCountdown, title: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">選擇圖標</label>
+                      <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
+                        {['📅', '🎯', '🎓', '🏆', '🔥', '🎨', '🧪', '💻', '📚', '📝', '🏃', '✈️', '🎮', '💡', '🌟'].map(emoji => (
+                          <button
+                            key={emoji}
+                            onClick={() => setNewCountdown({ ...newCountdown, icon: emoji })}
+                            className={`shrink-0 w-[52px] h-[52px] rounded-[18px] text-[22px] flex items-center justify-center transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-90 ${
+                              (newCountdown.icon || '📅') === emoji
+                                ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-2 ring-emerald-400 scale-105'
+                                : 'bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm'
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -366,7 +410,7 @@ const SettingsTab = ({
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">日期</label>
                         <input
                           type="date"
-                          className="w-full p-4 rounded-2xl border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-white/5 outline-none text-[var(--text-primary)]"
+                          className="w-full p-4 rounded-[20px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none text-[var(--text-primary)] shadow-sm focus:border-emerald-400 transition-colors"
                           value={newCountdown.date}
                           onChange={e => setNewCountdown({ ...newCountdown, date: e.target.value })}
                         />
@@ -374,13 +418,15 @@ const SettingsTab = ({
                       <div>
                         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">風格</label>
                         <select
-                          className="w-full p-4 rounded-2xl border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-white/5 outline-none text-[var(--text-primary)]"
+                          className="w-full p-4 rounded-[20px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none text-[var(--text-primary)] shadow-sm focus:border-emerald-400 transition-colors appearance-none"
                           value={newCountdown.style}
                           onChange={e => setNewCountdown({ ...newCountdown, style: e.target.value })}
                         >
                           <option value="gradient">主題漸層</option>
                           <option value="simple">極簡風格</option>
                           <option value="neon">電競霓虹</option>
+                          <option value="sakura">櫻花粉</option>
+                          <option value="cyber">電競紫</option>
                         </select>
                       </div>
                     </div>
@@ -394,7 +440,7 @@ const SettingsTab = ({
                 </div>
               )}
 
-              <div className="bg-[var(--bg-surface)] p-2 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-2 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
                 {!customCountdowns || customCountdowns.length === 0 ? (
                   <div className="p-8 text-center text-slate-400 font-bold text-sm">
                     目前沒有自定義倒數項目 ✨
@@ -432,7 +478,7 @@ const SettingsTab = ({
                 <MapPin size={16} className="text-emerald-600 neon-glow-emerald" />
                 <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">校園導覽設定</h3>
               </div>
-              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect transition-all duration-500">
+              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-500">
                 {!editingCampus ? (
                   <div className="bg-emerald-50/80 dark:bg-emerald-500/10 rounded-[24px] border border-emerald-100 dark:border-emerald-500/20 p-4 flex items-center gap-4">
                     <div className="w-12 h-12 shrink-0 bg-white dark:bg-slate-800 rounded-[18px] shadow-sm flex items-center justify-center">
@@ -449,8 +495,21 @@ const SettingsTab = ({
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
+                    {/* Google Maps 預覽小工具 */}
+                    <div className="w-full h-32 rounded-2xl overflow-hidden border border-emerald-200 dark:border-emerald-500/30 mb-2 relative shadow-inner">
+                      <div className="absolute inset-0 bg-slate-100 dark:bg-slate-800 flex items-center justify-center -z-10 text-slate-400 text-xs font-bold">載入地圖中...</div>
+                      <iframe 
+                        src={`https://maps.google.com/maps?q=${tempLat},${tempLng}&z=16&output=embed`} 
+                        width="100%" height="100%" frameBorder="0" style={{ border: 0 }} allowFullScreen="" aria-hidden="false" tabIndex="0" title="Google Maps Preview"
+                      />
+                    </div>
                     <input className="w-full p-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 outline-none text-[15px] font-bold focus:border-emerald-400 text-[var(--text-primary)]" value={tempName} onChange={e => setTempName(e.target.value)} placeholder="學校名稱" />
                     <input className="w-full p-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 outline-none text-[15px] font-bold focus:border-emerald-400 text-[var(--text-primary)]" value={tempAddr} onChange={e => setTempAddr(e.target.value)} placeholder="學校地址" />
+                    <div className="flex gap-2">
+                      <input className="flex-1 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 outline-none text-[13px] font-bold focus:border-emerald-400 text-[var(--text-primary)]" value={tempLat} onChange={e => setTempLat(e.target.value)} placeholder="緯度 (Latitude)" />
+                      <input className="flex-1 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 outline-none text-[13px] font-bold focus:border-emerald-400 text-[var(--text-primary)]" value={tempLng} onChange={e => setTempLng(e.target.value)} placeholder="經度 (Longitude)" />
+                      <button onClick={handleGetLocation} className="p-4 bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-2xl font-black active:scale-95 transition-all border border-emerald-200/50 hover:bg-emerald-100 dark:hover:bg-emerald-500/40" title="獲取目前位置"><MapPin size={18} /></button>
+                    </div>
                     <div className="flex gap-3 mt-2">
                       <button onClick={() => setEditingCampus(false)} className="flex-1 py-4 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-[20px] font-black text-sm active:scale-95 transition-all">取消</button>
                       <button onClick={handleSaveCampus} className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-sm active:scale-95 shadow-md transition-all">儲存變更</button>
@@ -465,7 +524,7 @@ const SettingsTab = ({
                 <GraduationCap size={16} className="text-emerald-600 neon-glow-emerald" />
                 <h3 className="text-sm font-black text-[var(--text-secondary)] dark:text-gray-400 uppercase tracking-wider">班級與課表管理</h3>
               </div>
-              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft space-y-4 transition-all duration-500 glass-effect">
+              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] space-y-4 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">班級代碼 (輸入以同步雲端，留空為本機自訂)</label>
                   <input
@@ -486,7 +545,7 @@ const SettingsTab = ({
                   <Edit3 size={18} className="shrink-0" /> {classID ? '管理 / 編輯班級課表' : '建立 / 編輯自訂課表'}
                 </button>
                 <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
-                  💡 輸入班級代碼後，系統會自動從雲端同步該班級的課表。編輯後的課表也將同步至雲端供同學查看。
+                  💡 輸入班級代碼後，系統會自動從雲端同步該班級的課表。編輯後的課表也將同步供同學查看。
                 </div>
               </div>
             </section>
@@ -513,7 +572,7 @@ const SettingsTab = ({
               </div>
 
               {isAddingLink && (
-                <div className="bg-[var(--bg-surface)] backdrop-blur-xl p-6 rounded-[32px] border border-emerald-100 dark:border-emerald-500/30 animate-apple-linear overflow-hidden glass-effect">
+                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-emerald-300/50 dark:border-emerald-500/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(16,185,129,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(16,185,129,0.2)] animate-apple-linear overflow-hidden">
                   <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2">
                     <Plus size={16} className="shrink-0 text-emerald-500" /> 新增快捷連結
                   </h4>
@@ -538,6 +597,19 @@ const SettingsTab = ({
                         className="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 px-5 py-3.5 rounded-2xl text-[14px] font-bold focus:border-emerald-400 outline-none transition-all text-[var(--text-primary)]"
                       />
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase ml-2">卡片主題色</label>
+                      <div className="flex gap-3 px-2 py-1">
+                        {Object.entries(LINK_THEMES).map(([key, bgClass]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setNewLinkColor(key)}
+                            className={`w-6 h-6 rounded-full ${bgClass} transition-transform active:scale-90 ${newLinkColor === key ? 'ring-4 ring-offset-2 ring-emerald-400 dark:ring-slate-700 scale-110 shadow-md' : 'opacity-70 hover:opacity-100'}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
                     <button
                       onClick={handleAddCustomLink}
                       className="w-full bg-emerald-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all hover:bg-emerald-500"
@@ -548,7 +620,7 @@ const SettingsTab = ({
                 </div>
               )}
 
-              <div className="bg-[var(--bg-surface)] p-2 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-2 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
                 {customLinks.length === 0 && !isAddingLink ? (
                   <div className="p-8 text-center flex flex-col items-center gap-3">
                     <div className="w-12 h-12 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-300 dark:text-gray-700 shrink-0">
@@ -572,6 +644,16 @@ const SettingsTab = ({
                               value={editingLink.url}
                               onChange={e => setEditingLink({ ...editingLink, url: e.target.value })}
                             />
+                            <div className="flex gap-2 px-1 py-1">
+                              {Object.entries(LINK_THEMES).map(([key, bgClass]) => (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  onClick={() => setEditingLink({ ...editingLink, themeColor: key })}
+                                  className={`w-5 h-5 rounded-full ${bgClass} transition-transform active:scale-90 ${editingLink.themeColor === key ? 'ring-2 ring-offset-2 ring-emerald-400 dark:ring-slate-600 scale-110 shadow-sm' : 'opacity-50 hover:opacity-100'}`}
+                                />
+                              ))}
+                            </div>
                             <div className="flex gap-2">
                               <button onClick={handleSaveEdit} className="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-xs font-black">儲存</button>
                               <button onClick={() => setEditingLink(null)} className="flex-1 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-2.5 rounded-xl text-xs font-black">取消</button>
@@ -616,7 +698,7 @@ const SettingsTab = ({
                 <Cloud size={16} className="text-blue-600" />
                 <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">系統服務串接</h3>
               </div>
-              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft space-y-5 glass-effect">
+              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] space-y-5">
                 {/* 通知開關 */}
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
@@ -657,17 +739,21 @@ const SettingsTab = ({
                 </div>
               </div>
 
-              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
+              <div className="group bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5">
                 <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2"><Cloud className="text-blue-500" size={16} /> Google 服務</h4>
-                <div className="flex justify-between items-center bg-slate-50 dark:bg-white/5 p-4 rounded-2xl">
+                <div className="flex justify-between items-center bg-slate-50/50 dark:bg-black/20 p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-sm group-hover:border-blue-200 dark:group-hover:border-blue-500/30 transition-colors duration-[600ms]">
                   <div>
                     <div className="text-sm font-black text-[var(--text-primary)]">Google 帳號備份</div>
-                    <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-1">備份筆記至 Drive</div>
+                    <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mt-1 flex items-center gap-1.5">
+                      {isGoogleConnected ? <><CheckCircle2 size={12} className="text-emerald-500" /> 已啟用雲端同步</> : '備份筆記至 Drive'}
+                    </div>
                   </div>
                   {isGoogleConnected ? (
-                    <button onClick={handleSignoutClick} className="px-4 py-2.5 rounded-xl text-xs font-black bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/30 active:scale-90 transition-transform">登出</button>
+                    <button onClick={handleSignoutClick} className="px-5 py-2.5 rounded-[16px] text-xs font-black bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/30 active:scale-[0.95] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-red-100 dark:hover:bg-red-900/40 shadow-sm relative z-10 cursor-pointer">取消連結</button>
                   ) : (
-                    <button onClick={handleAuthClick} className="px-4 py-2.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white active:scale-90 transition-all shadow-md">登入備份</button>
+                    <button onClick={handleAuthClick} className="px-5 py-2.5 rounded-[16px] text-xs font-black bg-blue-600 hover:bg-blue-500 text-white active:scale-[0.95] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] shadow-lg shadow-blue-500/25 flex items-center gap-2 relative z-10 cursor-pointer">
+                      <Globe size={14} /> 登入備份
+                    </button>
                   )}
                 </div>
               </div>
@@ -705,104 +791,105 @@ const SettingsTab = ({
         {/* ========================================================
             【進階與管理】
            ======================================================== */}
-        {activeSubTab === 'advanced' && (
-          <>
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 px-1">
-                <BrainCircuit size={16} className="text-purple-600 shrink-0" />
-                <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">AI 引擎設定</h3>
-              </div>
-              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-[var(--border-color)] shadow-soft glass-effect">
-                <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2"><Sparkles className="text-purple-500" size={16} /> API 金鑰管理</h4>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[12px] font-black text-slate-400 dark:text-gray-500">GEMINI KEY {!geminiKey && <span className="text-amber-500">未設定</span>}</label>
-                      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[11px] font-black text-purple-600 hover:underline">🔗 取得金鑰</a>
+        {
+          activeSubTab === 'advanced' && (
+            <>
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                  <BrainCircuit size={16} className="text-purple-600 shrink-0" />
+                  <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">AI 引擎設定</h3>
+                </div>
+                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
+                  <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2"><Sparkles className="text-purple-500" size={16} /> API 金鑰管理</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between items-end mb-2">
+                        <label className="text-[12px] font-black text-slate-400 dark:text-gray-500">GEMINI KEY {!geminiKey && <span className="text-amber-500">未設定</span>}</label>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[11px] font-black text-purple-600 hover:underline">🔗 取得金鑰</a>
+                      </div>
+                      <div className="flex gap-3">
+                        <input type="password" placeholder="貼上您的 API Key" value={geminiKey}
+                          onChange={e => { setGeminiKey(e.target.value); localStorage.setItem('gsat_gemini_key', e.target.value); }}
+                          className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-purple-400 focus:bg-white dark:focus:bg-slate-800 text-[var(--text-primary)] transition-all" />
+                        <button onClick={testAiConnection} disabled={aiTestStatus === 'testing'}
+                          className={`px-5 rounded-2xl font-black text-sm active:scale-95 transition-all flex items-center justify-center gap-2 ${aiTestStatus === 'success' ? 'bg-emerald-500 text-white' : aiTestStatus === 'error' ? 'bg-red-500 text-white' : 'bg-purple-600 text-white hover:bg-purple-500 shadow-md'}`}>
+                          {aiTestStatus === 'testing' ? <RefreshCw size={16} className="animate-spin" /> : aiTestStatus === 'success' ? <CheckCircle2 size={16} /> : aiTestStatus === 'error' ? <X size={16} /> : '測試'}
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-3">
-                      <input type="password" placeholder="貼上您的 API Key" value={geminiKey}
-                        onChange={e => { setGeminiKey(e.target.value); localStorage.setItem('gsat_gemini_key', e.target.value); }}
-                        className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-purple-400 focus:bg-white dark:focus:bg-slate-800 text-[var(--text-primary)] transition-all" />
-                      <button onClick={testAiConnection} disabled={aiTestStatus === 'testing'}
-                        className={`px-5 rounded-2xl font-black text-sm active:scale-95 transition-all flex items-center justify-center gap-2 ${aiTestStatus === 'success' ? 'bg-emerald-500 text-white' : aiTestStatus === 'error' ? 'bg-red-500 text-white' : 'bg-purple-600 text-white hover:bg-purple-500 shadow-md'}`}>
-                        {aiTestStatus === 'testing' ? <RefreshCw size={16} className="animate-spin" /> : aiTestStatus === 'success' ? <CheckCircle2 size={16} /> : aiTestStatus === 'error' ? <X size={16} /> : '測試'}
+                    <div className="p-4 bg-purple-50/80 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
+                      💡 使用 Gemini 2.5 Flash 模型，金鑰僅存在您的瀏覽器中。
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                  <Lock size={16} className="text-gray-600" />
+                  <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">管理 / 學生會專區</h3>
+                </div>
+                {!isAdmin ? (
+                  <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-8 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] flex flex-col items-center mx-auto w-full">
+                    <div className="bg-emerald-100 dark:bg-emerald-500/10 p-4 rounded-[24px] mb-4 text-emerald-600 dark:text-emerald-400"><Store size={32} /></div>
+                    <h4 className="text-[17px] font-black text-[var(--text-primary)] mb-1">特約商店管理</h4>
+                    <p className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mb-6 text-center">進入後台以管理商店資料</p>
+                    <div className="w-full flex flex-col gap-3">
+                      <input type="password" placeholder="管理員密碼" value={adminPassword}
+                        onChange={e => setAdminPassword(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
+                        className="w-full p-4 rounded-[20px] border border-slate-200 dark:border-white/10 outline-none text-sm font-bold text-center focus:border-emerald-400 bg-slate-50 dark:bg-white/5 text-[var(--text-primary)] transition-all" />
+                      <button onClick={handleAdminLogin} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-[20px] active:scale-[0.98] transition-all shadow-md">解鎖後台</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-emerald-400/50 dark:border-emerald-500/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_12px_32px_rgba(16,185,129,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_12px_32px_rgba(16,185,129,0.25)]">
+                    <h4 className="text-[15px] font-black text-[var(--text-primary)] mb-5 flex items-center gap-2"><Store size={18} className="text-emerald-500" /> 特約商店管理（已授權）</h4>
+                    <div className="bg-emerald-50/80 dark:bg-emerald-950/20 p-5 rounded-[24px] border border-emerald-100 dark:border-emerald-500/20 flex flex-col gap-4 mb-6">
+                      <h5 className="text-sm font-black text-emerald-800 dark:text-emerald-400 flex justify-between items-center">
+                        {editingStore ? '編輯商店' : '新增商店'}
+                        {editingStore && <button onClick={() => { setEditingStore(null); setNewStore({ name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '', operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: '' }); }} className="text-[11px] text-gray-500 bg-white dark:bg-white/10 px-2.5 py-1 rounded-lg border dark:border-white/5 shadow-sm active:scale-95 transition-all">取消編輯</button>}
+                      </h5>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input placeholder="商店名稱 *" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold col-span-2 outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.name} onChange={e => setNewStore({ ...newStore, name: e.target.value })} />
+                        <input placeholder="優惠內容 *" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold col-span-2 outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.discount} onChange={e => setNewStore({ ...newStore, discount: e.target.value })} />
+                        <div className="flex gap-2 col-span-2">
+                          <input placeholder="Icon" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold w-[30%] text-center outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.icon} onChange={e => setNewStore({ ...newStore, icon: e.target.value })} />
+                          <select className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold flex-1 outline-none text-[var(--text-primary)] appearance-none" value={newStore.type} onChange={e => setNewStore({ ...newStore, type: e.target.value })}>
+                            {['餐飲', '飲料', '咖啡', '文具', '其他'].map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <input placeholder="地址（選填）" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold col-span-2 outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.address} onChange={e => setNewStore({ ...newStore, address: e.target.value })} />
+                      </div>
+                      <button onClick={handleAddOrUpdateStore} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 rounded-[16px] active:scale-[0.98] mt-1 shadow-md transition-all">
+                        {editingStore ? '儲存變更' : '新增商店'}
                       </button>
                     </div>
-                  </div>
-                  <div className="p-4 bg-purple-50/80 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
-                    💡 使用 Gemini 2.5 Flash 模型，金鑰僅存在您的瀏覽器中。
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 px-1">
-                <Lock size={16} className="text-gray-600" />
-                <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">管理 / 學生會專區</h3>
-              </div>
-              {!isAdmin ? (
-                <div className="bg-[var(--bg-surface)] p-8 rounded-[32px] border border-[var(--border-color)] shadow-soft flex flex-col items-center mx-auto w-full glass-effect">
-                  <div className="bg-emerald-100 dark:bg-emerald-500/10 p-4 rounded-[24px] mb-4 text-emerald-600 dark:text-emerald-400"><Store size={32} /></div>
-                  <h4 className="text-[17px] font-black text-[var(--text-primary)] mb-1">特約商店管理</h4>
-                  <p className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mb-6 text-center">進入後台以管理商店資料</p>
-                  <div className="w-full flex flex-col gap-3">
-                    <input type="password" placeholder="管理員密碼" value={adminPassword}
-                      onChange={e => setAdminPassword(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
-                      className="w-full p-4 rounded-[20px] border border-slate-200 dark:border-white/10 outline-none text-sm font-bold text-center focus:border-emerald-400 bg-slate-50 dark:bg-white/5 text-[var(--text-primary)] transition-all" />
-                    <button onClick={handleAdminLogin} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-[20px] active:scale-[0.98] transition-all shadow-md">解鎖後台</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-emerald-500/30 shadow-lg glass-effect">
-                  <h4 className="text-[15px] font-black text-[var(--text-primary)] mb-5 flex items-center gap-2"><Store size={18} className="text-emerald-500" /> 特約商店管理（已授權）</h4>
-                  <div className="bg-emerald-50/80 dark:bg-emerald-950/20 p-5 rounded-[24px] border border-emerald-100 dark:border-emerald-500/20 flex flex-col gap-4 mb-6">
-                    <h5 className="text-sm font-black text-emerald-800 dark:text-emerald-400 flex justify-between items-center">
-                      {editingStore ? '編輯商店' : '新增商店'}
-                      {editingStore && <button onClick={() => { setEditingStore(null); setNewStore({ name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '', operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: '' }); }} className="text-[11px] text-gray-500 bg-white dark:bg-white/10 px-2.5 py-1 rounded-lg border dark:border-white/5 shadow-sm active:scale-95 transition-all">取消編輯</button>}
-                    </h5>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input placeholder="商店名稱 *" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold col-span-2 outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.name} onChange={e => setNewStore({ ...newStore, name: e.target.value })} />
-                      <input placeholder="優惠內容 *" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold col-span-2 outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.discount} onChange={e => setNewStore({ ...newStore, discount: e.target.value })} />
-                      <div className="flex gap-2 col-span-2">
-                        <input placeholder="Icon" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold w-[30%] text-center outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.icon} onChange={e => setNewStore({ ...newStore, icon: e.target.value })} />
-                        <select className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold flex-1 outline-none text-[var(--text-primary)] appearance-none" value={newStore.type} onChange={e => setNewStore({ ...newStore, type: e.target.value })}>
-                          {['餐飲', '飲料', '咖啡', '文具', '其他'].map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      </div>
-                      <input placeholder="地址（選填）" className="p-3.5 rounded-[16px] border border-emerald-200 dark:border-emerald-500/30 bg-white dark:bg-black/20 text-sm font-bold col-span-2 outline-none focus:border-emerald-400 text-[var(--text-primary)]" value={newStore.address} onChange={e => setNewStore({ ...newStore, address: e.target.value })} />
+                    <div className="space-y-3 pt-2">
+                      <h5 className="text-[12px] font-black text-slate-400 uppercase tracking-widest px-1">現有商店：{stores.length} 間</h5>
+                      {stores.map(store => (
+                        <div key={store.id} className="flex justify-between items-center bg-slate-50/50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-white/10 shrink-0 shadow-sm">
+                              {React.createElement(getStoreCategoryIcon(store.type), { size: 24, className: "text-emerald-500 shrink-0" })}
+                            </div>
+                            <div>
+                              <div className="font-black text-[var(--text-primary)] text-[15px] leading-tight mb-1">{store.name}</div>
+                              <div className="text-[11px] font-bold text-slate-400 dark:text-gray-400">{store.discount}</div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => { setEditingStore(store.id); setNewStore({ name: store.name || '', discount: store.discount || '', type: store.type || '餐飲', icon: store.icon || '🏪', distance: store.distance || '特約商店', address: store.address || '', operatingHours: store.operatingHours || '', deliveryStatus: store.deliveryStatus || '僅限自取', estimatedTime: store.estimatedTime || '', deliveryUrl: store.deliveryUrl || '' }); }} className="p-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 text-blue-600 rounded-xl transition-all active:scale-95"><Edit3 size={16} /></button>
+                            <button onClick={() => handleDeleteStore(store.id, store.name)} className="p-2 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 text-red-600 rounded-xl transition-all active:scale-95"><Trash2 size={16} /></button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <button onClick={handleAddOrUpdateStore} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 rounded-[16px] active:scale-[0.98] mt-1 shadow-md transition-all">
-                      {editingStore ? '儲存變更' : '新增商店'}
-                    </button>
                   </div>
-                  <div className="space-y-3 pt-2">
-                    <h5 className="text-[12px] font-black text-slate-400 uppercase tracking-widest px-1">現有商店：{stores.length} 間</h5>
-                    {stores.map(store => (
-                      <div key={store.id} className="flex justify-between items-center bg-slate-50/50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-white/10 shrink-0 shadow-sm">
-                            {React.createElement(getStoreCategoryIcon(store.type), { size: 24, className: "text-emerald-500 shrink-0" })}
-                          </div>
-                          <div>
-                            <div className="font-black text-[var(--text-primary)] text-[15px] leading-tight mb-1">{store.name}</div>
-                            <div className="text-[11px] font-bold text-slate-400 dark:text-gray-400">{store.discount}</div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => { setEditingStore(store.id); setNewStore({ name: store.name || '', discount: store.discount || '', type: store.type || '餐飲', icon: store.icon || '🏪', distance: store.distance || '特約商店', address: store.address || '', operatingHours: store.operatingHours || '', deliveryStatus: store.deliveryStatus || '僅限自取', estimatedTime: store.estimatedTime || '', deliveryUrl: store.deliveryUrl || '' }); }} className="p-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 text-blue-600 rounded-xl transition-all active:scale-95"><Edit3 size={16} /></button>
-                          <button onClick={() => handleDeleteStore(store.id, store.name)} className="p-2 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 text-red-600 rounded-xl transition-all active:scale-95"><Trash2 size={16} /></button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-          </>
-        )}
+                )}
+              </section>
+            </>
+          )}
       </div>
     </div>
   );
