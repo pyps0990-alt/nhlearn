@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { flushSync } from 'react-dom';
 import {
   Menu, Settings, LayoutDashboard, BookOpen, Notebook,
@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
-import './App.css';
-import SmartNotificationBanner from './components/SmartNotificationBanner';
+import './styles/App.css';
+import SmartNotificationBanner from './components/layout/SmartNotificationBanner';
 import { INITIAL_WEEKLY_SCHEDULE, SUBJECTS_LIST, DEFAULT_LINKS, ICON_MAP, GOOGLE_CLIENT_ID, GOOGLE_REDIRECT_URI, DRIVE_DISCOVERY_DOC, PEOPLE_DISCOVERY_DOC, SCOPES } from './utils/constants';
 import { SCHEDULE_206_TEMPLATE } from './utils/templates';
 import { timeToMins } from './utils/helpers';
@@ -22,23 +22,35 @@ export const DEFAULT_DASHBOARD_LAYOUT = [
   { id: 'news', visible: true, label: '校園最新公告' },
   { id: 'prep', visible: true, label: '明日準備事項' }
 ];
-import { db, auth, messaging, firebaseError, VAPID_KEY } from './firebase';
+import { db, auth, messaging, firebaseError, VAPID_KEY } from './config/firebase';
 import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
-import DashboardTab from './components/DashboardTab';
-import VocabularyTab from './components/VocabularyTab';
-import ContactBookTab from './components/ContactBookTab';
-import NotesTab from './components/NotesTab';
-import StoresTab from './components/StoresTab';
-import TrafficTab from './components/TrafficTab';
-import TutorialTab from './components/TutorialTab';
-import SettingsTab from './components/SettingsTab';
-import LegalTab from './components/LegalTab';
-import LandingPage from './components/LandingPage';
-import FeedbackTab from './components/FeedbackTab';
-import CommandPalette from './components/CommandPalette';
-import { IosNotification, WelcomeScreen, AuthScreen, PrivacyModal } from './components/SharedComponents';
+const DashboardTab = lazy(() => import('./components/tabs/DashboardTab'));
+const VocabularyTab = lazy(() => import('./components/tabs/VocabularyTab'));
+const ContactBookTab = lazy(() => import('./components/tabs/ContactBookTab'));
+const NotesTab = lazy(() => import('./components/tabs/NotesTab'));
+const StoresTab = lazy(() => import('./components/tabs/StoresTab'));
+const TrafficTab = lazy(() => import('./components/tabs/TrafficTab'));
+const TutorialTab = lazy(() => import('./components/tabs/TutorialTab'));
+const SettingsTab = lazy(() => import('./components/tabs/SettingsTab'));
+const LegalTab = lazy(() => import('./components/tabs/LegalTab'));
+const LandingPage = lazy(() => import('./components/layout/LandingPage'));
+const FeedbackTab = lazy(() => import('./components/tabs/FeedbackTab'));
+import CommandPalette from './components/layout/CommandPalette';
+import { IosNotification, WelcomeScreen, AuthScreen, PrivacyModal, TabSkeleton } from './components/ui/SharedComponents';
+
+// ─── 預載入輔助函式 ────────────────────────────────────────────────────────
+const preloadTab = (tabId) => {
+  switch (tabId) {
+    case 'dashboard': import('./components/tabs/DashboardTab'); break;
+    case 'english': import('./components/tabs/VocabularyTab'); break;
+    case 'contactBook': import('./components/tabs/ContactBookTab'); break;
+    case 'notes': import('./components/tabs/NotesTab'); break;
+    case 'settings': import('./components/tabs/SettingsTab'); break;
+    default: break;
+  }
+};
 
 
 
@@ -71,7 +83,7 @@ const MaintenanceView = ({ error }) => (
 );
 
 // ─── 核心 App 組件 ────────────────────────────────────────────────────────
-const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
+const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setUser, isAdmin, setIsAdmin }) => {
   const theme = forcedTheme;
   const setTheme = setForcedTheme;
 
@@ -88,11 +100,18 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     if (contentRef.current) contentRef.current.scrollTo({ top: 0, behavior: 'auto' });
   };
 
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [user, setUser] = useState(null);
+  // ─── 預載入邏輯 ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    // 進入首頁 2 秒後，背景預載入最常用的分頁
+    const timer = setTimeout(() => {
+      ['english', 'contactBook', 'notes'].forEach(tab => preloadTab(tab));
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const [notification, setNotification] = useState({ show: false, title: '', message: '' });
   const [selectedSubject, setSelectedSubject] = useState(null);
-  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const isGoogleConnected = !!user;
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(() => {
     try { return JSON.parse(localStorage.getItem('gsat_user_profile')) || null; } catch { return null; }
@@ -225,46 +244,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
     return () => clearTimeout(timer);
   }, [activeTab]);
 
-  // ─── FCM 與 Auth 整合區塊 ────────────────────────────────────────────────
-  const requestPushPermission = async (currentUser) => {
-    if (!('Notification' in window) || !messaging || !currentUser?.uid) return;
-
-    try {
-      if (Notification.permission !== 'granted') return;
-      const cleanVapidKey = VAPID_KEY?.trim().replace(/\s/g, '');
-      const token = await getToken(messaging, { vapidKey: cleanVapidKey });
-
-      if (token) {
-        const userRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userRef, {
-          fcmToken: token,
-          lastActive: serverTimestamp(),
-          userName: currentUser.displayName || '匿名同學',
-          email: currentUser.email || '',
-          classID: classID || '206',
-          device: navigator.userAgent.includes('iPhone') ? 'iOS' : 'Web'
-        }, { merge: true });
-        console.log("✅ FCM Token 已自動更新至雲端");
-      }
-    } catch (err) {
-      console.error("自動擷取 FCM 失敗:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (!auth) return; // 💡 防呆：如果 Firebase 初始化失敗，直接跳過監聽
-    const unsub = onAuthStateChanged(auth, async (authUser) => {
-      if (authUser) {
-        setUser(authUser);
-        setIsGoogleConnected(true); // 🚀 確保 Firebase 登入狀態同步至 Google 連線狀態
-        await requestPushPermission(authUser);
-      } else {
-        setUser(null);
-        setIsGoogleConnected(false);
-      }
-    });
-    return () => unsub();
-  }, [classID]);
+  // FCM 自動連線移至 App 層次
 
   // Firestore Sync
   useEffect(() => {
@@ -634,7 +614,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
             const result = await signInWithCredential(auth, credential);
 
             localStorage.setItem('gsat_google_token', accessToken);
-            setIsGoogleConnected(true);
+            setUser(result.user);
 
             const profile = { name: result.user.displayName, email: result.user.email, photo: result.user.photoURL };
             setUserProfile(profile);
@@ -672,7 +652,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
             const credential = GoogleAuthProvider.credentialFromResult(result);
             const token = credential?.accessToken;
             if (token) localStorage.setItem('gsat_google_token', token);
-            setIsGoogleConnected(true);
+            setUser(result.user);
 
             const profile = { name: result.user.displayName, email: result.user.email, photo: result.user.photoURL };
             setUserProfile(profile);
@@ -858,6 +838,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
                         <button
                           key={item.id}
                           onClick={() => { navTo(item.id); setIsNavOpen(false); }}
+                          onMouseEnter={() => preloadTab(item.id)}
                           style={{ animationDelay: `${idx * 35}ms` }}
                           className={`group w-full flex items-center gap-3 px-4 py-3.5 text-left rounded-[24px] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.96] border animate-slide-up-fade opacity-0 fill-mode-forwards ${activeTab === item.id ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-[inset_0_1px_1px_rgba(255,255,255,0.5),0_4px_12px_rgba(16,185,129,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_4px_12px_rgba(16,185,129,0.2)] border-emerald-200/50 dark:border-emerald-500/20' : 'border-transparent text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'}`}
                         >
@@ -902,7 +883,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
         ref={contentRef}
         className="flex-1 overflow-y-auto w-full px-4 pt-[140px] sm:pt-[150px] ios-safe-pb touch-pan-y scrollbar-hide bg-transparent scroll-smooth transition-all duration-300 relative z-10"
       >
-        <div key={activeTab} className="animate-tab-enter">
+        <Suspense fallback={<TabSkeleton />}>
+          <div key={activeTab} className="animate-tab-enter">
           {activeTab === 'dashboard' && (
             <DashboardTab
               isAdmin={isAdmin}
@@ -992,6 +974,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
           )}
           {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
         </div>
+        </Suspense>
       </div>
     </>
   );
@@ -999,9 +982,38 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification }) => {
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('gsat_theme') || 'system');
-  const [user, setUser] = useState(null); // 🚀 將 user 狀態提升到頂層
+  const [user, setUser] = useState(null); 
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  const requestPushPermission = async () => {
+  const requestPushPermission = async (currentUser) => {
+    if (!('Notification' in window) || !messaging || !currentUser?.uid) return;
+    try {
+      if (Notification.permission !== 'granted') return;
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY?.trim().replace(/\s/g, '') });
+      if (token) {
+        await setDoc(doc(db, 'users', currentUser.uid), {
+          fcmToken: token, lastActive: serverTimestamp(),
+          userName: currentUser.displayName || '同學',
+          email: currentUser.email || '', classID: localStorage.getItem('gsat_class_id') || '206'
+        }, { merge: true });
+      }
+    } catch (err) { console.error("FCM Error:", err); }
+  };
+
+  useEffect(() => {
+    if (!auth) return;
+    return onAuthStateChanged(auth, async (authUser) => {
+      setUser(authUser);
+      if (authUser) {
+        if (authUser.email?.endsWith('@nhsh.tp.edu.tw')) setIsAdmin(true);
+        await requestPushPermission(authUser);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+  }, []);
+
+  const requestPushPermissionPrompt = async () => {
     if (!('Notification' in window)) {
       toast.error('此瀏覽器不支援通知。iOS 請先「加入主畫面」。');
       return;
@@ -1047,6 +1059,8 @@ export default function App() {
           testPushNotification={requestPushPermission}
           user={user}
           setUser={setUser}
+          isAdmin={isAdmin}
+          setIsAdmin={setIsAdmin}
         />
       </div>
     </div>

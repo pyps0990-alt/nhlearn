@@ -5,8 +5,8 @@ import {
   FolderPlus, FileText, ChevronLeft, Book, BookOpen, FlaskConical,
   Palette, Languages, Globe, Timer, Lightbulb, PenTool, Trophy, Music, Layout, BookMarked
 } from 'lucide-react';
-import { NOTE_CATEGORIES, ICON_MAP } from '../utils/constants';
-import { fetchAI } from '../utils/helpers';
+import { NOTE_CATEGORIES, ICON_MAP } from '../../utils/constants';
+import { fetchAI } from '../../utils/helpers';
 
 const SUBJECT_ICONS = [
   'BookText', 'Languages', 'Calculator', 'Zap', 'Beaker', 'Dna',

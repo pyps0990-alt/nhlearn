@@ -4,11 +4,11 @@ import {
   BookOpen, Plus, Upload, Brain, Trophy, Search, Trash2, Check, X,
   RefreshCw, Sparkles, Shuffle, PenTool, CheckCircle2, XCircle, Heart,
   FileSpreadsheet, Bug, Terminal, ChevronDown, ChevronUp, ChevronRight, Wand2, Volume2,
-  FileText, BarChart2, Flame, Clock, TrendingUp, Share2
+  FileText, BarChart2, Flame, Clock, TrendingUp, Share2, Book, Zap
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ReactMarkdown from 'react-markdown';
-import { db } from '../firebase';
+import { db } from '../../config/firebase';
 import {
   collection, doc, setDoc, deleteDoc, onSnapshot,
   query, where, orderBy, writeBatch, serverTimestamp,
@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore';
 
 // 如果你有獨立的 helpers，請確保路徑正確。這裡假設 fetchAI 存在。
-// import { fetchAI } from '../utils/helpers';
+// import { fetchAI } from '../../utils/helpers';
 const fetchAI = async (prompt, options = {}) => {
   const geminiKey = options.geminiKey || localStorage.getItem('gsat_gemini_key');
   if (!geminiKey) return null;
@@ -91,102 +91,243 @@ const Confetti = ({ score, total }) => {
     shape: Math.random() > 0.5 ? '50%' : '2px' // 圓形或方形紙片
   }));
 
-  return <div className="absolute inset-0 pointer-events-none overflow-hidden z-50">{particles.map(p => <div key={p.id} className="absolute -top-10 animate-confetti-fall" style={{ left: p.left, width: p.size, height: p.size, backgroundColor: p.color, animationDuration: p.animationDuration, animationDelay: p.animationDelay, borderRadius: p.shape }} />)}</div>;
+  return <div className="absolute inset-0 pointer-events-none overflow-hidden z-50 rounded-[48px]">{particles.map(p => <div key={p.id} className="absolute -top-10 animate-confetti-fall" style={{ left: p.left, width: p.size, height: p.size, backgroundColor: p.color, animationDuration: p.animationDuration, animationDelay: p.animationDelay, borderRadius: p.shape }} />)}</div>;
 };
 
-// ─── 學習報表元件 (Stats Modal) ──────────────────────────────────────────────
-const StatsModal = ({ isOpen, onClose, stats }) => {
-  if (!isOpen) return null;
+// ─── 單字詳情全屏視窗 (Word Detail Overlay) ──────────────────────────────────
+const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClose, updateWord, triggerNotification, currentSet, addWords, isSaved, onSave, playVoice }) => {
+  // 防呆：鎖定背景滾動、支援 ESC 鍵關閉，避免與底層元件衝突
+  useEffect(() => {
+    const handleKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden'; // 防止底層滾動衝突
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const currentMonthPrefix = todayStr.substring(0, 7); // YYYY-MM
+  if (!word) return null;
 
-  let monthlyWords = 0;
-  let monthlyTime = 0;
-  let activeDays = 0;
-  let currentStreak = 0;
+  // 輔助函式：解析拆解字串
+  const getBreakdown = () => {
+    if (!analysis || analysis.startsWith('ERROR:')) return null;
+    const match = analysis.match(/\[單字構造拆解\]([\s\S]*?)(?=###|$)/i);
+    if (!match) return null;
 
-  // 計算連續學習天數 (Streak)
-  let tempDate = new Date();
-  while (true) {
-    const dStr = tempDate.toISOString().split('T')[0];
-    const s = stats[dStr];
-    if (s && (s.words > 0 || s.time > 0)) {
-      currentStreak++;
-      tempDate.setDate(tempDate.getDate() - 1);
-    } else {
-      // 允許今天還沒開始，但昨天有記錄
-      if (dStr === todayStr) {
-        tempDate.setDate(tempDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-  }
+    const lines = match[1].trim().split('\n');
+    // 尋找包含 "+" 號的行作為解析目標，避免抓到 AI 的說明文字
+    const targetLine = lines.find(l => l.includes('+')) || lines[0];
+    if (!targetLine) return null;
 
-  Object.entries(stats).forEach(([date, data]) => {
-    if (date.startsWith(currentMonthPrefix)) {
-      monthlyWords += data.words || 0;
-      monthlyTime += data.time || 0;
-      if (data.words > 0 || data.time > 0) activeDays++;
-    }
-  });
+    const parts = targetLine.split('+').map(p => {
+      // 增加容錯：支援全形/半形的冒號與括號，以及不穩定的空格
+      const info = p.match(/\*\*(.*?)\*\*\s*[:：]\s*(.*?)\s*[(（](.*?)[)）]/);
+      if (!info) return { label: '', value: p.trim().replace(/\*/g, ''), meaning: '' };
+      return { label: info[1].trim(), value: info[2].trim(), meaning: info[3].trim() };
+    });
+    return parts;
+  };
 
-  const mHour = Math.floor(monthlyTime / 3600);
-  const mMin = Math.floor((monthlyTime % 3600) / 60);
+  const breakdown = getBreakdown();
+  const cleanAnalysis = analysis && !analysis.startsWith('ERROR:') ? analysis.replace(/###\s*\[單字構造拆解\][\s\S]*?(?=###|$)/i, '').trim() : '';
 
-  let encouragement = "種一棵樹最好的時間是十年前，其次是現在。開始累積吧！🌱";
-  if (activeDays >= 20) encouragement = "你這個月的毅力驚人！學測一定沒問題的！🎯";
-  else if (activeDays >= 10) encouragement = "穩紮穩打，保持這個節奏繼續前進！💪";
-  else if (activeDays >= 3) encouragement = "好的開始是成功的一半，堅持下去喔！✨";
-
-  return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fadeIn" onClick={onClose}>
-      <div className="bg-white/70 dark:bg-zinc-800/70 backdrop-blur-3xl backdrop-saturate-200 w-full max-w-sm rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_24px_64px_rgba(0,0,0,0.2)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_24px_64px_rgba(0,0,0,0.5)] border border-white/60 dark:border-white/10 p-6 md:p-8 animate-pop-in" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-500/20 shadow-inner">
-              <BarChart2 size={24} />
+  return createPortal(
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn" onClick={onClose}>
+      <div
+        className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl w-full h-[100dvh] md:h-[90vh] md:max-w-4xl md:rounded-[48px] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-pop-in"
+        onClick={e => e.stopPropagation()}
+      >
+        <style>{`
+          /* Markdown 專屬美化排版 */
+          .highlighter p { margin-bottom: 0.75rem; }
+          .highlighter p:last-child { margin-bottom: 0; }
+          .highlighter ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+          .highlighter li { margin-bottom: 0.25rem; }
+          .highlighter h3 { 
+            font-size: 1.05rem; font-weight: 900; margin-top: 1.5rem; margin-bottom: 0.5rem; 
+            color: #8b5cf6; display: flex; align-items: center; gap: 0.35rem;
+          }
+          .dark .highlighter h3 { color: #a78bfa; }
+          .highlighter h3::before {
+            content: ''; display: inline-block; width: 6px; height: 6px; 
+            border-radius: 50%; background-color: currentColor;
+          }
+          /* 重點螢光筆效果 */
+          .highlighter strong {
+            background: linear-gradient(120deg, #fef08a 0%, #fef08a 100%);
+            background-repeat: no-repeat;
+            background-size: 100% 0.35em;
+            background-position: 0 92%;
+            padding: 0 2px; border-radius: 2px; font-weight: 900; color: inherit;
+          }
+          .dark .highlighter strong {
+            background: linear-gradient(120deg, rgba(251, 191, 36, 0.25) 0%, rgba(251, 191, 36, 0.25) 100%);
+            color: #fde047; /* 在深色模式下，將字體改為亮黃色，搭配微光底線，大幅提升質感 */
+          }
+        `}</style>
+        {/* Header */}
+        <div className="px-6 md:px-8 pt-6 md:pt-8 pb-4 flex justify-between items-start shrink-0">
+          <div className="space-y-1">
+            <h2 className="text-[36px] md:text-[44px] font-black text-slate-900 dark:text-white tracking-tighter leading-none">{word.word}</h2>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[12px] font-black text-slate-500 uppercase">{word.partOfSpeech || word.pos}</span>
+              <span className="text-slate-400 text-[12px] font-bold">Level {word.level || '1'}</span>
+              <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'US'); }} className="ml-2 px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg text-[11px] font-black hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇺🇸 US</button>
+              <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'UK'); }} className="px-2.5 py-1 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-black hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇬🇧 UK</button>
             </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-800 dark:text-white leading-tight">學習報表</h3>
-              <p className="text-[11px] font-bold text-slate-400">{currentMonthPrefix.replace('-', '年')}月統計資料</p>
+            <p className="text-[20px] font-bold text-slate-600 dark:text-slate-300 mt-2">{word.meaning || word.chinese}</p>
+          </div>
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
+            {currentSet !== 'Personal' && (
+              <button
+                onClick={(e) => { 
+                  e.preventDefault(); e.stopPropagation(); 
+                  if (isSaved) return;
+                  if (onSave) onSave();
+                  addWords([word], 'Personal', false); 
+                }}
+                className={`p-2.5 md:p-3 rounded-full transition-all active:scale-90 shadow-sm flex items-center justify-center ${isSaved ? 'bg-rose-500 text-white shadow-rose-500/30' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-100'}`}
+                title="加入個人收藏"
+              >
+                <Heart size={24} className={isSaved ? 'fill-current animate-heart-burst' : ''} />
+              </button>
+            )}
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} className="p-2.5 md:p-3 bg-slate-100 dark:bg-white/5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center" title="關閉視窗">
+              <X size={24} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-12 space-y-8 custom-scrollbar">
+          {/* 1. 視覺化拆解圖 (有解析時才顯示) */}
+          {analysis && !analysis.startsWith('ERROR:') && (
+            <div className="p-8 bg-gradient-to-br from-slate-50 to-white dark:from-white/5 dark:to-transparent rounded-[40px] border border-slate-100 dark:border-white/5 relative overflow-hidden group">
+              <div className="relative z-10 flex flex-wrap items-center justify-center gap-3 md:gap-6">
+                {breakdown ? breakdown.map((p, i) => (
+                  <div key={i} className="flex items-center gap-3 group/part">
+                    <div className="flex flex-col items-center">
+                      <span className={`text-[10px] font-black uppercase tracking-widest mb-2 transition-all group-hover/part:scale-110 ${p.label === 'Prefix' ? 'text-blue-400' : p.label === 'Root' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        {p.label || 'Part'}
+                      </span>
+                      <div className={`px-6 py-4 rounded-3xl border-2 transition-all duration-500 scale-105 shadow-lg ${p.label === 'Prefix' ? 'bg-blue-50/50 border-blue-200 text-blue-600 dark:bg-blue-500/10 dark:border-blue-500/30' :
+                          p.label === 'Root' ? 'bg-rose-50/50 border-rose-200 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/30' :
+                            'bg-emerald-50/50 border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/30'
+                        }`}>
+                        <span className="text-[24px] font-black">{p.value}</span>
+                      </div>
+                      <span className="mt-3 text-[13px] font-bold text-slate-400">{p.meaning}</span>
+                    </div>
+                    {i < breakdown.length - 1 && <span className="text-2xl font-black text-slate-200 dark:text-white/10 mt-8">+</span>}
+                  </div>
+                )) : (
+                  <div className="py-4 text-center">
+                    <p className="text-slate-400 font-bold italic">無法產生拆解視圖，請確認解析格式 🚀</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 2. AI 詳細解析 */}
+          <div className="grid md:grid-cols-[1fr_280px] gap-8">
+            <div className="space-y-6">
+              <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
+                <Sparkles size={20} className="text-yellow-500" /> 深度語源解析
+              </h3>
+              {analysis && !analysis.startsWith('ERROR:') ? (
+                <div className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300 highlighter">
+                  {cleanAnalysis.split(/(?=###)/g).map((sec, idx) => {
+                    if (sec.trim().startsWith('###') && sec.includes('大腦記憶法')) {
+                      return (
+                        <div key={idx} className="my-6 p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200/50 dark:border-amber-500/20 rounded-[28px] shadow-sm relative overflow-hidden group">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+                          <h4 className="flex items-center gap-2 text-[16px] text-amber-600 dark:text-amber-400 font-black mb-3 relative z-10">
+                            <Brain size={20} className="text-amber-500" /> AI 大腦記憶法
+                          </h4>
+                          <div className="text-[14.5px] font-bold text-amber-900/80 dark:text-amber-200/80 leading-relaxed relative z-10 highlighter">
+                            <ReactMarkdown>{sec.replace(/###\s*\[?大腦記憶法\]?/, '').trim()}</ReactMarkdown>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={idx} className="mb-5 last:mb-0">
+                        <ReactMarkdown>{sec}</ReactMarkdown>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : analysis && analysis.startsWith('ERROR:') ? (
+                <div className="p-10 border-2 border-dashed border-rose-200 dark:border-rose-500/20 rounded-[32px] text-center space-y-4 bg-rose-50/50 dark:bg-rose-500/5">
+                  <div className="w-16 h-16 bg-rose-100 dark:bg-rose-500/10 rounded-full flex items-center justify-center mx-auto text-rose-500 shadow-inner">
+                    <XCircle size={32} />
+                  </div>
+                  <p className="text-rose-600 dark:text-rose-400 font-bold">{analysis.replace('ERROR:', '')}</p>
+                  <button onClick={() => handleAiAnalyze(word.id, word.word)} className="mt-4 px-8 py-4 bg-rose-500 hover:bg-rose-400 text-white rounded-[24px] font-black shadow-lg shadow-rose-500/30 active:scale-95 transition-all flex items-center gap-2 mx-auto">
+                    <RefreshCw size={18} /> 重新嘗試解析
+                  </button>
+                </div>
+              ) : isAnalyzing ? (
+                <div className="p-10 border-2 border-dashed border-purple-200 dark:border-purple-500/20 rounded-[32px] text-center space-y-4 bg-purple-50/50 dark:bg-purple-500/5">
+                  <RefreshCw size={32} className="animate-spin text-purple-500 mx-auto" />
+                  <p className="text-purple-600 dark:text-purple-400 font-bold animate-pulse">正在為您編寫專屬大腦記憶法與解析...</p>
+                </div>
+              ) : (
+                <div className="p-10 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[32px] text-center space-y-4">
+                  <div className="w-16 h-16 bg-purple-100 dark:bg-purple-500/10 rounded-full flex items-center justify-center mx-auto text-purple-600">
+                    <Brain size={32} />
+                  </div>
+                  <p className="text-slate-400 font-bold">目前無解析資料，準備好來一場語源之旅嗎？</p>
+                  <button onClick={() => handleAiAnalyze(word.id, word.word)} className="mt-2 px-8 py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-[24px] font-black shadow-lg shadow-purple-500/30 active:scale-95 transition-all">✨ 點擊生成詳細解析</button>
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar Stats & Actions */}
+            <div className="space-y-4">
+              <div className="p-6 bg-emerald-50/50 dark:bg-emerald-500/5 rounded-3xl border border-emerald-100/50 dark:border-emerald-500/10">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-black text-[12px] uppercase mb-4">
+                  <Zap size={14} /> 學習數據
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <span className="block text-[11px] text-slate-400 font-bold mb-1">熟練度標記</span>
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} className={`h-2.5 rounded-full transition-all duration-700 ${i <= (word.repetitions || 0) ? 'w-4 bg-emerald-500' : 'w-2 bg-slate-200 dark:bg-white/10'}`} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const currentNotes = word.notes || '';
+                  const updatedNotes = currentNotes ? `${currentNotes}\n\n【深度解析】\n${analysis}` : analysis;
+                  updateWord(word.id, { notes: updatedNotes });
+                  triggerNotification('筆記同步', '已將完整解析存入單字筆記');
+                }}
+                disabled={!analysis || analysis.startsWith('ERROR:')}
+                className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[24px] font-black text-[14px] shadow-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Plus size={18} /> 同步全段筆記
+              </button>
             </div>
           </div>
-          <button onClick={onClose} className="p-2.5 bg-white/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-full text-slate-500 hover:bg-white transition-colors active:scale-90 shadow-sm"><X size={18} /></button>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <div className="bg-white/50 dark:bg-black/20 p-4 rounded-[28px] border border-white/60 dark:border-white/5 shadow-[0_4px_16px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center text-center">
-            <Flame size={20} className="text-orange-500 mb-1.5" />
-            <div className="text-2xl font-black text-slate-800 dark:text-white leading-none mb-0.5">{currentStreak} <span className="text-[11px] text-slate-400 font-bold">天</span></div>
-            <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest">連續學習</div>
+          {/* 手機版底部專屬返回按鈕 (讓使用者滑到底部時可快速退出) */}
+          <div className="pt-4 mt-2 border-t border-slate-100 dark:border-white/5 md:hidden flex flex-col pb-4">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} className="w-full py-4 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-[20px] font-black text-[15px] active:scale-95 transition-all shadow-sm">
+              返回單字列表
+            </button>
           </div>
-          <div className="bg-white/50 dark:bg-black/20 p-4 rounded-[28px] border border-white/60 dark:border-white/5 shadow-[0_4px_16px_rgba(0,0,0,0.03)] flex flex-col items-center justify-center text-center">
-            <TrendingUp size={20} className="text-blue-500 mb-1.5" />
-            <div className="text-2xl font-black text-slate-800 dark:text-white leading-none mb-0.5">{monthlyWords} <span className="text-[11px] text-slate-400 font-bold">字</span></div>
-            <div className="text-[11px] font-black text-slate-500 uppercase tracking-widest">本月總複習</div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 p-6 rounded-[32px] border border-emerald-100 dark:border-emerald-500/20 mb-6 shadow-inner relative overflow-hidden">
-          <Sparkles className="absolute right-[-10px] bottom-[-10px] w-20 h-20 text-emerald-500 opacity-10 rotate-12" />
-          <div className="flex items-center gap-2 mb-3 text-emerald-700 dark:text-emerald-400 font-black text-[12px] uppercase tracking-widest relative z-10">
-            <Clock size={16} /> 本月總學習時數
-          </div>
-          <div className="flex items-baseline gap-1 text-emerald-900 dark:text-emerald-50 relative z-10">
-            <span className="text-5xl font-black tracking-tighter">{mHour}</span> <span className="text-[13px] font-bold opacity-80 mr-1">小時</span>
-            <span className="text-5xl font-black tracking-tighter">{mMin}</span> <span className="text-[13px] font-bold opacity-80">分鐘</span>
-          </div>
-        </div>
-
-        <div className="bg-white/60 dark:bg-white/5 p-5 rounded-[24px] text-center border border-white/50 dark:border-white/5 shadow-sm">
-          <p className="text-[13px] font-bold text-slate-700 dark:text-slate-300 leading-relaxed">「{encouragement}」</p>
         </div>
       </div>
-    </div>
-  )
-}
+    </div>,
+    document.body
+  );
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -195,10 +336,23 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   const [words, setWords] = useState([]); // 從 Firestore 動態載入
   const [subTab, setSubTab] = useState('bank');
   const [search, setSearch] = useState('');
+  const [filterPos, setFilterPos] = useState('all');
   const [isSyncing, setIsSyncing] = useState(false);
   const [userWords, setUserWords] = useState([]); // 個人學習進度
   const [currentSet, setCurrentSet] = useState('6000 words'); // 目前選擇的單字庫來源
   const [showStatsModal, setShowStatsModal] = useState(false);
+  const [detailedWordId, setDetailedWordId] = useState(null);
+  const [analyzingIds, setAnalyzingIds] = useState(new Set());
+  const [aiAnalysisData, setAiAnalysisData] = useState({});
+  const [showAdd, setShowAdd] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const [accent, setAccent] = useState('US'); // 預設口音 (US / UK)
+
+  // --- 通知系統 ---
+  const triggerNotification = useCallback((title, message, type = 'success') => {
+    setNotification({ title, message, type });
+    setTimeout(() => setNotification(null), 3000);
+  }, []);
 
   // --- 學習統計邏輯 ---
   const [stats, setStats] = useState(() => {
@@ -242,6 +396,31 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     setDebugLogs(prev => [{ time, type, title, data }, ...prev].slice(0, 50)); // 只保留最新 50 筆
   }, []);
 
+  // 提前載入並緩存語音庫
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+  }, []);
+
+  // 🔊 原生語音引擎優化：智慧選擇自然音色
+  const playVoice = useCallback((text, targetAccent = 'US') => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    const langCode = targetAccent === 'UK' ? 'en-GB' : 'en-US';
+    utterance.lang = langCode;
+    utterance.rate = 0.9; // 降低一點語速，聽起來會比較自然且適合學習
+
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoices = voices.filter(v => v.lang.startsWith(langCode) || v.lang.replace('_', '-').startsWith(langCode));
+    // 優先挑選自然且無機器感的語音模型
+    const bestVoice = preferredVoices.find(v => v.name.includes('Google') || v.name.includes('Premium') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Natural') || v.name.includes('Karen')) || preferredVoices[0];
+    if (bestVoice) utterance.voice = bestVoice;
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
   const [lastVisible, setLastVisible] = useState(null); // 分頁用
 
   // 🚀 Firestore 實時監聽：個人學習進度 (SM-2 狀態)
@@ -262,9 +441,33 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   useEffect(() => {
     if (!db) return;
 
+    // 🔥 雙模載入邏輯
+    const isPersonalGuest = currentSet === 'Personal' && !user?.uid;
+
+    if (isPersonalGuest) {
+      logDebug('INFO', '正在載入本地個人收藏 (訪客模式)');
+      try {
+        const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
+        // 模擬搜尋
+        const filteredLocal = search.trim()
+          ? localData.filter(w => w.word.toLowerCase().startsWith(search.trim().toLowerCase()))
+          : localData;
+        setWords(filteredLocal);
+        setLastVisible(null); // 本地模式不支援分頁載入更多
+        return;
+      } catch (e) {
+        console.error("Local storage error:", e);
+        setWords([]);
+        return;
+      }
+    }
+
     let q;
     // 使用動態來源
-    const vocabRef = collection(db, 'vocab', currentSet, 'words');
+    // 修正路徑：如果是個人收藏，從使用者自己的私有目錄讀取
+    const vocabRef = currentSet === 'Personal'
+      ? collection(db, 'users', user.uid, 'personal_vocab')
+      : collection(db, 'vocab', currentSet, 'words');
 
     // 效能優化：若有搜尋字串，直接在服務端過濾 (前綴搜尋)
     if (search.trim()) {
@@ -277,7 +480,8 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       );
     } else {
       // 預設加載前 30 筆，減輕初始渲染與雲端讀取壓力
-      q = query(vocabRef, orderBy('word', 'asc'), limit(30));
+      const orderField = currentSet === 'Personal' ? 'createdAt' : 'word';
+      q = query(vocabRef, orderBy(orderField, 'asc'), limit(30));
     }
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -285,17 +489,24 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       setWords(mainData);
       setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
       logDebug('INFO', `已加載來源: ${currentSet}`, { count: mainData.length, mode: search ? 'Search' : 'Initial' });
+    }, (error) => {
+      logDebug('ERROR', '載入單字庫失敗', error.message);
     });
 
     return () => unsub();
-  }, [search, currentSet, logDebug]);
+  }, [search, currentSet, logDebug, user?.uid]);
 
   // 加載更多 (效能優化)
   const loadMoreWords = useCallback(async () => {
     if (!db || !lastVisible || search.trim()) return;
+    if (currentSet === 'Personal' && !user?.uid) return;
 
-    const vocabRef = collection(db, 'vocab', currentSet, 'words');
-    const q = query(vocabRef, orderBy('word', 'asc'), startAfter(lastVisible), limit(30));
+    const vocabRef = currentSet === 'Personal'
+      ? collection(db, 'users', user.uid, 'personal_vocab')
+      : collection(db, 'vocab', currentSet, 'words');
+
+    const orderField = currentSet === 'Personal' ? 'createdAt' : 'word';
+    const q = query(vocabRef, orderBy(orderField, 'asc'), startAfter(lastVisible), limit(30));
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
       const moreData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -303,7 +514,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
       logDebug('INFO', '已加載更多單字', { count: moreData.length });
     }
-  }, [lastVisible, search, currentSet, logDebug]);
+  }, [lastVisible, search, currentSet, logDebug, user?.uid]);
 
   // 合併單字與個人進度 (確保未在當前分頁的個人單字也能被測驗與複習)
   const mergedWords = useMemo(() => {
@@ -402,9 +613,20 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   }, [mergedWords]);
 
   const updateWord = useCallback(async (id, updates) => {
-    if (!user?.uid) return;
+    const isGuest = !user?.uid;
     const wordObj = mergedWords.find(w => w.id === id);
     if (!wordObj) return;
+
+    if (isGuest) {
+      const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
+      const index = localData.findIndex(w => w.id === id || w.word.toLowerCase() === wordObj.word.toLowerCase());
+      if (index !== -1) {
+        localData[index] = { ...localData[index], ...updates, updatedAt: Date.now() };
+        localStorage.setItem('gsat_local_vocab', JSON.stringify(localData));
+        if (currentSet === 'Personal') setWords([...localData]);
+      }
+      return;
+    }
 
     const ref = doc(db, 'users', user.uid, 'progress', wordObj.word.toLowerCase());
     await setDoc(ref, {
@@ -421,11 +643,22 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     try {
       const wordObj = mergedWords.find(w => w.id === id);
       if (wordObj) {
+        const isGuest = !user?.uid;
+        if (isGuest) {
+          const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
+          const newData = localData.filter(w => w.id !== id && w.word.toLowerCase() !== wordObj.word.toLowerCase());
+          localStorage.setItem('gsat_local_vocab', JSON.stringify(newData));
+          if (currentSet === 'Personal') setWords(newData);
+          return;
+        }
+
         if (!isAdmin && currentSet !== 'Personal') {
           alert("您只能刪除「個人收藏」中的單字喔！");
           return;
         }
-        const ref = doc(db, 'vocab', currentSet, 'words', wordObj.word.toLowerCase());
+        const ref = currentSet === 'Personal'
+          ? doc(db, 'users', user.uid, 'personal_vocab', wordObj.word.toLowerCase())
+          : doc(db, 'vocab', currentSet, 'words', wordObj.word.toLowerCase());
         await deleteDoc(ref);
         logDebug('SUCCESS', '已從雲端刪除單字', { word: wordObj.word, set: currentSet });
       }
@@ -435,14 +668,43 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   }, [user?.uid, isAdmin, mergedWords, logDebug, currentSet]);
 
   const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush = true) => {
-    if (!db || !user?.uid) return;
+    if (!db) return;
+    const isGuest = !user?.uid;
+
+    if (isGuest && targetSet === 'Personal') {
+      const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
+      const updated = [...localData];
+      newWords.forEach(w => {
+        const wordVal = (w.word || '').trim();
+        if (!wordVal) return;
+        if (!updated.some(x => x.word.toLowerCase() === wordVal.toLowerCase())) {
+          updated.push({
+            id: 'local_' + Date.now() + Math.random(),
+            ...w,
+            createdAt: Date.now(),
+            source: 'Personal'
+          });
+        }
+      });
+      localStorage.setItem('gsat_local_vocab', JSON.stringify(updated));
+      if (currentSet === 'Personal') setWords(updated);
+      logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至本地收藏 (訪客)`);
+      return;
+    }
+
+    if (isGuest) {
+      alert("訪客模式無法修改公共單字庫，請先登入喔！");
+      return;
+    }
 
     const batch = writeBatch(db);
     newWords.forEach((w, i) => {
       const wordVal = (w.word || '').trim();
       if (!wordVal) return;
 
-      const ref = doc(db, 'vocab', targetSet, 'words', wordVal.toLowerCase());
+      const ref = targetSet === 'Personal'
+        ? doc(db, 'users', user.uid, 'personal_vocab', wordVal.toLowerCase())
+        : doc(db, 'vocab', targetSet, 'words', wordVal.toLowerCase());
       const sn = Date.now() + i;
 
       batch.set(ref, {
@@ -603,6 +865,13 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
           40%, 80% { transform: translateX(6px); }
         }
         .animate-vocab-shake { animation: vocab-shake 0.4s ease-in-out; }
+
+        @keyframes heart-burst {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.35); }
+          100% { transform: scale(1); }
+        }
+        .animate-heart-burst { animation: heart-burst 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
       `}</style>
       {/* Header */}
       <div className="flex justify-between items-center px-1 shrink-0">
@@ -670,10 +939,22 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
             geminiKey={geminiKey}
             isAdmin={isAdmin}
             handleExportIG={handleExportIG}
+            detailedWordId={detailedWordId}
+            setDetailedWordId={setDetailedWordId}
+            analyzingIds={analyzingIds}
+            aiAnalysisData={aiAnalysisData}
+            setAiAnalysisData={setAiAnalysisData}
+            setAnalyzingIds={setAnalyzingIds}
+            filterPos={filterPos}
+            setFilterPos={setFilterPos}
+            triggerNotification={triggerNotification}
+            playVoice={playVoice}
+            accent={accent}
+            setAccent={setAccent}
           />
         )}
-        {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} />}
-        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} geminiKey={geminiKey} incrementWordCount={incrementWordCount} />}
+        {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
+        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} geminiKey={geminiKey} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
         {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} geminiKey={geminiKey} />}
       </div>
 
@@ -717,6 +998,22 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
           )}
         </div>
       )}
+
+      {/* 全局通知元件 */}
+      {notification && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] animate-slide-up-fade">
+          <div className={`px-6 py-4 rounded-[24px] border shadow-2xl backdrop-blur-xl flex items-center gap-4 ${notification.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-600 dark:bg-rose-500/20' : 'bg-emerald-50/90 border-emerald-200 text-emerald-600 dark:bg-emerald-500/20'
+            }`}>
+            <div className={`p-2 rounded-xl ${notification.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}>
+              {notification.type === 'error' ? <XCircle size={20} /> : <CheckCircle2 size={20} />}
+            </div>
+            <div>
+              <div className="text-[14px] font-black leading-none mb-1">{notification.title}</div>
+              <div className="text-[12px] font-bold opacity-80">{notification.message}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -724,18 +1021,21 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // WORD BANK
 // ═══════════════════════════════════════════════════════════════════════════════
-const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, currentSet, setCurrentSet, geminiKey, isAdmin, handleExportIG }) => {
+const WordBank = ({
+  words, search, setSearch, updateWord, deleteWord, addWords,
+  currentSet, setCurrentSet, geminiKey, isAdmin, handleExportIG,
+  detailedWordId, setDetailedWordId, analyzingIds, aiAnalysisData,
+  setAiAnalysisData, setAnalyzingIds, filterPos, setFilterPos,
+  triggerNotification, playVoice, accent, setAccent
+}) => {
   const [showAdd, setShowAdd] = useState(false);
   const [newWord, setNewWord] = useState('');
   const [newMeaning, setNewMeaning] = useState('');
   const [newPos, setNewPos] = useState('n.');
-  const [filterPos, setFilterPos] = useState('all');
-  const [expandedWord, setExpandedWord] = useState(null);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
-
-  // 🚀 修正：改用字典與 Set 來個別管理每個單字的 AI 狀態
-  const [aiAnalysisData, setAiAnalysisData] = useState({});
-  const [analyzingIds, setAnalyzingIds] = useState(new Set());
+  
+  // 記錄本次 session 已經點擊加入收藏的單字 ID，用於即時顯示動畫與狀態
+  const [savedWords, setSavedWords] = useState(new Set());
 
   const filtered = useMemo(() => {
     let list = words;
@@ -744,22 +1044,41 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
   }, [words, filterPos]);
 
   const handleAiAnalyze = async (id, word) => {
-    if (!geminiKey) return alert('請先設定 Gemini API Key');
+    if (!geminiKey) return triggerNotification('需要 API Key', '請先至設定頁面輸入 Gemini API Key', 'error');
     setAnalyzingIds(prev => new Set(prev).add(id));
     try {
-      const prompt = `身為台灣高中英文老師，請用最精簡、易讀的 Markdown 格式解析單字 "${word}"。
-請嚴格控制字數並使用重點標註（粗體），包含：
-- **核心記憶點**：一句話解釋最精確含義。
-- **必考搭配詞**：2~3 個學測常考用法或片語。
-- **實用例句**：1 句情境短例句（附精簡中文）。
-- **同義/易混淆字**：1~2 個，並用極短文字說明差異。
+      const prompt = `你是一位專業的英文語源學老師與記憶專家。請針對單字 "${word}" 提供結構化解析。
+請務必遵守以下規範：
+1. **單字拆解**：請在開頭以 [Prefix], [Root], [Suffix] 格式拆解單字。
+2. **語源解說**：簡述每個構件的來源與意思。
+3. **重點標記**：在解析內容中使用 **粗體** 標註核心關鍵字。
+4. **結構化區段**：
+1. **結構化區段**：請嚴格使用以下 ### 標題。
+   ### [單字構造拆解]
+   (格式: **Prefix**: un- (不) + **Root**: break (打破) + **Suffix**: -able (能夠))
+   ### [核心記憶與語源]
+   （簡短說明單字組成邏輯）
+   ### [地道例句搭配]
+   （1 個高品質例句與常用搭配詞）
+   (格式範例: **Prefix**: un- (不) + **Root**: break (打破) + **Suffix**: -able (能夠)。若無字首字尾請寫 **Root**: word (意思))
+   ### [大腦記憶法]
+   （提供生動好記的諧音、聯想或故事記憶法，幫助學生秒記這個單字）
+   ### [語源與字根詳解]
+   （詳細解說這個單字的歷史來源與字根演變）
+   ### [實戰例句與搭配詞]
+   （提供 1 個學測難度的高品質例句與 2 個常用搭配詞）
 
-請直接回傳排版好的 Markdown 內容，不要有任何開頭問候語。`;
+請用親切且精簡的繁體中文撰寫，字數控制在 120 字內。直接回傳 Markdown 內容，不要問候語。`;
 
       const response = await fetchAI(prompt, { geminiKey });
+      if (!response) throw new Error('API 回傳為空');
       setAiAnalysisData(prev => ({ ...prev, [id]: response }));
+
+      // 自動同步到單字筆記 (Firestore)
+      await updateWord(id, { notes: response });
     } catch (e) {
-      setAiAnalysisData(prev => ({ ...prev, [id]: 'AI 解析目前無法使用，請稍後再試。' }));
+      setAiAnalysisData(prev => ({ ...prev, [id]: 'ERROR:AI 解析失敗，可能是 API 繁忙或連線異常。' }));
+      triggerNotification('解析失敗', '請點擊重試按鈕再試一次', 'error');
     } finally {
       setAnalyzingIds(prev => {
         const newSet = new Set(prev);
@@ -770,8 +1089,8 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
   };
 
   const handleAiAutoFill = async () => {
-    if (!newWord.trim()) return alert("請先輸入英文單字");
-    if (!geminiKey) return alert("請先設定 Gemini API Key 才能使用自動填入喔！");
+    if (!newWord.trim()) return triggerNotification('請先輸入單字', '需要輸入單字才能進行 AI 填入', 'error');
+    if (!geminiKey) return triggerNotification('需要 API Key', '請先設定 Gemini API Key 才能使用此功能', 'error');
 
     setIsAutoFilling(true);
     try {
@@ -786,11 +1105,16 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
           const parsed = JSON.parse(match[0]);
           setNewMeaning(parsed.meaning || '');
           setNewPos(parsed.pos || 'n.');
+          triggerNotification('AI 填入成功', '已自動帶入解釋與詞性');
+        } else {
+          throw new Error('無法解析格式');
         }
+      } else {
+        throw new Error('API 無回應');
       }
     } catch (e) {
       console.error(e);
-      alert("AI 自動填入失敗，請手動輸入");
+      triggerNotification('自動填入失敗', '請檢查網路連線或稍後再試，也可直接手動輸入', 'error');
     } finally {
       setIsAutoFilling(false);
     }
@@ -809,21 +1133,19 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
     setShowAdd(false);
   };
 
-  // 🔊 原生語音朗讀功能
   const handleSpeak = (e, text) => {
     if (e) e.stopPropagation();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    window.speechSynthesis.speak(utterance);
+    playVoice(text, accent);
   };
 
   const posColors = {
-    'n.': 'text-blue-500 bg-blue-500/10',
-    'v.': 'text-rose-500 bg-rose-500/10',
-    'adj.': 'text-amber-500 bg-amber-500/10',
-    'adv.': 'text-purple-500 bg-purple-500/10',
-    'prep.': 'text-teal-500 bg-teal-500/10',
-    'conj.': 'text-indigo-500 bg-indigo-500/10',
+    'n.': 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-500/10 border-blue-100 dark:border-blue-500/20',
+    'v.': 'text-rose-600 bg-rose-50 dark:text-rose-400 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20',
+    'adj.': 'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/20',
+    'adv.': 'text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/20',
+    'prep.': 'text-teal-600 bg-teal-50 dark:text-teal-400 dark:bg-teal-500/10 border-teal-100 dark:border-teal-500/20',
+    'conj.': 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/20',
+    'phr.': 'text-slate-600 bg-slate-50 dark:text-slate-400 dark:bg-slate-500/10 border-slate-100 dark:border-slate-500/20',
   };
 
   return (
@@ -867,6 +1189,10 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
           }}
             className="p-4 rounded-[24px] shadow-sm bg-white dark:bg-white/5 border border-slate-200/50 dark:border-white/10 text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 active:scale-[0.95] transition-all duration-300 ease-spring shrink-0" title="隨機抽背">
             <Shuffle size={20} />
+          </button>
+          <button onClick={() => setAccent(a => a === 'US' ? 'UK' : 'US')}
+            className="p-4 rounded-[24px] shadow-sm bg-white dark:bg-white/5 border border-slate-200/50 dark:border-white/10 text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 active:scale-[0.95] transition-all duration-300 ease-spring shrink-0 flex items-center justify-center font-black text-[18px]" title={accent === 'US' ? '目前為美式，點擊切換為英式發音' : '目前為英式，點擊切換為美式發音'}>
+            {accent === 'US' ? '🇺🇸' : '🇬🇧'}
           </button>
           <button onClick={() => setShowAdd(!showAdd)}
             className={`p-4 rounded-[24px] shadow-lg active:scale-[0.95] transition-all duration-300 ease-spring shrink-0 ${showAdd ? 'bg-slate-100 dark:bg-white/10 text-slate-500 rotate-45 shadow-none' : 'bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600'}`}>
@@ -947,119 +1273,86 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
           </div>
         ) : (
           filtered.map((w, idx) => {
-            const isExpanded = expandedWord === w.id;
-            // 如果有搜尋且完全匹配，自動展開
-            const autoExpand = search.trim().toLowerCase() === w.word.toLowerCase();
-            const active = isExpanded || autoExpand;
-
-            // 個別單字的 AI 狀態
-            const analysis = aiAnalysisData[w.id];
-            const isAnalyzing = analyzingIds.has(w.id);
-
             return (
               <div
                 key={w.id}
                 style={{ animationDelay: `${Math.min(idx * 30, 600)}ms` }}
-                className={`group flex flex-col bg-white/50 dark:bg-zinc-900/40 backdrop-blur-md backdrop-saturate-150 border border-white/60 dark:border-white/10 rounded-[32px] overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] animate-slide-up-fade shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transform-gpu will-change-transform ${active ? 'ring-2 ring-emerald-500/30 scale-[1.01] my-2' : 'hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1'}`}
+                className="group flex flex-col bg-white/50 dark:bg-zinc-900/40 backdrop-blur-md border border-white/60 dark:border-white/10 rounded-[32px] overflow-hidden transition-all duration-500 ease-spring shadow-[0_8px_20px_rgba(0,0,0,0.03)] dark:shadow-none transform-gpu will-change-transform hover:shadow-lg hover:-translate-y-1 active:scale-[0.98]"
               >
                 <div
-                  className="flex items-center gap-4 px-6 py-5 cursor-pointer"
+                  className="flex items-center gap-5 px-6 py-[22px] cursor-pointer relative overflow-hidden"
                   onClick={() => {
-                    if (!active) handleSpeak(null, w.word);
-                    setExpandedWord(active ? null : w.id);
+                    handleSpeak(null, w.word);
+                    setDetailedWordId(w.id);
                   }}
                 >
-                  <div className={`w-12 h-12 rounded-[20px] flex items-center justify-center font-black text-xl transition-all duration-500 ${active ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 rotate-3' : 'bg-slate-100 dark:bg-white/5 text-slate-400 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-500/10 group-hover:text-emerald-500'}`}>
-                    {w.word.charAt(0).toUpperCase()}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className={`text-[18px] font-black tracking-tight transition-colors ${active ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-800 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400'}`}>{w.word}</span>
-                      <button onClick={(e) => handleSpeak(e, w.word)} className="p-1.5 text-slate-400 hover:text-blue-500 bg-slate-100 dark:bg-white/5 hover:bg-blue-50 dark:hover:bg-blue-500/20 rounded-lg transition-all active:scale-90" title="朗讀發音">
-                        <Volume2 size={16} />
-                      </button>
-                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${posColors[w.partOfSpeech || w.pos] || 'text-gray-500 bg-gray-500/10'}`}>
-                        {w.partOfSpeech || w.pos}
+                  <div className="flex-1 min-w-0 relative z-10 space-y-2">
+                    {/* 第一行：單字 */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[24px] font-black tracking-tighter transition-all duration-500 text-slate-900 dark:text-white">
+                        {w.word}
                       </span>
-                    </div>
-                    {/* 搜尋時顯示解釋，預設清爽 */}
-                    {(search.trim() || active) && (
-                      <p className="text-[13px] font-bold text-slate-500 dark:text-emerald-100/60 transition-all animate-fadeIn mt-1 line-clamp-1">
-                        {w.meaning || w.chinese}
-                      </p>
-                    )}
-                  </div>
-
-                  <ChevronRight size={20} className={`text-slate-300 transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${active ? 'rotate-90 text-emerald-500' : 'group-hover:translate-x-1 group-hover:text-emerald-400'}`} />
-                </div>
-
-                {/* 展開詳情區域 */}
-                {active && (
-                  <div className="px-6 pb-6 animate-fadeIn space-y-4 border-t border-[var(--border-color)] pt-5">
-                    <div className="grid grid-cols-2 gap-3 text-center">
-                      <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-[var(--border-color)]">
-                        <span className="block text-[10px] font-black text-slate-400 mb-1">級別</span>
-                        <span className="text-[15px] font-black text-slate-700 dark:text-white">LEVEL {w.level || 1}</span>
-                      </div>
-                      <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-[var(--border-color)]">
-                        <span className="block text-[10px] font-black text-slate-400 mb-1">熟練度</span>
-                        <div className="flex justify-center gap-1">
-                          {[1, 2, 3, 4, 5].map(i => (
-                            <div key={i} className={`w-2 h-2 rounded-full transition-colors duration-500 ${i <= (w.repetitions || 0) ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-200 dark:bg-white/10'}`} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-purple-50/50 to-indigo-50/50 dark:from-purple-900/10 dark:to-indigo-900/10 rounded-2xl p-5 border border-purple-100 dark:border-purple-500/10">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[12px] font-black text-slate-800 dark:text-white flex items-center gap-2">
-                          <Sparkles size={14} className="text-purple-500" /> AI 深度解析
-                        </span>
-                        {!analysis && !isAnalyzing && (
+                      <div className="flex items-center gap-1 sm:gap-2 transition-all duration-500 text-slate-300">
+                        {currentSet !== 'Personal' && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleAiAnalyze(w.id, w.word); }}
-                            className="text-[10px] font-black bg-purple-500 hover:bg-purple-600 text-white px-3 py-1.5 rounded-lg active:scale-95 transition-all shadow-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (savedWords.has(w.id)) return;
+                              setSavedWords(prev => new Set(prev).add(w.id));
+                              addWords([w], 'Personal', false);
+                            }}
+                            className={`p-2 rounded-full transition-all active:scale-90 ${savedWords.has(w.id) ? 'text-rose-500 bg-rose-50 dark:bg-rose-500/10' : 'text-slate-300 hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-white/10'}`}
+                            title="加入個人收藏"
                           >
-                            點擊解析
+                            <Heart size={22} className={savedWords.has(w.id) ? 'fill-current animate-heart-burst' : ''} />
                           </button>
                         )}
+                        <ChevronRight size={22} className="group-hover:translate-x-1" />
                       </div>
-
-                      {isAnalyzing ? (
-                        <div className="flex items-center gap-3 py-2 text-slate-400 italic text-[11px] font-bold">
-                          <RefreshCw size={14} className="animate-spin" /> 正在編寫單字解析中...
-                        </div>
-                      ) : analysis ? (
-                        <div className="text-[13px] leading-relaxed text-slate-700 dark:text-gray-300 prose prose-sm dark:prose-invert prose-emerald max-w-none">
-                          <ReactMarkdown>{analysis}</ReactMarkdown>
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-slate-400 font-bold italic text-center">讓 AI 幫你深度理解這個單字</p>
-                      )}
                     </div>
 
-                    <div className="flex gap-2">
-                      <button className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[20px] text-[13px] font-black active:scale-95 transition-all shadow-lg hover:shadow-float">
-                        <Heart size={16} /> 加入個人收藏
+                    {/* 第二行：詞性 + 發音 */}
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none transition-all ${posColors[w.partOfSpeech || w.pos] || 'text-gray-500 bg-gray-500/10 border-gray-100'}`}>
+                        {w.partOfSpeech || w.pos}
+                      </span>
+                      <button
+                        onClick={(e) => handleSpeak(e, w.word)}
+                        className="p-1.5 text-slate-400 hover:text-emerald-500 bg-slate-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 rounded-xl transition-all active:scale-90"
+                      >
+                        <Volume2 size={16} />
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); handleExportIG(w, analysis); }} className="p-3.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 rounded-[20px] hover:bg-indigo-100 transition-all border border-indigo-100 dark:border-transparent active:scale-95 shadow-sm" title="匯出成 IG 限動圖片">
-                        <Share2 size={16} />
-                      </button>
-                      {(isAdmin || currentSet === 'Personal') && (
-                        <button onClick={() => deleteWord(w.id)} className="p-3.5 bg-rose-50 dark:bg-rose-500/10 text-rose-500 rounded-[20px] hover:bg-rose-100 transition-all border border-rose-100 dark:border-transparent">
-                          <Trash2 size={16} />
-                        </button>
-                      )}
                     </div>
+
+                    {/* 第三行：中文意思 */}
+                    <p className="text-[15px] font-bold leading-relaxed break-words whitespace-normal transition-all duration-500 text-slate-400 dark:text-slate-500 line-clamp-1">
+                      {w.meaning || w.chinese}
+                    </p>
                   </div>
-                )}
+                </div>
               </div>
             );
           })
         )}
       </div>
+
+      {/* 詳情全屏視窗 */}
+      {detailedWordId && (
+        <WordDetailOverlay
+          word={filtered.find(w => w.id === detailedWordId) || words.find(w => w.id === detailedWordId)}
+          analysis={words.find(w => w.id === detailedWordId)?.notes || aiAnalysisData[detailedWordId]}
+          isAnalyzing={analyzingIds.has(detailedWordId)}
+          handleAiAnalyze={handleAiAnalyze}
+          currentSet={currentSet}
+          isSaved={savedWords.has(detailedWordId)}
+          onSave={() => setSavedWords(prev => new Set(prev).add(detailedWordId))}
+          addWords={addWords}
+          onClose={() => setDetailedWordId(null)}
+          updateWord={updateWord}
+          triggerNotification={triggerNotification}
+          playVoice={playVoice}
+        />
+      )}
     </div>
   );
 };
@@ -1067,7 +1360,7 @@ const WordBank = ({ words, search, setSearch, updateWord, deleteWord, addWords, 
 // ═══════════════════════════════════════════════════════════════════════════════
 // REVIEW MODE (Flashcards with SRS)
 // ═══════════════════════════════════════════════════════════════════════════════
-const ReviewMode = ({ words, updateWord, incrementWordCount }) => {
+const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }) => {
   const [sessionWords, setSessionWords] = useState([]);
   const [initialized, setInitialized] = useState(false);
   const [idx, setIdx] = useState(0);
@@ -1279,9 +1572,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount }) => {
           onClick={() => {
             if (!showAnswer) {
               setShowAnswer(true);
-              const utterance = new SpeechSynthesisUtterance(current.word);
-              utterance.lang = 'en-US';
-              window.speechSynthesis.speak(utterance);
+              playVoice(current.word, accent);
             }
           }}
           style={{
@@ -1295,7 +1586,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount }) => {
             style={{ backfaceVisibility: 'hidden' }}
             className="absolute inset-0 flex flex-col items-center justify-center p-10 rounded-[48px] bg-white/50 dark:bg-zinc-900/50 backdrop-blur-2xl backdrop-saturate-200 border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_12px_40px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_12px_40px_rgba(0,0,0,0.3)] overflow-hidden"
           >
-            <span className="text-[42px] font-black text-slate-900 dark:text-white mb-4 text-center tracking-tight leading-none pointer-events-none">{current.word}</span>
+            <span className="text-[42px] font-black text-slate-900 dark:text-white mb-4 text-center tracking-tight leading-tight pointer-events-none break-words whitespace-normal px-6 w-full">{current.word}</span>
             {current.partOfSpeech && <span className="text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg mb-6 pointer-events-none">{current.partOfSpeech}</span>}
             <p className="text-[13px] font-black text-slate-400 uppercase tracking-widest mt-4 flex items-center gap-2 pointer-events-none"><Sparkles size={14} /> 點擊翻面</p>
           </div>
@@ -1309,9 +1600,19 @@ const ReviewMode = ({ words, updateWord, incrementWordCount }) => {
             {showAnswer && offsetX < -20 && <div className="absolute inset-0 bg-rose-400/20 flex items-center justify-start p-8 transition-opacity duration-300 pointer-events-none"><span className="text-6xl drop-shadow-lg">😵</span></div>}
 
             <div className="w-12 h-1 bg-emerald-200 dark:bg-emerald-500/30 rounded-full mb-6 pointer-events-none"></div>
-            <p className="text-[22px] font-black text-emerald-700 dark:text-emerald-400 mb-4 pointer-events-none">{current.meaning}</p>
-            {current.example && <p className="text-[14px] font-bold text-slate-500 dark:text-emerald-100/60 italic max-w-sm pointer-events-none text-center">"{current.example}"</p>}
-            <p className="text-[11px] font-black text-slate-400/60 mt-8 flex items-center gap-2 pointer-events-none">
+            <p className="text-[22px] font-black text-emerald-700 dark:text-emerald-400 mb-4 pointer-events-none text-center break-words whitespace-normal px-4">{current.meaning}</p>
+            {current.example && <p className="text-[14px] font-bold text-slate-500 dark:text-emerald-100/60 italic max-w-sm pointer-events-none text-center break-words whitespace-normal px-4">"{current.example}"</p>}
+
+            {/* 顯示 AI 解析筆記 */}
+            {current.notes && (
+              <div className="mt-4 p-3 bg-white/40 dark:bg-black/20 rounded-2xl border border-emerald-200/50 max-w-[280px] max-h-[120px] overflow-y-auto text-left pointer-events-auto custom-scrollbar">
+                <div className="text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-200/80 prose-sm dark:prose-invert">
+                  <ReactMarkdown>{current.notes}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+
+            <p className="text-[11px] font-black text-slate-400/60 mt-auto pb-4 flex items-center gap-2 pointer-events-none">
               <span className="bg-slate-200 dark:bg-white/10 px-2 py-1 rounded">← 忘記</span>左右滑動<span className="bg-slate-200 dark:bg-white/10 px-2 py-1 rounded">記得 →</span>
             </p>
           </div>
@@ -1339,7 +1640,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount }) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // QUIZ MODE (Multiple Choice + Spelling + Grammar)
 // ═══════════════════════════════════════════════════════════════════════════════
-const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }) => {
+const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, playVoice, accent }) => {
   const [quizType, setQuizType] = useState(null); // null | 'choice' | 'spell' | 'grammar'
   const [questions, setQuestions] = useState([]);
   const [qIdx, setQIdx] = useState(0);
@@ -1371,14 +1672,16 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
     try {
       const ctx = audioCtx.current || new (window.AudioContext || window.webkitAudioContext)();
       audioCtx.current = ctx;
+      const t = ctx.currentTime;
+      // 🚀 優化：使用低頻鋸齒波模擬更自然的震動提示感，而非刺耳電子音
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
-      osc.type = 'triangle'; // 改用更柔和的三角波
-      osc.frequency.setValueAtTime(250, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
+      osc.type = 'triangle'; // 改用 triangle 波形，聽起來較柔和
+      osc.frequency.setValueAtTime(100, t);
+      osc.frequency.exponentialRampToValueAtTime(40, t + 0.3);
+      gain.gain.setValueAtTime(0.15, t);
+      gain.gain.linearRampToValueAtTime(0.001, t + 0.3);
+      osc.start(t); osc.stop(t + 0.3);
     } catch { }
   }, []);
 
@@ -1578,28 +1881,28 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
           </div>
         )}
         <button onClick={generateChoiceQuiz} disabled={words.length < 4}
-          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-[32px] border border-blue-100 dark:border-blue-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
-          <div className="p-4 bg-blue-500 rounded-2xl text-white shadow-lg shadow-blue-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0"><Shuffle size={28} /></div>
-          <div><span className="text-[16px] font-black text-slate-800 dark:text-white block">選擇題模式</span><span className="text-[12px] font-bold text-slate-400">看英文選中文，{quizCount} 題快速測驗</span></div>
+          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-[32px] border border-blue-100 dark:border-blue-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
+          <div className="p-3 sm:p-4 bg-blue-500 rounded-2xl text-white shadow-lg shadow-blue-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0"><Shuffle size={24} className="sm:w-7 sm:h-7" /></div>
+          <div><span className="text-[15px] sm:text-[16px] font-black text-slate-800 dark:text-white block">選擇題模式</span><span className="text-[11px] sm:text-[12px] font-bold text-slate-400">看英文選中文，{quizCount} 題快速測驗</span></div>
         </button>
         <button onClick={generateSpellQuiz} disabled={words.length < 1}
-          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-[32px] border border-purple-100 dark:border-purple-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
-          <div className="p-4 bg-purple-500 rounded-2xl text-white shadow-lg shadow-purple-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0"><PenTool size={28} /></div>
-          <div><span className="text-[16px] font-black text-slate-800 dark:text-white block">拼寫測驗</span><span className="text-[12px] font-bold text-slate-400">看中文拼英文，{quizCount} 題訓練記憶</span></div>
+          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-[32px] border border-purple-100 dark:border-purple-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
+          <div className="p-3 sm:p-4 bg-purple-500 rounded-2xl text-white shadow-lg shadow-purple-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0"><PenTool size={24} className="sm:w-7 sm:h-7" /></div>
+          <div><span className="text-[15px] sm:text-[16px] font-black text-slate-800 dark:text-white block">拼寫測驗</span><span className="text-[11px] sm:text-[12px] font-bold text-slate-400">看中文拼英文，{quizCount} 題訓練記憶</span></div>
         </button>
         <button onClick={generateGrammarQuiz} disabled={words.length < 3 || loading}
-          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-[32px] border border-emerald-100 dark:border-emerald-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
-          <div className="p-4 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0">
-            {loading && loadingType === 'grammar' ? <RefreshCw size={28} className="animate-spin" /> : <Sparkles size={28} />}
+          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-[32px] border border-emerald-100 dark:border-emerald-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
+          <div className="p-3 sm:p-4 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0">
+            {loading && loadingType === 'grammar' ? <RefreshCw size={24} className="animate-spin sm:w-7 sm:h-7" /> : <Sparkles size={24} className="sm:w-7 sm:h-7" />}
           </div>
-          <div><span className="text-[16px] font-black text-slate-800 dark:text-white block">AI 文法測驗</span><span className="text-[12px] font-bold text-slate-400">AI 動態生成 {Math.min(quizCount, 10)} 題文法題</span></div>
+          <div><span className="text-[15px] sm:text-[16px] font-black text-slate-800 dark:text-white block">AI 文法測驗</span><span className="text-[11px] sm:text-[12px] font-bold text-slate-400">AI 動態生成 {Math.min(quizCount, 10)} 題文法題</span></div>
         </button>
         <button onClick={generateClozeQuiz} disabled={words.length < 4 || loading}
-          className="w-full flex items-center gap-5 p-6 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-[32px] border border-orange-100 dark:border-orange-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
-          <div className="p-4 bg-orange-500 rounded-2xl text-white shadow-lg shadow-orange-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0">
-            {loading && loadingType === 'cloze' ? <RefreshCw size={28} className="animate-spin" /> : <FileText size={28} />}
+          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-[32px] border border-orange-100 dark:border-orange-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
+          <div className="p-3 sm:p-4 bg-orange-500 rounded-2xl text-white shadow-lg shadow-orange-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0">
+            {loading && loadingType === 'cloze' ? <RefreshCw size={24} className="animate-spin sm:w-7 sm:h-7" /> : <FileText size={24} className="sm:w-7 sm:h-7" />}
           </div>
-          <div><span className="text-[16px] font-black text-slate-800 dark:text-white block">克漏字測驗 (Cloze)</span><span className="text-[12px] font-bold text-slate-400">AI 根據單字庫產生 {Math.min(quizCount, 10)} 題情境填空</span></div>
+          <div><span className="text-[15px] sm:text-[16px] font-black text-slate-800 dark:text-white block">克漏字測驗 (Cloze)</span><span className="text-[11px] sm:text-[12px] font-bold text-slate-400">AI 根據單字庫產生 {Math.min(quizCount, 10)} 題情境填空</span></div>
         </button>
       </div>
     );
@@ -1610,7 +1913,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
     const pct = Math.round((score / questions.length) * 100);
     return (
       <div className="flex flex-col items-center py-12 text-center animate-slide-up-fade relative">
-        <Confetti score={score} total={questions.length} />
+        {/* 已移除 Confetti 特效 */}
         <div className={`w-28 h-28 rounded-full flex items-center justify-center mb-6 shadow-inner border ${pct >= 80 ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-500/10' : pct >= 50 ? 'bg-amber-50 border-amber-100 dark:bg-amber-500/10' : 'bg-rose-50 border-rose-100 dark:bg-rose-500/10'}`}>
           <span className="text-[40px] font-black animate-bounce-soft">{pct >= 80 ? '🏆' : pct >= 50 ? '💪' : '📚'}</span>
         </div>
@@ -1641,9 +1944,9 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
           </div>
           <span className="text-[13px] font-black text-emerald-500">✓ {score}</span>
         </div>
-        <div className="text-center py-8 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-6">
-          <span className="text-[36px] font-black text-slate-900 dark:text-white tracking-tight">{q.word.word}</span>
-          <p className="text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg inline-block mt-3">{q.word.partOfSpeech}</p>
+        <div className="text-center py-6 sm:py-8 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[32px] sm:rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-5 sm:mb-6">
+          <span className="text-[28px] sm:text-[36px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">{q.word.word}</span>
+          <p className="text-[12px] sm:text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg inline-block mt-2 sm:mt-3">{q.word.partOfSpeech}</p>
         </div>
         <div className="space-y-3">
           {q.options.map((opt, i) => {
@@ -1651,12 +1954,13 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
             if (showResult) {
               if (opt === q.answer) cls = 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30 scale-[1.02] z-10 relative';
               else if (opt === selected) cls = 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30 scale-[1.02] z-10 relative animate-vocab-shake';
+              else cls += ' opacity-40 scale-[0.98] pointer-events-none'; // 讓非正確答案淡出，聚焦正確答案
             }
             return (
               <button key={i} onClick={() => handleChoiceAnswer(opt)}
-                className={`w-full text-left px-6 py-5 rounded-[24px] border-2 font-bold text-[16px] transition-all duration-300 ease-spring-smooth active:scale-[0.98] flex items-center ${cls}`}>
-                <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-[13px] font-black mr-4 shrink-0 transition-colors ${showResult && (opt === q.answer || opt === selected) ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}`}>{String.fromCharCode(65 + i)}</span>
-                {opt}
+                className={`w-full text-left px-5 py-4 sm:px-6 sm:py-5 rounded-[20px] sm:rounded-[24px] border-2 font-bold text-[15px] sm:text-[16px] transition-all duration-300 ease-spring-smooth active:scale-[0.98] flex items-center break-words whitespace-normal ${cls}`}>
+                <span className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[12px] sm:text-[13px] font-black mr-3 sm:mr-4 shrink-0 transition-colors ${showResult && (opt === q.answer || opt === selected) ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}`}>{String.fromCharCode(65 + i)}</span>
+                <span className="flex-1">{opt}</span>
               </button>
             );
           })}
@@ -1678,16 +1982,16 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
           </div>
           <span className="text-[13px] font-black text-emerald-500">✓ {score}</span>
         </div>
-        <div className="text-center py-10 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-6">
-          <p className="text-[12px] font-bold text-slate-400 mb-3 uppercase tracking-widest">請拼出以下中文的英文</p>
-          <span className="text-[32px] font-black text-slate-900 dark:text-white">{q.word.meaning}</span>
+        <div className="text-center py-6 sm:py-10 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[32px] sm:rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-5 sm:mb-6">
+          <p className="text-[11px] sm:text-[12px] font-bold text-slate-400 mb-2 sm:mb-3 uppercase tracking-widest">請拼出以下中文的英文</p>
+          <span className="text-[24px] sm:text-[32px] font-black text-slate-900 dark:text-white px-4 block leading-tight">{q.word.meaning}</span>
           {q.word.partOfSpeech && <p className="text-[12px] font-bold text-slate-400 mt-2">({q.word.partOfSpeech})</p>}
         </div>
         <div className="space-y-3">
           <input ref={spellRef} autoFocus type="text" value={spellInput} onChange={e => setSpellInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !showResult && handleSpellSubmit()}
             disabled={showResult}
-            className={`w-full text-center text-[24px] font-black py-5 rounded-[24px] border-2 outline-none transition-all duration-300 tracking-widest ${showResult
+            className={`w-full text-center text-[22px] sm:text-[24px] font-black py-4 sm:py-5 rounded-[20px] sm:rounded-[24px] border-2 outline-none transition-all duration-300 tracking-widest ${showResult
               ? isCorrect ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]' : 'bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-500/30 scale-[1.02]'
               : 'bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] focus:bg-white/60 dark:focus:bg-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
               }`} placeholder="..." />
@@ -1699,9 +2003,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  const utterance = new SpeechSynthesisUtterance(q.word.word);
-                  utterance.lang = 'en-US';
-                  window.speechSynthesis.speak(utterance);
+                  playVoice(q.word.word, accent);
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg text-[12px] font-black hover:bg-blue-100 dark:hover:bg-blue-500/30 transition-colors active:scale-95 shadow-sm"
               >
@@ -1711,7 +2013,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
           )}
           {!showResult && (
             <button onClick={handleSpellSubmit}
-              className="w-full py-5 bg-purple-500 hover:bg-purple-600 text-white rounded-[24px] font-black text-[16px] active:scale-[0.98] transition-all duration-300 ease-spring shadow-lg shadow-purple-500/30">
+              className="w-full py-4 sm:py-5 bg-purple-500 hover:bg-purple-600 text-white rounded-[20px] sm:rounded-[24px] font-black text-[15px] sm:text-[16px] active:scale-[0.98] transition-all duration-300 ease-spring shadow-lg shadow-purple-500/30">
               確認
             </button>
           )}
@@ -1737,7 +2039,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
             {quizType === 'cloze' ? <FileText size={16} className="text-orange-500" /> : <Sparkles size={16} className="text-emerald-500" />}
             <span className={`text-[11px] font-black uppercase tracking-widest ${quizType === 'cloze' ? 'text-orange-500' : 'text-emerald-500'}`}>{quizType === 'cloze' ? 'AI Cloze Test' : 'AI Grammar'}</span>
           </div>
-          <p className="text-[18px] font-black text-slate-900 dark:text-white leading-relaxed">{q.question}</p>
+          <p className="text-[16px] sm:text-[18px] font-black text-slate-900 dark:text-white leading-relaxed break-words whitespace-normal">{q.question}</p>
         </div>
         <div className="space-y-3">
           {q.options.map((opt, i) => {
@@ -1745,12 +2047,13 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount }
             if (showResult) {
               if (opt === q.answer) cls = 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30 scale-[1.02] z-10 relative';
               else if (opt === selected) cls = 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30 scale-[1.02] z-10 relative animate-vocab-shake';
+              else cls += ' opacity-40 scale-[0.98] pointer-events-none'; // 讓非正確答案淡出
             }
             return (
               <button key={i} onClick={() => handleGrammarAnswer(opt)}
-                className={`w-full text-left px-6 py-5 rounded-[24px] border-2 font-bold text-[16px] transition-all duration-300 ease-spring-smooth active:scale-[0.98] flex items-center ${cls}`}>
-                <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-[13px] font-black mr-4 shrink-0 transition-colors ${showResult && (opt === q.answer || opt === selected) ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}`}>{String.fromCharCode(65 + i)}</span>
-                {opt}
+                className={`w-full text-left px-5 py-4 sm:px-6 sm:py-5 rounded-[20px] sm:rounded-[24px] border-2 font-bold text-[15px] sm:text-[16px] transition-all duration-300 ease-spring-smooth active:scale-[0.98] flex items-center break-words whitespace-normal ${cls}`}>
+                <span className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[12px] sm:text-[13px] font-black mr-3 sm:mr-4 shrink-0 transition-colors ${showResult && (opt === q.answer || opt === selected) ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}`}>{String.fromCharCode(65 + i)}</span>
+                <span className="flex-1">{opt}</span>
               </button>
             );
           })}

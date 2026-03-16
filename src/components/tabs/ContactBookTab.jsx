@@ -4,10 +4,10 @@ import {
   Trash2, BookOpen, Calendar, ChevronDown, Camera, Loader2, Bell,
   LayoutGrid, List
 } from 'lucide-react';
-import { WEEKDAYS, ICON_MAP } from '../utils/constants';
-import { fetchAI } from '../utils/helpers';
+import { WEEKDAYS, ICON_MAP } from '../../utils/constants';
+import { fetchAI } from '../../utils/helpers';
 import toast from 'react-hot-toast';
-import { db } from '../firebase';
+import { db } from '../../config/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
 const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID, user }) => {

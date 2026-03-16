@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Store, CreditCard, Clock, MapPin, Navigation, CheckCircle2, Utensils, Coffee, CupSoda, PenTool } from 'lucide-react';
 
-import { db } from '../firebase';
+import { db } from '../../config/firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
 

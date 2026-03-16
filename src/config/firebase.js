@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getMessaging } from "firebase/messaging";
 
@@ -32,6 +32,18 @@ try {
 
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
+  
+  // 3. 啟用離線快取以加速讀取速度
+  if (typeof window !== 'undefined') {
+    enableIndexedDbPersistence(db).catch((err) => {
+      if (err.code === 'failed-precondition') {
+        console.warn("Firebase Persistence: Multiple tabs open, persistence can only be enabled in one tab at a time.");
+      } else if (err.code === 'unimplemented') {
+        console.warn("Firebase Persistence: The current browser does not support all of the features required to enable persistence.");
+      }
+    });
+  }
+
   auth = getAuth(app);
   messaging = getMessaging(app);
   console.log("✅ Firebase 初始化成功");

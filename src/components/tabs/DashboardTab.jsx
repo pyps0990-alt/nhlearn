@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import {
   INITIAL_WEEKLY_SCHEDULE, WEEKDAYS, ICON_MAP, SUBJECTS_LIST
-} from '../utils/constants';
-import { fetchAI } from '../utils/helpers';
+} from '../../utils/constants';
+import { fetchAI } from '../../utils/helpers';
 // Firestore moved to App.jsx for global sync
 
 // === 外部函式與常數 ===

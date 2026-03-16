@@ -3,7 +3,7 @@ import {
   MessageSquare, Heart, Coffee, Star, Send,
   MapPin, Mail, Github, Users, CreditCard, Sparkles, RefreshCw, ImagePlus, X, ChevronDown
 } from 'lucide-react';
-import { db } from '../firebase';
+import { db } from '../../config/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const FeedbackTab = ({ userProfile, triggerNotification }) => {

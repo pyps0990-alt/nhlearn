@@ -201,3 +201,26 @@ export const FeedbackModal = ({ isOpen, onClose }) => {
     </div>
   );
 };
+
+// --- Tab Loading Skeleton ---
+export const TabSkeleton = () => (
+  <div className="w-full space-y-6 animate-pulse p-2">
+    <div className="flex items-center space-x-4">
+      <div className="w-12 h-12 bg-slate-200 dark:bg-zinc-800 rounded-2xl" />
+      <div className="space-y-2">
+        <div className="h-4 w-32 bg-slate-200 dark:bg-zinc-800 rounded-md" />
+        <div className="h-3 w-24 bg-slate-200 dark:bg-zinc-800 rounded-md" />
+      </div>
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div className="h-24 bg-slate-100 dark:bg-zinc-900/50 rounded-[28px]" />
+      <div className="h-24 bg-slate-100 dark:bg-zinc-900/50 rounded-[28px]" />
+    </div>
+    <div className="h-64 bg-slate-50 dark:bg-zinc-900/30 rounded-[32px] w-full" />
+    <div className="space-y-3">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="h-16 bg-slate-100 dark:bg-zinc-900/50 rounded-2xl w-full" />
+      ))}
+    </div>
+  </div>
+);
