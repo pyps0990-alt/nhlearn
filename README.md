@@ -78,26 +78,34 @@
 
 ---
 
-## 📂 專案目錄結構 (Folder Structure)
+## 📂 專案目錄結構 (Project Structure)
+
+本專案採用 React + Vite 作為前端框架，並結合 Firebase 作為後端服務。以下為核心目錄與檔案結構說明：
 
 ```text
 gsat-pro/
-├── api/                   # Vercel Serverless Functions (校園公告抓取 API)
-├── functions/             # Firebase Cloud Functions (定時推播、通知處理)
-├── public/                # 靜態資源 (PWA Manifest, Icons, 預設圖片)
+├── public/
+│   ├── firebase-messaging-sw.js  # Firebase FCM 雲端推播 Service Worker
+│   └── ...                       # 其他靜態資源 (如 PWA Icons, Manifest)
 ├── src/
-│   ├── components/        # React 獨立 UI 元件 (各個主要分頁與共用模組)
-│   │   ├── DashboardTab.jsx   # 日常課表與儀表板
-│   │   ├── VocabularyTab.jsx  # 單字特訓 (SRS 記憶曲線與測驗)
-│   │   ├── ContactBookTab.jsx # 班級電子聯絡簿
-│   │   └── ...
-│   ├── utils/             # 專案輔助函式與常數 (模板、工具函式)
-│   ├── App.jsx            # 主應用程式進入點與全域路由/狀態管理
-│   ├── firebase.js        # Firebase SDK 初始化與設定
-│   └── index.css          # 全域 Tailwind CSS 與特調動畫 (Liquid Glass)
-├── tailwind.config.js     # Tailwind CSS 客製化設定檔
-└── vite.config.js         # Vite 打包編譯設定
-```
+│   ├── components/               # React UI 元件庫
+│   │   ├── tabs/                 # 主應用程式功能分頁 (Tabs)
+│   │   │   ├── VocabularyTab.jsx # 單字特訓模組 (單字庫、今日複習、測驗、AI 匯入)
+│   │   │   └── ...               # 其他模組分頁
+│   │   └── ...                   # 其他共用元件 (如 Notifications, Modals)
+│   ├── config/                   # 系統與後端設定檔
+│   │   └── firebase.js           # Firebase 服務初始化 (Auth, Firestore, Messaging)
+│   ├── utils/                    # 共用輔助函式庫
+│   │   └── helpers.js            # 共用邏輯 (如 fetchAI Gemini API 呼叫、時間格式化)
+│   ├── App.jsx                   # 主應用程式進入點 (版面佈局、狀態管理)
+│   ├── main.jsx                  # React 應用程式掛載點
+│   └── index.css                 # 全域樣式設定 (包含 Tailwind 指令與自訂動畫 CSS)
+├── .env                          # 環境變數檔 (存放 Gemini API Key, Firebase Config)
+├── index.html                    # 網頁入口 HTML 模板
+├── package.json                  # Node.js 專案相依套件與腳本設定
+├── tailwind.config.js            # Tailwind CSS 主題、擴充顏色與自訂動畫設定
+└── vite.config.js                # Vite 打包與開發伺服器建置設定
+
 
 
 
