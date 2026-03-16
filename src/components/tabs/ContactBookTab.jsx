@@ -46,6 +46,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     d.setDate(1);
     return d;
   });
+  const [collapsedSubjects, setCollapsedSubjects] = useState(new Set());
 
   const addFormRef = useRef(null); // 用於快速跳轉至新增表單
 
@@ -67,20 +68,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
 
   const handleAddEntry = async () => {
     if (!newEntry.homework && !newEntry.exam) {
-      alert('請輸入作業或考試內容！');
-      return;
-    }
-
-    // Validation: Check duplicate
-    const currentEntries = contactBook[selectedDate] || [];
-    const isDuplicate = currentEntries.some(entry =>
-      entry.subject === newEntry.subject &&
-      entry.homework === newEntry.homework &&
-      entry.exam === newEntry.exam
-    );
-
-    if (isDuplicate) {
-      alert('聯絡簿中已有完全相同的內容囉！請確認是否重複輸入。');
+      toast.error('請輸入作業或考試內容！');
       return;
     }
 
@@ -91,8 +79,50 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       if (!window.confirm('截止日期似乎已經過了，確定要新增嗎？')) return;
     }
 
-    const updatedEntries = [...currentEntries, { id: Date.now(), ...newEntry }];
-    const newContactBook = { ...contactBook, [selectedDate]: updatedEntries };
+    const newContactBook = { ...contactBook };
+    let addedCount = 0;
+
+    // 1. 處理作業 (分派至指定的 deadline 或選定的日期)
+    if (newEntry.homework) {
+      const hwDate = newEntry.homeworkDeadline || selectedDate;
+      if (!newContactBook[hwDate]) newContactBook[hwDate] = [];
+
+      const isDuplicate = newContactBook[hwDate].some(e => e.subject === newEntry.subject && e.homework === newEntry.homework);
+      if (!isDuplicate) {
+        newContactBook[hwDate].push({
+          id: Date.now() + 1,
+          subject: newEntry.subject,
+          homework: newEntry.homework,
+          homeworkDeadline: newEntry.homeworkDeadline,
+          acknowledgedBy: []
+        });
+        addedCount++;
+      }
+    }
+
+    // 2. 處理考試 (分派至指定的 deadline 或選定的日期)
+    if (newEntry.exam) {
+      const examDate = newEntry.examDeadline || selectedDate;
+      if (!newContactBook[examDate]) newContactBook[examDate] = [];
+
+      const isDuplicate = newContactBook[examDate].some(e => e.subject === newEntry.subject && e.exam === newEntry.exam);
+      if (!isDuplicate) {
+        newContactBook[examDate].push({
+          id: Date.now() + 2,
+          subject: newEntry.subject,
+          exam: newEntry.exam,
+          examType: newEntry.examType,
+          examDeadline: newEntry.examDeadline,
+          acknowledgedBy: []
+        });
+        addedCount++;
+      }
+    }
+
+    if (addedCount === 0) {
+      toast.error('聯絡簿中已有完全相同的內容囉！請確認是否重複輸入。');
+      return;
+    }
 
     setContactBook(newContactBook);
     await saveContactBookToFirestore(newContactBook);
@@ -115,15 +145,20 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     }
 
     setNewEntry({ subject: subjects?.[0]?.name || '國文', homework: '', exam: '', examType: '小考', homeworkDeadline: '', examDeadline: '' });
+    toast.success('新增成功！');
   };
 
   const handleDeleteEntry = async (id) => {
     if (!window.confirm('確定要刪除這項記錄嗎？')) return;
-    const updatedEntries = (contactBook[selectedDate] || []).filter(item => item.id !== id);
-    const newContactBook = { ...contactBook, [selectedDate]: updatedEntries };
+    // 防止刪除後出現殘留，遍歷全部日期找出並過濾
+    const newContactBook = { ...contactBook };
+    Object.keys(newContactBook).forEach(date => {
+      newContactBook[date] = newContactBook[date].filter(item => item.id !== id);
+    });
 
-    setContactBook(newContactBook);
     await saveContactBookToFirestore(newContactBook);
+    setContactBook(newContactBook);
+    toast.success('刪除成功');
   };
 
   const handleAIParse = async (e) => {
@@ -179,20 +214,22 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     }
   };
 
-  // 處理「確認收到」的切換邏輯
-  const handleToggleAck = async (dateStr, id) => {
+  // 處理「確認收到」的切換邏輯 (支援一次確認同科目的多筆項目)
+  const handleToggleAckGroup = async (dateStr, ids) => {
     if (!user) {
       toast.error('請先登入才能確認收到喔！');
       return;
     }
     const currentEntries = contactBook[dateStr] || [];
+    const groupEntries = currentEntries.filter(e => ids.includes(e.id));
+    const allAcked = groupEntries.length > 0 && groupEntries.every(e => e.acknowledgedBy?.includes(user.uid));
+
     const updatedEntries = currentEntries.map(entry => {
-      if (entry.id === id) {
+      if (ids.includes(entry.id)) {
         const acks = entry.acknowledgedBy || [];
-        const hasAcked = acks.includes(user.uid);
         return {
           ...entry,
-          acknowledgedBy: hasAcked ? acks.filter(uid => uid !== user.uid) : [...acks, user.uid]
+          acknowledgedBy: allAcked ? acks.filter(uid => uid !== user.uid) : (acks.includes(user.uid) ? acks : [...acks, user.uid])
         };
       }
       return entry;
@@ -269,6 +306,33 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
 
   const entriesForDate = contactBook[selectedDate] || [];
 
+  // 將同一天的項目依據科目進行分組 (Group by Subject)
+  const groupedEntries = entriesForDate.reduce((acc, entry) => {
+    if (!acc[entry.subject]) {
+      acc[entry.subject] = { subject: entry.subject, items: [] };
+    }
+    acc[entry.subject].items.push(entry);
+    return acc;
+  }, {});
+
+  const handleToggleAllGroups = () => {
+    const allSubjects = Object.keys(groupedEntries);
+    if (collapsedSubjects.size === allSubjects.length) {
+      setCollapsedSubjects(new Set()); // Expand all
+    } else {
+      setCollapsedSubjects(new Set(allSubjects)); // Collapse all
+    }
+  };
+
+  const toggleGroup = (subject) => {
+    setCollapsedSubjects(prev => {
+      const next = new Set(prev);
+      if (next.has(subject)) next.delete(subject);
+      else next.add(subject);
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-8 flex flex-col w-full text-left animate-slide-up-fade mb-12 pb-10">
       <div className="flex flex-col gap-3 px-2">
@@ -295,12 +359,12 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
               SELECTED DATE
             </span>
             <span className="text-[17px] font-black text-slate-900 dark:text-white group-hover/date:text-emerald-500 transition-colors">{getFormattedDate(selectedDate)}</span>
-            <input 
+            <input
               id="list-date-picker"
-              type="date" 
-              className="absolute inset-0 opacity-0 pointer-events-none" 
-              value={selectedDate} 
-              onChange={e => setSelectedDate(e.target.value)} 
+              type="date"
+              className="absolute inset-0 opacity-0 pointer-events-none"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
             />
           </div>
           <button onClick={() => changeDate(1)} className="p-4 bg-slate-100/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 rounded-[24px] active:scale-[0.95] text-slate-600 dark:text-gray-300 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] shadow-sm border border-slate-200/50 dark:border-white/5 shrink-0">
@@ -408,12 +472,20 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       </div>
 
       <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-3 mb-2 mt-4 px-1">
-          <h3 className="text-[18px] font-black text-[var(--text-primary)] flex items-center gap-2">
-            <Calendar size={20} className="text-emerald-500" />
-            {getFormattedDate(selectedDate)} 的清單
-          </h3>
-          <span className="text-[12px] font-bold text-slate-400 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg">{entriesForDate.length} 項</span>
+        <div className="flex items-center justify-between mb-2 mt-4 px-1">
+          <div className="flex items-center gap-3">
+            <h3 className="text-[18px] font-black text-[var(--text-primary)] flex items-center gap-2">
+              <Calendar size={20} className="text-emerald-500" />
+              {getFormattedDate(selectedDate)} 的清單
+            </h3>
+            <span className="text-[12px] font-bold text-slate-400 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg">{entriesForDate.length} 項</span>
+          </div>
+          {entriesForDate.length > 0 && (
+            <button onClick={handleToggleAllGroups} className="text-[12px] font-black text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 px-3 py-1.5 rounded-[12px] transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm">
+              {collapsedSubjects.size === Object.keys(groupedEntries).length ? '一鍵展開' : '一鍵收合'}
+              <ChevronDown size={14} className={`transition-transform duration-300 ${collapsedSubjects.size === Object.keys(groupedEntries).length ? 'rotate-0' : 'rotate-180'}`} />
+            </button>
+          )}
         </div>
         {entriesForDate.length === 0 ? (
           <div className="text-center py-16 bg-gray-50/50 rounded-[40px] border-2 border-dashed border-gray-200 flex flex-col items-center gap-3">
@@ -423,71 +495,88 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
             <p className="text-gray-400 font-bold text-[14px]">這天目前沒有任何紀錄 ✨</p>
           </div>
         ) : (
-          (contactBook[selectedDate] || []).map((entry, idx) => {
-            if (!entry) return null;
-            const subjectInfo = subjects.find(s => s.name === entry.subject) || { icon: '📝', color: 'text-gray-500' };
+          Object.values(groupedEntries).map((group, idx) => {
+            const subjectInfo = subjects.find(s => s.name === group.subject) || { icon: 'BookText', color: 'text-gray-500 bg-gray-50' };
+            const allAcked = group.items.length > 0 && group.items.every(item => item.acknowledgedBy?.includes(user?.uid));
+            const maxAckCount = Math.max(0, ...group.items.map(item => item.acknowledgedBy?.length || 0));
+            const isCollapsed = collapsedSubjects.has(group.subject);
+
             return (
-              <div key={entry.id || idx} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 p-7 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] relative group animate-pop-in">
-                <div className="flex justify-between items-center mb-4 border-b border-[var(--border-color)] pb-4">
+              <div key={group.subject || idx} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 p-7 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] relative group animate-pop-in">
+                <div onClick={() => toggleGroup(group.subject)} className={`flex justify-between items-center cursor-pointer select-none group/header ${isCollapsed ? '' : 'mb-4 border-b border-[var(--border-color)] pb-4'}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl ${subjectInfo.color.replace('text', 'bg-').replace('500', '50')} dark:bg-emerald-500/10 flex items-center justify-center text-xl shrink-0`}>
                       {React.createElement(ICON_MAP[subjectInfo.icon] || ICON_MAP.BookText, { size: 20, className: `${subjectInfo.color} shrink-0` })}
                     </div>
-                    <span className="text-[16px] font-black text-[var(--text-primary)]">{entry.subject}</span>
+                    <span className="text-[16px] font-black text-[var(--text-primary)]">{group.subject}</span>
+                    {isCollapsed && (
+                      <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md ml-1">{group.items.length} 項</span>
+                    )}
                   </div>
-                  <button onClick={() => handleDeleteEntry(entry.id)} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90">
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="p-1.5 rounded-lg bg-slate-100/50 dark:bg-white/5 group-hover/header:bg-slate-200 dark:group-hover/header:bg-white/10 transition-colors">
+                    <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${isCollapsed ? 'rotate-0' : 'rotate-180'}`} />
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-4">
-                  {entry.homework && (
-                    <div className="flex gap-4 group/item">
-                      <div className="w-1 bg-emerald-500 rounded-full"></div>
-                      <div className="flex-1 py-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">作業</div>
-                          {entry.homeworkDeadline && (
-                            <div className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 border border-emerald-100">
-                              <Calendar size={10} /> 截止：{entry.homeworkDeadline}
+                {!isCollapsed && (
+                  <div className="animate-fadeIn">
+                    <div className="flex flex-col gap-4">
+                      {group.items.map((entry) => (
+                        <div key={entry.id} className="relative group/item flex flex-col gap-4">
+                          {entry.homework && (
+                            <div className="flex gap-4">
+                              <div className="w-1 bg-emerald-500 rounded-full shrink-0"></div>
+                              <div className="flex-1 py-1">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">作業</div>
+                                  {entry.homeworkDeadline && (
+                                    <div className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 border border-emerald-100">
+                                      <Calendar size={10} /> 截止：{entry.homeworkDeadline}
+                                    </div>
+                                  )}
+                                </div>
+                                <p className="text-[15px] font-bold text-gray-700 dark:text-gray-300 leading-relaxed min-h-[24px] pr-8">{entry.homework}</p>
+                              </div>
                             </div>
                           )}
-                        </div>
-                        <p className="text-[15px] font-bold text-gray-700 leading-relaxed min-h-[24px]">{entry.homework}</p>
-                      </div>
-                    </div>
-                  )}
-                  {entry.exam && (
-                    <div className="flex gap-4 group/item">
-                      <div className="w-1 bg-red-500 rounded-full"></div>
-                      <div className="flex-1 py-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="text-[11px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2">
-                            考試
-                            <span className={`px-1.5 py-0.5 rounded-[6px] text-[9px] shadow-sm ${EXAM_TYPES[entry.examType || '小考']?.color || EXAM_TYPES['小考'].color}`}>{entry.examType || '小考'}</span>
-                          </div>
-                          {entry.examDeadline && (
-                            <div className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 border border-red-100">
-                              <Calendar size={10} /> 日期：{entry.examDeadline}
+                          {entry.exam && (
+                            <div className="flex gap-4">
+                              <div className="w-1 bg-red-500 rounded-full shrink-0"></div>
+                              <div className="flex-1 py-1">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="text-[11px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2">
+                                    考試
+                                    <span className={`px-1.5 py-0.5 rounded-[6px] text-[9px] shadow-sm ${EXAM_TYPES[entry.examType || '小考']?.color || EXAM_TYPES['小考'].color}`}>{entry.examType || '小考'}</span>
+                                  </div>
+                                  {entry.examDeadline && (
+                                    <div className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 border border-red-100">
+                                      <Calendar size={10} /> 日期：{entry.examDeadline}
+                                    </div>
+                                  )}
+                                </div>
+                                <p className="text-[15px] font-bold text-gray-700 dark:text-gray-300 leading-relaxed min-h-[24px] pr-8">{entry.exam}</p>
+                              </div>
                             </div>
                           )}
+                          <button onClick={() => handleDeleteEntry(entry.id)} className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all active:scale-90">
+                            <Trash2 size={18} />
+                          </button>
                         </div>
-                        <p className="text-[15px] font-bold text-gray-700 leading-relaxed min-h-[24px]">{entry.exam}</p>
-                      </div>
+                      ))}
                     </div>
-                  )}
-                </div>
 
-                {/* 互動區塊：打勾確認收到 */}
-                <div className="mt-5 pt-4 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between">
-                  <div className="text-[11px] font-bold text-slate-400">
-                    {entry.acknowledgedBy?.length > 0 ? `${entry.acknowledgedBy.length} 人已確認` : '尚未有人確認'}
+                    {/* 互動區塊：打勾確認收到 */}
+                    <div className="mt-5 pt-4 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between">
+                      <div className="text-[11px] font-bold text-slate-400">
+                        {maxAckCount > 0 ? `${maxAckCount} 人已確認` : '尚未有人確認'}
+                      </div>
+                      <button onClick={() => handleToggleAckGroup(selectedDate, group.items.map(i => i.id))} className={`flex items-center gap-1.5 px-4 py-2 rounded-[16px] text-[12px] font-black transition-all active:scale-95 ${allAcked ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}>
+                        <CheckCircle2 size={16} className={allAcked ? 'text-white' : 'text-slate-400'} />
+                        {allAcked ? '已確認收到' : '確認收到'}
+                      </button>
+                    </div>
                   </div>
-                  <button onClick={() => handleToggleAck(selectedDate, entry.id)} className={`flex items-center gap-1.5 px-4 py-2 rounded-[16px] text-[12px] font-black transition-all active:scale-95 ${entry.acknowledgedBy?.includes(user?.uid) ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}>
-                    <CheckCircle2 size={16} className={entry.acknowledgedBy?.includes(user?.uid) ? 'text-white' : 'text-slate-400'} />
-                    {entry.acknowledgedBy?.includes(user?.uid) ? '已確認收到' : '確認收到'}
-                  </button>
-                </div>
+                )}
               </div>
             );
           })

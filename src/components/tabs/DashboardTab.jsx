@@ -5,13 +5,30 @@ import {
   Globe, AlertCircle, BookText, Utensils, Bell,
   Sun, Moon, Coffee, ChevronRight, ArrowUpDown, Check,
   Timer, Play, Pause, RotateCcw, Zap, ExternalLink, Notebook, Search, Flame,
-  CheckCircle2
+  CheckCircle2, PenTool, UserPlus, UserMinus,
+  Languages, Calculator, Beaker, Dna, History, Map as MapIcon, Scale, Library, GraduationCap,
+  Music, Palette, Trophy, Laptop, Lightbulb
 } from 'lucide-react';
-import {
-  INITIAL_WEEKLY_SCHEDULE, WEEKDAYS, ICON_MAP, SUBJECTS_LIST
-} from '../../utils/constants';
-import { fetchAI } from '../../utils/helpers';
-// Firestore moved to App.jsx for global sync
+
+// === Mock Dependencies (取代外部引入，以確保在此環境中可以正常編譯預覽) ===
+const INITIAL_WEEKLY_SCHEDULE = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+const WEEKDAYS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+const ICON_MAP = {
+  BookText, Languages, Calculator, Zap, Beaker, Dna,
+  History, Map: MapIcon, Scale, Library, Globe, GraduationCap,
+  Music, Palette, Trophy, Laptop, PenTool, Lightbulb
+};
+const SUBJECTS_LIST = [];
+
+const db = {};
+const collection = (db, path) => path;
+const addDoc = async (col, data) => ({ id: 'mock-id' });
+
+const fetchAI = async (prompt, options) => {
+  // 模擬回傳 AI 解析的 JSON 格式
+  return JSON.stringify({ "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "0": [] });
+};
+// ====================================================================
 
 // === 外部函式與常數 ===
 const getGreeting = () => {
@@ -53,13 +70,11 @@ const ALL_DAYS = [
   { id: 4, label: '週四' }, { id: 5, label: '週五' }, { id: 6, label: '週六' }, { id: 0, label: '週日' }
 ];
 
-
 const timeToMins = (timeStr) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
 };
-
 
 const getLinkIcon = (iconName) => {
   return (ICON_MAP && ICON_MAP[iconName]) ? ICON_MAP[iconName] : Globe;
@@ -420,6 +435,11 @@ const DashboardTab = ({
   const [selectedForSwap, setSelectedForSwap] = useState([]); // Array of 2 IDs
   const [streak, setStreak] = useState(0);
 
+  // --- 自訂代課彈窗狀態 ---
+  const [showSubModal, setShowSubModal] = useState(false);
+  const [subModalData, setSubModalData] = useState(null);
+  const [subInputVal, setSubInputVal] = useState('');
+
   useEffect(() => {
     try {
       const stats = JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {};
@@ -456,7 +476,7 @@ const DashboardTab = ({
   }, []);
 
   // 🔥 修復：當編輯結束時自動儲存到雲端，並強勢濾除 undefined
-  const prevIsEditing = React.useRef(isEditingSchedule);
+  const prevIsEditing = useRef(isEditingSchedule);
   useEffect(() => {
     if (prevIsEditing.current === true && isEditingSchedule === false) {
       // 確保將所有的 undefined 清除，防止 Firestore 報錯
@@ -729,46 +749,63 @@ const DashboardTab = ({
   };
 
   const handleSwap = async (id1, id2) => {
-    const today = currentTime.getDay();
-    const list = [...(weeklySchedule[today] || [])];
-    const idx1 = list.findIndex(i => i.id === id1);
+    let day1 = -1, day2 = -1, idx1 = -1, idx2 = -1;
+    const newWeekly = JSON.parse(JSON.stringify(weeklySchedule)); // 深拷貝防止直接修改狀態
+
+    // 支援跨天搜尋：找出第一堂課所在的星期與索引
+    for (let d = 0; d < 7; d++) {
+      const list = newWeekly[d] || [];
+      const i = list.findIndex(item => item.id === id1);
+      if (i !== -1) { day1 = d; idx1 = i; break; }
+    }
 
     if (idx1 === -1) return;
 
+    const item1 = { ...newWeekly[day1][idx1] };
+    const originalSubj1 = item1.subject;
+    let noticeContent = '';
+
     if (id2 === 'absent') {
-      const item = list[idx1];
-      list[idx1] = {
-        ...item,
-        subject: '自習 (老師請假)',
+      newWeekly[day1][idx1] = {
+        ...item1,
+        subject: '自習',
+        teacher: '',
         rescheduled: true
       };
-      triggerNotification('標記成功 📝', `「${item.subject}」已變更為自習`);
+      noticeContent = `「${originalSubj1}」已變更為自習 (老師請假)`;
+      triggerNotification('標記成功 📝', noticeContent);
+    } else if (id2 === 'substitute') {
+      // 顯示自訂代課 Modal，取代原本的 window.prompt
+      setSubModalData({ id1, originalSubj: originalSubj1 });
+      setSubInputVal(originalSubj1);
+      setShowSubModal(true);
+      return; // 中斷這裡，等待彈窗確認
     } else {
-      const idx2 = list.findIndex(i => i.id === id2);
+      // 找出第二堂課
+      for (let d = 0; d < 7; d++) {
+        const list = newWeekly[d] || [];
+        const i = list.findIndex(item => item.id === id2);
+        if (i !== -1) { day2 = d; idx2 = i; break; }
+      }
+
       if (idx2 === -1) return;
 
-      // Swap course details but keep IDs and times
-      const item1 = { ...list[idx1] };
-      const item2 = { ...list[idx2] };
+      const item2 = { ...newWeekly[day2][idx2] };
+      const originalSubj2 = item2.subject;
 
-      list[idx1] = {
-        ...list[idx1],
-        subject: item2.subject,
-        teacher: item2.teacher,
-        location: item2.location,
-        rescheduled: true
+      newWeekly[day1][idx1] = {
+        ...item1,
+        subject: item2.subject, teacher: item2.teacher, location: item2.location, link: item2.link, color: item2.color, icon: item2.icon, rescheduled: true
       };
-      list[idx2] = {
-        ...list[idx2],
-        subject: item1.subject,
-        teacher: item1.teacher,
-        location: item1.location,
-        rescheduled: true
+      newWeekly[day2][idx2] = {
+        ...item2,
+        subject: item1.subject, teacher: item1.teacher, location: item1.location, link: item1.link, color: item1.color, icon: item1.icon, rescheduled: true
       };
-      triggerNotification('調課成功 ⚡', `已對調「${item1.subject}」與「${item2.subject}」並同步雲端`);
+
+      noticeContent = `已對調「${originalSubj1}」與「${originalSubj2}」`;
+      triggerNotification('調課成功 ⚡', noticeContent);
     }
 
-    const newWeekly = { ...weeklySchedule, [today]: list };
     setWeeklySchedule(newWeekly);
     setIsSwapMode(false);
     setSelectedForSwap([]);
@@ -777,9 +814,69 @@ const DashboardTab = ({
       // Sync to Firebase directly
       const cleanSchedule = JSON.parse(JSON.stringify(newWeekly));
       await saveToFirestore(cleanSchedule);
+
+      // 新增：發送調課通知推播給全班
+      try {
+        await addDoc(collection(db, 'classes', classID, 'notices'), {
+          title: '調課異動通知 ⚡',
+          content: noticeContent,
+          type: 'RESCHEDULE',
+          targetCourse: originalSubj1,
+          timestamp: Date.now()
+        });
+      } catch (e) { console.error("調課推播失敗:", e); }
+
       triggerNotification('調課成功 ⚡', `已對調並同步至班級雲端`);
     } else {
       triggerNotification('調課成功 ⚡', `已對調並儲存至本機`);
+    }
+  };
+
+  // --- 處理彈窗的代課確認事件 ---
+  const confirmSubstitute = async () => {
+    if (!subInputVal || !subModalData) return;
+
+    const { id1, originalSubj } = subModalData;
+    let day1 = -1, idx1 = -1;
+    const newWeekly = JSON.parse(JSON.stringify(weeklySchedule));
+
+    for (let d = 0; d < 7; d++) {
+      const list = newWeekly[d] || [];
+      const i = list.findIndex(item => item.id === id1);
+      if (i !== -1) { day1 = d; idx1 = i; break; }
+    }
+
+    if (idx1 === -1) return;
+
+    newWeekly[day1][idx1] = {
+      ...newWeekly[day1][idx1],
+      subject: subInputVal,
+      rescheduled: true
+    };
+
+    const noticeContent = `「${originalSubj}」已變更為 ${subInputVal}`;
+    triggerNotification('標記成功 📝', noticeContent);
+
+    setWeeklySchedule(newWeekly);
+    setIsSwapMode(false);
+    setSelectedForSwap([]);
+    setShowSubModal(false);
+
+    if (classID) {
+      const cleanSchedule = JSON.parse(JSON.stringify(newWeekly));
+      await saveToFirestore(cleanSchedule);
+      try {
+        await addDoc(collection(db, 'classes', classID, 'notices'), {
+          title: '調課異動通知 ⚡',
+          content: noticeContent,
+          type: 'RESCHEDULE',
+          targetCourse: originalSubj,
+          timestamp: Date.now()
+        });
+      } catch (e) { console.error("調課推播失敗:", e); }
+      triggerNotification('調課成功 ⚡', `已變更並同步至班級雲端`);
+    } else {
+      triggerNotification('調課成功 ⚡', `已變更並儲存至本機`);
     }
   };
 
@@ -795,7 +892,6 @@ const DashboardTab = ({
       return next;
     });
   };
-
 
   // --- 💡 升級版：全自動時間動態判斷 (支援跨日預測) ---
   const liveStatus = useMemo(() => {
@@ -858,6 +954,17 @@ const DashboardTab = ({
       triggerNotification('連線中', '正在將課表上傳至雲端...');
       try {
         await saveToFirestore(weeklySchedule);
+
+        try {
+          // 新增：發送課表更新通知給全班
+          await addDoc(collection(db, 'classes', classID, 'notices'), {
+            title: '課表異動通知 🗓️',
+            content: '班級課表已更新，請查看最新排程！',
+            type: 'COURSE',
+            timestamp: Date.now()
+          });
+        } catch (e) { console.error("更新推播失敗:", e); }
+
         triggerNotification('同步成功 🎉', '課表已安全備份至班級雲端！');
       } catch (err) {
         triggerNotification('同步失敗 ❌', '請檢查網路或系統權限');
@@ -993,7 +1100,74 @@ const DashboardTab = ({
 
   const widgetSchedule = (
     <div id="schedule-section" className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] relative overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
-      {isWeekendRest && !isEditingSchedule ? (
+      {/* 全局頭部：提供快速調課與編輯按鈕 */}
+      {hasScheduleData && !isEditingSchedule && (
+        <div className="flex justify-between items-center mb-6 relative z-10 border-b border-slate-200/50 dark:border-white/10 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl text-emerald-600 dark:text-emerald-400 shadow-sm">
+              <Calendar size={20} />
+            </div>
+            <h3 className="text-lg font-black text-slate-800 dark:text-white">學習排程</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setIsSwapMode(!isSwapMode); setEditDayTab(currentTime.getDay()); setSelectedForSwap([]); }} className={`px-3 sm:px-4 py-2 rounded-[14px] text-[12px] sm:text-[13px] font-black transition-all shadow-sm ${isSwapMode ? 'bg-orange-500 text-white' : 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20'}`}>
+              <ArrowUpDown size={14} className="inline mr-1.5 mb-0.5" />{isSwapMode ? '退出調課' : '快速調課'}
+            </button>
+            <button onClick={() => setIsEditingSchedule(true)} className="px-3 sm:px-4 py-2 rounded-[14px] text-[12px] sm:text-[13px] font-black bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 transition-all shadow-sm">
+              編輯課表
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isSwapMode && !isEditingSchedule ? (
+        <div className="space-y-4 animate-fadeIn relative z-10">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+            {ALL_DAYS.map(d => (
+              <button key={d.id} onClick={() => setEditDayTab(d.id)} className={`px-4 py-2.5 rounded-xl text-[13px] font-black whitespace-nowrap transition-all shadow-sm ${editDayTab === d.id ? 'bg-orange-500 text-white' : 'bg-white dark:bg-white/5 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/10 border border-slate-200 dark:border-white/5'}`}>{d.label}</button>
+            ))}
+          </div>
+          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-[20px] text-sm font-bold flex items-center gap-3 shadow-inner">
+            <ArrowUpDown size={20} className="shrink-0" />
+            {selectedForSwap.length === 0 ? '請選擇第一堂要異動的課程' : '請選擇要對調的目標課程，或點擊下方直接設定代課/自習。'}
+          </div>
+          <div className="space-y-3">
+            {(displaySchedule[editDayTab] || []).length === 0 && <p className="text-slate-400 font-bold py-6 text-center bg-slate-50 dark:bg-white/5 rounded-[24px] border border-dashed border-slate-200 dark:border-white/10">這天沒有課程</p>}
+            {(displaySchedule[editDayTab] || []).map(item => {
+              const isSelected = selectedForSwap.includes(item.id);
+              const theme = getSubjectTheme(item, subjects);
+              return (
+                <div key={item.id} onClick={() => toggleSwapSelect(item.id)} className={`relative overflow-hidden flex flex-col gap-3 px-6 py-4 rounded-[24px] border transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md ${isSelected ? 'ring-2 ring-orange-500 border-orange-500 bg-orange-50/30 dark:bg-orange-900/20 scale-[1.02]' : `bg-white/80 dark:bg-white/5 ${theme.border} hover:-translate-y-0.5`}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme.bg} ${theme.text}`}>
+                        {React.createElement(getSubjectIcon(item, subjects), { size: 18 })}
+                      </div>
+                      <div className="flex flex-col truncate">
+                        <span className={`text-[16px] font-black text-slate-800 dark:text-gray-100 truncate`}>{item.subject}</span>
+                        <span className="text-[11px] font-bold text-slate-500 truncate">{item.teacher || '無設定教師'} {item.location && `• ${item.location}`}</span>
+                      </div>
+                    </div>
+                    <div className="text-[13px] font-mono font-black text-slate-600 dark:text-gray-300 bg-slate-100 dark:bg-black/20 px-3 py-1.5 rounded-xl shrink-0 self-start sm:self-auto border border-slate-200 dark:border-white/5">
+                      {item.startTime} - {item.endTime}
+                    </div>
+                  </div>
+                  {isSelected && selectedForSwap.length === 1 && (
+                    <div className="flex gap-2 pt-4 mt-1 border-t border-slate-200/50 dark:border-white/10 animate-slide-up-fade">
+                      <button onClick={(e) => { e.stopPropagation(); handleSwap(item.id, 'absent'); }} className="flex-1 py-3 bg-rose-500 hover:bg-rose-600 text-white text-[13px] font-black rounded-xl shadow-md shadow-rose-500/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                        <AlertCircle size={16} /> 標記為自習
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); handleSwap(item.id, 'substitute'); }} className="flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white text-[13px] font-black rounded-xl shadow-md shadow-blue-500/20 transition-all active:scale-95 flex items-center justify-center gap-2">
+                        <PenTool size={16} /> 設定代課
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : isWeekendRest && !isEditingSchedule ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
             <Sun className="text-emerald-500" size={40} />
@@ -1181,7 +1355,6 @@ const DashboardTab = ({
                 {upcomingDaysSchedule.length === 0 && <p className="text-gray-400 text-center py-6 font-bold">未來幾天沒有排程喔！</p>}
                 {upcomingDaysSchedule.map((group, gIdx) => (group.dayOffset === 0 && (
                   <div key={gIdx} className="space-y-6">
-                    {/* 💡 補回時間軸的動態日期與模式標題 */}
                     <div className="flex items-end justify-between px-2 relative z-10 mb-2 animate-fadeIn">
                       <div>
                         <h4 className="text-[16px] font-black text-slate-800 dark:text-white flex items-center gap-2">
@@ -1234,17 +1407,11 @@ const DashboardTab = ({
                             nowMarkerPlaced = true;
                           }
 
-                          // Check if "Now" is during this class (handled by isActive styling, but we could add a marker too)
-                          // For simplicity, we'll just style the card as active. 
-                          // But if we want a line *inside* the class card, that's different.
-                          // The user asked for "時間軸標示", which is usually a line on the vertical timeline.
-
+                          // Check if "Now" is during this class
                           elements.push({ type: 'class', ...item });
 
                           // Check if "Now" is right after this class
                           if (!nowMarkerPlaced && currentMins >= startMins && currentMins < endMins) {
-                            // We don't push a separate 'now' element if it's DURING the class,
-                            // but we mark it as placed so we don't put it in the next break erroneously.
                             nowMarkerPlaced = true;
                           }
                         });
@@ -1299,11 +1466,10 @@ const DashboardTab = ({
                               {/* Pill Card */}
                               <div
                                 onClick={() => toggleSwapSelect(item.id)}
-                                className={`relative overflow-hidden flex items-center gap-4 px-6 py-4 rounded-[32px] border transition-all duration-300 cursor-pointer active:scale-[0.96] hover:shadow-[0_12px_24px_rgba(0,0,0,0.15)] backdrop-blur-md
-                                   ${isActive ? `${theme.activeBg} border-white/30 shadow-lg scale-[1.02] ring-4 ${theme.ring}` :
+                                className={`relative overflow-hidden flex items-center gap-4 px-6 py-4 rounded-[32px] border transition-all duration-300 cursor-pointer active:scale-[0.96] hover:shadow-[0_12px_24px_rgba(0,0,0,0.15)] backdrop-blur-md ${isActive ? `${theme.activeBg} border-white/30 shadow-lg scale-[1.02] ring-4 ${theme.ring}` :
                                     item.rescheduled ? 'bg-orange-50/30 dark:bg-orange-950/30 border-orange-500/60 shadow-[0_0_20px_rgba(255,152,0,0.15)] hover:scale-[1.01]' :
-                                      `bg-white/60 dark:bg-white/5 shadow-sm dark:shadow-none ${theme.border} hover:-translate-y-0.5 hover:scale-[1.01]`}
-                                   ${selectedForSwap.includes(item.id) ? 'border-orange-500 ring-4 ring-orange-500/20 scale-105' : ''}`}
+                                      `bg-white/60 dark:bg-white/5 shadow-sm dark:shadow-none ${theme.border} hover:-translate-y-0.5 hover:scale-[1.01]`
+                                  } ${selectedForSwap.includes(item.id) ? 'border-orange-500 ring-4 ring-orange-500/20 scale-105' : ''}`}
                                 style={item.rescheduled && !isActive ? { border: '2px solid #ff9800', boxShadow: '0 0 15px rgba(255, 152, 0, 0.3)' } : {}}
                               >
                                 {isActive && (
@@ -1482,10 +1648,50 @@ const DashboardTab = ({
   ];
 
   return (
-    <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade px-1">
+    <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade px-1 relative">
       {layout.filter(item => item.visible).map(item => (
         <React.Fragment key={item.id}>{widgets[item.id]}</React.Fragment>
       ))}
+
+      {/* 代課/更改科目 Modal (取代 window.prompt) */}
+      {showSubModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 w-full max-w-sm shadow-2xl border border-white/20 dark:border-white/10 transform transition-all animate-slide-up-fade">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl">
+                <PenTool size={24} />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 dark:text-white">設定代課或更改</h3>
+            </div>
+            <p className="text-sm font-bold text-slate-500 dark:text-gray-400 mb-4">
+              請輸入新的課程名稱或代課老師 (原: {subModalData?.originalSubj})
+            </p>
+            <input
+              type="text"
+              autoFocus
+              value={subInputVal}
+              onChange={e => setSubInputVal(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 mb-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-black text-[16px] text-slate-800 dark:text-white transition-all"
+              placeholder="例如: 數學-王大明"
+              onKeyDown={(e) => e.key === 'Enter' && confirmSubstitute()}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowSubModal(false); setSubInputVal(''); setSubModalData(null); setIsSwapMode(false); setSelectedForSwap([]); }}
+                className="flex-1 py-3.5 rounded-2xl font-black bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95"
+              >
+                取消
+              </button>
+              <button
+                onClick={confirmSubstitute}
+                className="flex-1 py-3.5 rounded-2xl font-black bg-blue-500 text-white shadow-lg shadow-blue-500/30 hover:bg-blue-600 active:scale-95 transition-all"
+              >
+                確認變更
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

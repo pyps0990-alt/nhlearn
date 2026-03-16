@@ -10,7 +10,7 @@ export const IosNotification = ({ notification }) => {
 
   return (
     <div
-      className={`fixed left-0 right-0 z-[160] flex justify-center transition-all duration-[500ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] pointer-events-none px-4`}
+      className={`fixed left-0 right-0 z-[160] flex justify-center transition-all duration-[300ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] pointer-events-none px-4`}
       style={{ top: notification.show ? topPos : '-120px', opacity: notification.show ? 1 : 0, transform: notification.show ? 'scale(1)' : 'scale(0.95)' }}
     >
       <div className="w-full max-w-[360px] bg-[#f8f8f9]/95 backdrop-blur-2xl p-4 rounded-[24px] shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col gap-1.5 pointer-events-auto transition-transform active:scale-95">

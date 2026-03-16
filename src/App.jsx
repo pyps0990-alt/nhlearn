@@ -127,7 +127,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [notices, setNotices] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0); // 紀錄未讀通知數量 (用於 iOS 紅點)
-  const lastNoticeTimestamp = useRef(Date.now()); // 🔴 紀錄 App 啟動時間，只推播比這更新的通知
+  const lastNoticeTimestamp = useRef(Date.now() - 60000); // 🔴 容忍 1 分鐘的時鐘誤差，確保不漏接任何剛發送的推播
   const [campusName, setCampusName] = useState(() => localStorage.getItem('gsat_campus_name') || '內湖高中');
   const [campusAddress, setCampusAddress] = useState(() => localStorage.getItem('gsat_campus_address') || '台北市內湖區文德路218號');
   const [campusLat, setCampusLat] = useState(() => localStorage.getItem('gsat_campus_lat') || '25.078410');
@@ -230,7 +230,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   useEffect(() => {
     // 如果瀏覽器支援通知、目前是預設狀態，且已經進入 App 模式，則延遲 1.5 秒後彈出優化版玻璃彈窗
     if ('Notification' in window && Notification.permission === 'default' && appPhase === 'app') {
-      const timer = setTimeout(() => setShowPushPrompt(true), 1500);
+      const timer = setTimeout(() => setShowPushPrompt(true), 800); // 加快彈出速度
       return () => clearTimeout(timer);
     }
   }, [appPhase]);
@@ -432,7 +432,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   const triggerNotification = useCallback((title, message) => {
     setNotification({ show: true, title: String(title), message: String(message) });
-    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 6000);
+    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 4000); // 縮短駐留時間
     triggerNativeNotification(title, message);
   }, []);
 
@@ -876,7 +876,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
         </>
       )}
 
-      <Toaster position="bottom-center" toastOptions={{ duration: 6000, style: { fontSize: '14px', fontWeight: '900', borderRadius: '24px', padding: '16px 24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' } }} />
+      <Toaster position="bottom-center" toastOptions={{ duration: 3000, style: { fontSize: '14px', fontWeight: '900', borderRadius: '24px', padding: '16px 24px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' } }} />
 
       {/* Content */}
       <div
