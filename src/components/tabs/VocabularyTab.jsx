@@ -167,9 +167,9 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
           }
         `}</style>
         {/* Header */}
-        <div className="px-6 md:px-8 pt-6 md:pt-8 pb-4 flex justify-between items-start shrink-0">
-          <div className="space-y-1">
-            <h2 className="text-[36px] md:text-[44px] font-black text-slate-900 dark:text-white tracking-tighter leading-none">{word.word}</h2>
+        <div className="px-6 md:px-8 pt-[calc(1.5rem+env(safe-area-inset-top))] md:pt-8 pb-4 flex justify-between items-start shrink-0 w-full">
+          <div className="space-y-1 min-w-0 flex-1 pr-4">
+            <h2 className="text-[36px] md:text-[44px] font-black text-slate-900 dark:text-white tracking-tighter leading-none break-words whitespace-normal">{word.word}</h2>
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[12px] font-black text-slate-500 uppercase">{word.partOfSpeech || word.pos}</span>
               <span className="text-slate-400 text-[12px] font-bold">Level {word.level || '1'}</span>
@@ -193,13 +193,13 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
                 <Heart size={24} className={isSaved ? 'fill-current animate-heart-burst' : ''} />
               </button>
             )}
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} className="p-2.5 md:p-3 bg-slate-100 dark:bg-white/5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center" title="關閉視窗">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} className="p-2.5 md:p-3 bg-slate-100 dark:bg-white/5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center touch-manipulation shrink-0" title="關閉視窗">
               <X size={24} />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-12 space-y-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-[calc(3rem+env(safe-area-inset-bottom))] space-y-8 custom-scrollbar">
           {/* 1. 視覺化拆解圖 (有解析時才顯示) */}
           {analysis && !analysis.startsWith('ERROR:') && (
             <div className="p-8 bg-gradient-to-br from-slate-50 to-white dark:from-white/5 dark:to-transparent rounded-[40px] border border-slate-100 dark:border-white/5 relative overflow-hidden group">
@@ -317,8 +317,8 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
           </div>
 
           {/* 手機版底部專屬返回按鈕 (讓使用者滑到底部時可快速退出) */}
-          <div className="pt-4 mt-2 border-t border-slate-100 dark:border-white/5 md:hidden flex flex-col pb-4">
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} className="w-full py-4 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-[20px] font-black text-[15px] active:scale-95 transition-all shadow-sm">
+          <div className="pt-4 mt-2 border-t border-slate-100 dark:border-white/5 md:hidden flex flex-col">
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} className="w-full py-4 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-[20px] font-black text-[15px] active:scale-95 transition-all shadow-sm touch-manipulation">
               返回單字列表
             </button>
           </div>
