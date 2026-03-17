@@ -15,27 +15,7 @@ import {
   getDocs, limit, startAfter
 } from 'firebase/firestore';
 
-// 如果你有獨立的 helpers，請確保路徑正確。這裡假設 fetchAI 存在。
-// import { fetchAI } from '../../utils/helpers';
-const fetchAI = async (prompt, options = {}) => {
-  const geminiKey = options.geminiKey || localStorage.getItem('gsat_gemini_key');
-  if (!geminiKey) return null;
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-      }
-    );
-    const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
-  } catch (e) {
-    console.error('fetchAI Error:', e);
-    return null;
-  }
-};
+import { fetchAI } from '../../utils/helpers';
 
 const GAS_URL = import.meta.env.VITE_GAS_VOCAB_URL || 'https://script.google.com/macros/s/AKfycbwjcbklWLkoeC-q_dCiiu0fNSbk7ePDt0bVUQh11O_EuR1_uAAahPClKxHI90eAqgUc/exec';
 

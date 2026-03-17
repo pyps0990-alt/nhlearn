@@ -10,25 +10,14 @@ import {
   Music, Palette, Trophy, Laptop, Lightbulb
 } from 'lucide-react';
 
-// === Mock Dependencies (取代外部引入，以確保在此環境中可以正常編譯預覽) ===
-const INITIAL_WEEKLY_SCHEDULE = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+import { fetchAI } from '../../utils/helpers';
+
 const WEEKDAYS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
 const ICON_MAP = {
   BookText, Languages, Calculator, Zap, Beaker, Dna,
   History, Map: MapIcon, Scale, Library, Globe, GraduationCap,
   Music, Palette, Trophy, Laptop, PenTool, Lightbulb
 };
-const SUBJECTS_LIST = [];
-
-const db = {};
-const collection = (db, path) => path;
-const addDoc = async (col, data) => ({ id: 'mock-id' });
-
-const fetchAI = async (prompt, options) => {
-  // 模擬回傳 AI 解析的 JSON 格式
-  return JSON.stringify({ "1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "0": [] });
-};
-// ====================================================================
 
 // === 外部函式與常數 ===
 const getGreeting = () => {
@@ -38,8 +27,10 @@ const getGreeting = () => {
   return { text: '晚安', icon: Moon, time: 'evening' };
 };
 
+const INITIAL_WEEKLY_SCHEDULE = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+
 // --- 快顯時鐘元件解決頻繁重繪問題 ---
-const LiveClock = () => {
+const LiveClock = React.memo(() => {
   const [time, setTime] = React.useState(new Date());
   React.useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -50,7 +41,7 @@ const LiveClock = () => {
       {time.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
     </span>
   );
-};
+});
 
 const ENCOURAGEMENTS = [
   "辛苦了！今天的學習非常有價值",
@@ -413,6 +404,112 @@ const SchoolNewsWidget = () => {
     </div>
   );
 };
+
+// === AI Daily Briefing Component ===
+// === AI Floating Assistant Component ===
+const AiBriefing = React.memo(({ weeklySchedule, contactBook, user }) => {
+  const [briefing, setBriefing] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [lastGenerated, setLastGenerated] = useState(0);
+
+  const generateBriefing = useCallback(async (isManual = false) => {
+    const isThrottleActive = Date.now() - lastGenerated < 5 * 60 * 1000;
+    if (!isManual && isThrottleActive && briefing) return; 
+    if (loading) return;
+
+    setLoading(true);
+    try {
+      const today = new Date();
+      const day = today.getDay();
+      const dateStr = today.toISOString().split('T')[0];
+      const todayClasses = (weeklySchedule && weeklySchedule[day]) || [];
+      const todayTasks = (contactBook && contactBook[dateStr]) || [];
+      
+      const prompt = `你是一位親切、幽默的學習小助手。請根據以下資訊，為學生寫一段大約 80 字的今日摘要。
+      - 今日課程：${todayClasses.map(c => c.subject).join(', ') || '無'}
+      - 重點任務：${todayTasks.map(t => (t.homework ? `作業:${t.homework}` : `考試:${t.exam}`)).join('; ') || '無'}
+      請用輕鬆幽默的語氣，最後加一句鼓勵的話。`;
+
+      const result = await fetchAI(prompt, { temperature: 0.8 });
+      if (result) {
+        setBriefing(result);
+        setLastGenerated(Date.now());
+      }
+    } catch (e) {
+      console.error("AI Briefing failed", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [weeklySchedule, contactBook, lastGenerated, briefing, loading]);
+
+  useEffect(() => {
+    generateBriefing(false);
+  }, [generateBriefing]);
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-3">
+      {/* 氣泡對話框 */}
+      {isOpen && (
+        <div className="w-[280px] sm:w-[320px] p-5 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-2xl rounded-[28px] border border-white/60 dark:border-white/10 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-5 duration-300">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-indigo-500 font-black text-[14px]">
+              <Sparkles size={16} />
+              AI 學習小助手
+            </div>
+            <button 
+              onClick={() => generateBriefing(true)}
+              className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors"
+            >
+              <RefreshCw size={14} className={`${loading ? 'animate-spin' : ''} text-slate-400`} />
+            </button>
+          </div>
+          
+          <div className="min-h-[60px]">
+            {loading ? (
+              <div className="space-y-2 py-2">
+                <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full w-full animate-pulse" />
+                <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full w-[80%] animate-pulse" />
+              </div>
+            ) : (
+              <p className="text-[13.5px] leading-relaxed text-slate-600 dark:text-gray-300 font-bold">
+                {briefing || '正在準備你的學習建議...'}
+              </p>
+            )}
+          </div>
+          
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex justify-end">
+            <button 
+              onClick={() => setIsOpen(false)}
+              className="text-[12px] font-black text-slate-400 hover:text-slate-600 dark:hover:text-white"
+            >
+              我知道了
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 主按鈕 */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-500 hover:scale-110 active:scale-95 group relative ${
+          isOpen ? 'bg-zinc-900 text-white rotate-90' : 'bg-gradient-to-br from-indigo-500 to-emerald-500 text-white'
+        }`}
+      >
+        {isOpen ? (
+          <Plus className="rotate-45" size={24} />
+        ) : (
+          <>
+            <Sparkles size={24} />
+            {!briefing && loading && (
+              <div className="absolute inset-0 rounded-full border-2 border-white/10 border-t-white/60 animate-spin" />
+            )}
+          </>
+        )}
+      </button>
+    </div>
+  );
+});
 
 // === 儀表板主元件 ===
 const DashboardTab = ({
@@ -1096,6 +1193,14 @@ const DashboardTab = ({
     </div>
   );
 
+  const widgetAiBriefing = (
+    <AiBriefing
+      weeklySchedule={weeklySchedule}
+      contactBook={contactBook}
+      user={user}
+    />
+  );
+
   const widgetPomodoro = <FocusTimerWidget triggerNotification={triggerNotification} />;
 
   const widgetSchedule = (
@@ -1587,54 +1692,60 @@ const DashboardTab = ({
   const hasExam = tomorrowsPrep.some(item => item.exam);
 
   const widgetPrep = tomorrowsPrep.length > 0 && !isEditingSchedule ? (
-    <div className="relative animate-pop-in group/prep">
-      <style>{`
-        @keyframes warning-shake {
-          0%, 85%, 100% { transform: translateX(0) rotate(0); }
-          88% { transform: translateX(-3px) rotate(-1deg); }
-          91% { transform: translateX(3px) rotate(1deg); }
-          94% { transform: translateX(-3px) rotate(-1deg); }
-          97% { transform: translateX(2px) rotate(1deg); }
-        }
-        .animate-warning-shake { animation: warning-shake 4s infinite cubic-bezier(0.36, 0.07, 0.19, 0.97); }
-      `}</style>
-      {hasExam && <div className="absolute inset-0 bg-rose-500/20 dark:bg-rose-500/30 blur-xl rounded-[36px] animate-[pulse_3s_ease-in-out_infinite] pointer-events-none" />}
-      <div className={`relative z-10 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[36px] border ${hasExam ? 'border-rose-400/50 dark:border-rose-500/50 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(244,63,94,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(244,63,94,0.3)] animate-warning-shake' : 'border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]'} transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1`}>
-        <h3 className={`text-[16px] font-black ${hasExam ? 'text-rose-600 dark:text-rose-400' : 'text-orange-800 dark:text-orange-400'} flex items-center gap-2 mb-4`}>
-          <BellRing size={20} className={hasExam ? 'text-rose-500 animate-bounce-soft' : 'text-orange-500'} /> 明日準備事項
-        </h3>
-        <div className="flex flex-col gap-3">
+    <div className="relative animate-pop-in">
+      <div className={`relative z-10 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[36px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[15px] font-black text-slate-800 dark:text-gray-100 flex items-center gap-2">
+            <BellRing size={18} className="text-orange-500" />
+            明日準備摘要
+          </h3>
+          <span className="px-3 py-1 bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[11px] font-black rounded-full border border-orange-100/50 dark:border-orange-500/20">
+            {tomorrowsPrep.length} 個事項
+          </span>
+        </div>
+        <div className="grid grid-cols-1 gap-2.5">
           {tomorrowsPrep.map((item, idx) => (
-            <div key={item.id || `prep-${idx}`} className={`bg-white/70 dark:bg-slate-800/40 p-4 rounded-[20px] border shadow-sm flex flex-col transition-colors duration-500 ${item.exam ? 'border-rose-200 dark:border-rose-900/30' : 'border-orange-100 dark:border-orange-900/20'}`}>
-              <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-xl ${item.exam ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400' : 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'}`}>
-                  <Clock size={20} />
-                </div>
-                <div className="flex-1">
-                  <span className={`text-[12px] font-black px-2 py-0.5 rounded-lg mb-2 inline-block ${item.exam ? 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300' : 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300'}`}>{item.subject}</span>
-                  {item.homeworkDeadline === targetDateStr && <p className="text-[14px] font-bold text-slate-800 dark:text-gray-200">📝 {item.homework}</p>}
-                  {item.examDeadline === targetDateStr && <p className="text-[14px] font-bold text-slate-800 dark:text-gray-200 mt-1">💯 考試：{item.exam}</p>}
-                </div>
+            <div key={item.id || `prep-${idx}`} className={`group flex items-center gap-3 p-3.5 rounded-[24px] transition-all bg-white/40 dark:bg-white/5 border border-white/60 dark:border-white/5 hover:bg-white/80 dark:hover:bg-white/10 ${item.exam ? 'ring-1 ring-rose-500/20' : ''}`}>
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${item.exam ? 'bg-rose-500 text-white' : 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400'}`}>
+                {item.exam ? <AlertCircle size={18} /> : <Notebook size={18} />}
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between">
-                <div className="text-[11px] font-bold text-slate-400">
-                  {item.acknowledgedBy?.length > 0 ? `${item.acknowledgedBy.length} 人已確認` : '尚未有人確認'}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${item.exam ? 'bg-rose-50 text-rose-500 dark:bg-rose-950/30' : 'bg-slate-100 text-slate-500 dark:bg-white/10'}`}>
+                    {item.subject}
+                  </span>
+                  {item.exam && <span className="w-1 h-1 rounded-full bg-rose-500 animate-pulse" />}
                 </div>
-                <button onClick={() => handleToggleAck(item._originalDateKey, item.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[12px] text-[11px] font-black transition-all active:scale-95 ${item.acknowledgedBy?.includes(user?.uid) ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/10'}`}>
-                  <CheckCircle2 size={14} className={item.acknowledgedBy?.includes(user?.uid) ? 'text-white' : 'text-slate-400'} />
-                  {item.acknowledgedBy?.includes(user?.uid) ? '已確認' : '確認收到'}
-                </button>
+                <p className="text-[13.5px] font-bold text-slate-700 dark:text-gray-200 truncate leading-snug">
+                  {item.exam ? `考試：${item.exam}` : item.homework}
+                </p>
               </div>
+              <button 
+                onClick={() => handleToggleAck(item._originalDateKey, item.id)}
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 ${item.acknowledgedBy?.includes(user?.uid) ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-300 hover:text-emerald-500 dark:text-gray-600 dark:hover:text-emerald-400'}`}
+              >
+                <CheckCircle2 size={20} />
+              </button>
             </div>
           ))}
         </div>
+        {hasExam && (
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex items-center gap-2 text-[11px] font-black text-rose-500 italic">
+            <span className="flex h-2 w-2 rounded-full bg-rose-500" /> 注意：明天有考試，請務必複習！
+          </div>
+        )}
       </div>
     </div>
   ) : null;
 
   const widgets = {
     countdowns: widgetCountdowns,
-    greeting: widgetGreeting,
+    greeting: (
+      <React.Fragment>
+        {widgetGreeting}
+        {widgetAiBriefing}
+      </React.Fragment>
+    ),
     pomodoro: widgetPomodoro,
     schedule: widgetSchedule,
     links: widgetLinks,

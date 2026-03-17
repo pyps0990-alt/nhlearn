@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import {
   Menu, Settings, LayoutDashboard, BookOpen, Notebook,
   BookMarked, Store, Bus, HelpCircle, ShieldCheck,
-  BellRing, Bell, AlertCircle, RefreshCw, MessageSquare, Globe
+  BellRing, Bell, AlertCircle, RefreshCw, MessageSquare, Globe, GraduationCap
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -37,6 +37,7 @@ const SettingsTab = lazy(() => import('./components/tabs/SettingsTab'));
 const LegalTab = lazy(() => import('./components/tabs/LegalTab'));
 const LandingPage = lazy(() => import('./components/layout/LandingPage'));
 const FeedbackTab = lazy(() => import('./components/tabs/FeedbackTab'));
+const CreditsTab = lazy(() => import('./components/tabs/CreditsTab'));
 import CommandPalette from './components/layout/CommandPalette';
 import { IosNotification, WelcomeScreen, AuthScreen, PrivacyModal, TabSkeleton } from './components/ui/SharedComponents';
 
@@ -48,6 +49,7 @@ const preloadTab = (tabId) => {
     case 'contactBook': import('./components/tabs/ContactBookTab'); break;
     case 'notes': import('./components/tabs/NotesTab'); break;
     case 'settings': import('./components/tabs/SettingsTab'); break;
+    case 'credits': import('./components/tabs/CreditsTab'); break;
     default: break;
   }
 };
@@ -719,6 +721,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     { id: 'english', icon: BookOpen, label: '單字特訓' },
     { id: 'contactBook', icon: Notebook, label: '電子聯絡簿' },
     { id: 'notes', icon: BookMarked, label: '知識筆記' },
+    { id: 'credits', icon: GraduationCap, label: '學分計算' },
     { id: 'stores', icon: Store, label: '特約商店' },
     { id: 'traffic', icon: Bus, label: '交通與 YouBike' },
     { id: 'feedback', icon: MessageSquare, label: '回饋與支持' },
@@ -930,6 +933,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
               isGoogleConnected={isGoogleConnected}
             />
           )}
+          {activeTab === 'credits' && <CreditsTab user={user} triggerNotification={triggerNotification} />}
           {activeTab === 'stores' && <StoresTab isAdmin={isAdmin} campusName={campusName} />}
           {activeTab === 'traffic' && <TrafficTab campusName={campusName} campusAddress={campusAddress} campusLat={campusLat} campusLng={campusLng} />}
           {activeTab === 'feedback' && <FeedbackTab userProfile={userProfile} triggerNotification={triggerNotification} onBack={() => navTo(previousTab)} onSuccess={() => navTo('dashboard')} />}

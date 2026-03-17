@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, LayoutDashboard, BookOpen, Notebook, Store, Bus, Settings, MessageSquare, HelpCircle, X, ArrowRight, Command } from 'lucide-react';
+import { Search, LayoutDashboard, BookOpen, Notebook, Store, Bus, Settings, MessageSquare, HelpCircle, X, ArrowRight, Command, GraduationCap, BookMarked } from 'lucide-react';
 
 const TABS = [
   { id: 'dashboard', label: '儀表板', icon: LayoutDashboard, keywords: ['home', 'dashboard', '首頁', '課表'] },
   { id: 'vocabulary', label: '單字本', icon: BookOpen, keywords: ['vocab', 'word', '單字', '英文'] },
   { id: 'contact', label: '聯絡簿', icon: Notebook, keywords: ['contact', 'homework', '作業', '聯絡'] },
+  { id: 'notes', label: '知識筆記', icon: BookMarked, keywords: ['note', 'study', '筆記', '知識'] },
+  { id: 'credits', label: '學分計算', icon: GraduationCap, keywords: ['credit', 'score', '學分', '畢業'] },
   { id: 'stores', label: '校園商家', icon: Store, keywords: ['store', 'shop', '商店', '美食'] },
   { id: 'traffic', label: '交通資訊', icon: Bus, keywords: ['traffic', 'bus', '公車', '交通'] },
   { id: 'settings', label: '設定', icon: Settings, keywords: ['settings', 'config', '設定', '偏好'] },

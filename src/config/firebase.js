@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getMessaging } from "firebase/messaging";
+import { getFunctions } from "firebase/functions";
 
 export const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BAAIWem3KGfCQyKFE7vgc4sygRAD6LaQhs9vt8JO3_rFW-6gDrGai6MqbvljUOaIMh4mdZyc2uwqWkBTpM2765g";
 
@@ -22,6 +23,7 @@ let app = null;
 let db = null;
 let auth = null;
 let messaging = null;
+let functions = null;
 let firebaseError = null; // 👈 關鍵：必須在這裡先定義！
 
 try {
@@ -46,6 +48,7 @@ try {
 
   auth = getAuth(app);
   messaging = getMessaging(app);
+  functions = getFunctions(app);
   console.log("✅ Firebase 初始化成功");
 } catch (error) {
   console.error("❌ Firebase 初始化失敗:", error);
@@ -53,4 +56,4 @@ try {
 }
 
 // 3. 正式導出
-export { db, auth, messaging, firebaseError };
+export { db, auth, messaging, functions, firebaseError };
