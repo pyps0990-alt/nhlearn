@@ -117,7 +117,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   const [notification, setNotification] = useState({ show: false, title: '', message: '' });
   const [selectedSubject, setSelectedSubject] = useState(null);
-  const isGoogleConnected = !!user;
+  const [isGoogleConnected, setIsGoogleConnected] = useState(() => !!localStorage.getItem('gsat_google_token'));
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [userProfile, setUserProfile] = useState(() => {
     try { return JSON.parse(localStorage.getItem('gsat_user_profile')) || null; } catch { return null; }
@@ -688,6 +688,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
             const result = await signInWithCredential(auth, credential);
 
             localStorage.setItem('gsat_google_token', accessToken);
+            setIsGoogleConnected(true);
             setUser(result.user);
 
             const profile = { name: result.user.displayName, email: result.user.email, photo: result.user.photoURL };
@@ -725,7 +726,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
             setIsAuthLoading(true); // 確定有導向結果才顯示 Loading，避免每次重整閃爍
             const credential = GoogleAuthProvider.credentialFromResult(result);
             const token = credential?.accessToken;
-            if (token) localStorage.setItem('gsat_google_token', token);
+            if (token) {
+              localStorage.setItem('gsat_google_token', token);
+              setIsGoogleConnected(true);
+            }
             setUser(result.user);
 
             const profile = { name: result.user.displayName, email: result.user.email, photo: result.user.photoURL };

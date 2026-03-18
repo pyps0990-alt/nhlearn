@@ -349,6 +349,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   const [words, setWords] = useState([]); // 從 Firestore 動態載入
   const [subTab, setSubTab] = useState('bank');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState(''); // 新增防抖搜尋狀態
   const [filterPos, setFilterPos] = useState('all');
   const [isSyncing, setIsSyncing] = useState(false);
   const [userWords, setUserWords] = useState([]); // 個人學習進度
@@ -361,6 +362,13 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   const [notification, setNotification] = useState(null);
   const [accent, setAccent] = useState('US'); // 預設口音 (US / UK)
   const [dbError, setDbError] = useState(''); // 記錄資料庫連線或權限錯誤
+
+  // --- 防抖搜尋機制 (Debounce Search) ---
+  // 等待使用者停止輸入 400 毫秒後，才真正觸發搜尋，大幅減少 Firebase 讀取次數與卡頓
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // --- 通知系統 ---
   const triggerNotification = useCallback((title, message, type = 'success') => {
@@ -463,9 +471,9 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       logDebug('INFO', '正在載入本地個人收藏 (訪客模式)');
       try {
         const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
-        // 模擬搜尋
-        const filteredLocal = search.trim()
-          ? localData.filter(w => w.word.toLowerCase().startsWith(search.trim().toLowerCase()))
+        // 模擬搜尋 (本地搜尋改用 includes 比較直覺)
+        const filteredLocal = debouncedSearch.trim()
+          ? localData.filter(w => w.word.toLowerCase().includes(debouncedSearch.trim().toLowerCase()))
           : localData;
         setWords(filteredLocal);
         setLastVisible(null); // 本地模式不支援分頁載入更多
@@ -478,26 +486,26 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       }
     }
 
+    if (currentSet === 'Personal' && !user?.uid) return;
+
     let q;
-    // 使用動態來源
-    // 修正路徑：如果是個人收藏，從使用者自己的私有目錄讀取
     const vocabRef = currentSet === 'Personal'
       ? collection(db, 'Users', user.uid, 'PersonalVocab')
       : collection(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab'); // 學校共用單字庫
 
-    // 效能優化：若有搜尋字串，直接在服務端過濾 (前綴搜尋)
-    if (search.trim()) {
-      const searchLower = search.trim().toLowerCase();
+    // 🚀 Firebase 雲端原生搜尋：利用 debouncedSearch 進行查詢
+    if (debouncedSearch.trim()) {
+      const searchStr = debouncedSearch.trim();
       q = query(
         vocabRef,
-        where('word', '>=', searchLower),
-        where('word', '<=', searchLower + '\uf8ff'),
+        where('word', '>=', searchStr),
+        where('word', '<=', searchStr + '\uf8ff'),
+        orderBy('word', 'asc'), // Firebase 要求範圍查詢必須與 orderBy 欄位一致
         limit(30)
       );
     } else {
-      // 預設加載前 30 筆，減輕初始渲染與雲端讀取壓力
-      const orderField = currentSet === 'Personal' ? 'createdAt' : 'word';
-      q = query(vocabRef, orderBy(orderField, 'asc'), limit(30));
+      // 🚀 預設統一使用 word 排序。避免部分單字因為缺少 createdAt 欄位而「隱形」
+      q = query(vocabRef, orderBy('word', 'asc'), limit(30));
     }
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -505,7 +513,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       setWords(mainData);
       setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
       setDbError('');
-      logDebug('INFO', `已加載來源: ${currentSet}`, { count: mainData.length, mode: search ? 'Search' : 'Initial' });
+      logDebug('INFO', `已加載來源: ${currentSet}`, { count: mainData.length, mode: debouncedSearch ? 'Search' : 'Initial' });
     }, (error) => {
       logDebug('ERROR', '載入單字庫失敗', error.message);
       if (error.code === 'permission-denied') {
@@ -517,19 +525,18 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     });
 
     return () => unsub();
-  }, [search, currentSet, logDebug, user?.uid]);
+  }, [debouncedSearch, currentSet, logDebug, user?.uid]);
 
   // 加載更多 (效能優化)
   const loadMoreWords = useCallback(async () => {
-    if (!db || !lastVisible || search.trim()) return;
+    if (!db || !lastVisible || debouncedSearch.trim()) return; // 搜尋模式下暫不啟用無窮下拉
     if (currentSet === 'Personal' && !user?.uid) return;
 
     const vocabRef = currentSet === 'Personal'
       ? collection(db, 'Users', user.uid, 'PersonalVocab')
       : collection(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab');
 
-    const orderField = currentSet === 'Personal' ? 'createdAt' : 'word';
-    const q = query(vocabRef, orderBy(orderField, 'asc'), startAfter(lastVisible), limit(30));
+    const q = query(vocabRef, orderBy('word', 'asc'), startAfter(lastVisible), limit(30));
     try {
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
@@ -541,7 +548,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     } catch (error) {
       logDebug('ERROR', '載入更多單字失敗', error.message);
     }
-  }, [lastVisible, search, currentSet, logDebug, user?.uid]);
+  }, [lastVisible, debouncedSearch, currentSet, logDebug, user?.uid]);
 
   // 合併單字與個人進度 (確保未在當前分頁的個人單字也能被測驗與複習)
   const mergedWords = useMemo(() => {
