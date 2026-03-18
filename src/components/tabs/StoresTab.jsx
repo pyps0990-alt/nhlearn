@@ -15,7 +15,7 @@ const StoresTab = ({ isAdmin, campusName }) => {
 
   useEffect(() => {
     const unsub = onSnapshot(
-      collection(db, 'stores'),
+      collection(db, 'Schools', 'khsh', 'Stores'),
       (snapshot) => {
         const storesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         storesData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

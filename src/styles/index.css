@@ -135,7 +135,8 @@
 
 .main-container {
   background-color: var(--bg-app) !important;
-  transition: background-color 0.15s linear; /* 降低原生過渡的干擾，主要交由 View Transition 處理 */
+  transition: background-color 0.15s linear;
+  /* 降低原生過渡的干擾，主要交由 View Transition 處理 */
 }
 
 .dark .main-container {
@@ -147,6 +148,7 @@
 .sticky.top-0 {
   padding-top: env(safe-area-inset-top) !important;
 }
+
 .dark [class*="bg-white"] {
   background-color: var(--bg-card) !important;
   backdrop-filter: blur(28px) saturate(150%) !important;
@@ -599,6 +601,7 @@
     opacity: 0;
     transform: scale(0.95) translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -614,23 +617,72 @@
 }
 
 @keyframes confetti-fall {
-  0% { transform: translateY(-10vh) rotate(0deg) scale(1); opacity: 1; }
-  100% { transform: translateY(110vh) rotate(720deg) scale(0.5); opacity: 0; }
+  0% {
+    transform: translateY(-10vh) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(110vh) rotate(720deg) scale(0.5);
+    opacity: 0;
+  }
 }
 
 .animate-confetti-fall {
   animation: confetti-fall linear forwards;
 }
 
+/* --- 成績趨勢圖：折線繪製動畫 --- */
+@keyframes path-draw {
+  0% {
+    stroke-dasharray: 2000;
+    stroke-dashoffset: 2000;
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  100% {
+    stroke-dasharray: 2000;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.animate-path-draw {
+  animation: path-draw 2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
 /* ================= Premium Polish ================= */
 
 /* --- Custom Scrollbar (Light Mode) --- */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 /* --- Glass Effect (Glassmorphism) --- */
 .glass-effect {
@@ -640,6 +692,7 @@
   border: 1px solid rgba(255, 255, 255, 0.5);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8), inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 8px 32px rgba(0, 0, 0, 0.06);
 }
+
 .dark .glass-effect {
   background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(48px) saturate(200%);
@@ -649,12 +702,18 @@
 }
 
 /* --- Text Selection --- */
-::selection { background: rgba(16,185,129,0.25); color: inherit; }
-.dark ::selection { background: rgba(16,185,129,0.35); }
+::selection {
+  background: rgba(16, 185, 129, 0.25);
+  color: inherit;
+}
+
+.dark ::selection {
+  background: rgba(16, 185, 129, 0.35);
+}
 
 /* --- Focus Ring --- */
 :focus-visible {
-  outline: 2px solid rgba(16,185,129,0.5);
+  outline: 2px solid rgba(16, 185, 129, 0.5);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -668,43 +727,66 @@ html {
 
 /* --- Tab Switch Animation --- */
 @keyframes tab-enter {
-  from { opacity: 0; transform: translateY(20px) scale(0.97); filter: blur(12px); }
-  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+    filter: blur(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
 }
+
 .animate-tab-enter {
   animation: tab-enter 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
 /* --- Enhanced Shadow --- */
 .shadow-glass {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
+
 .dark .shadow-glass {
-  box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 /* --- Skeleton Loading Shimmer --- */
 @keyframes skeleton-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
+
 .skeleton {
-  background: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.04) 75%);
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.04) 25%, rgba(0, 0, 0, 0.08) 50%, rgba(0, 0, 0, 0.04) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s infinite ease-in-out;
   border-radius: 12px;
 }
+
 .dark .skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.03) 75%);
   background-size: 200% 100%;
 }
 
 /* --- Responsive Typography --- */
 @media (max-width: 380px) {
-  .text-responsive-hero { font-size: 1.5rem !important; }
+  .text-responsive-hero {
+    font-size: 1.5rem !important;
+  }
 }
+
 @media (min-width: 768px) {
-  .text-responsive-hero { font-size: 2.5rem !important; }
+  .text-responsive-hero {
+    font-size: 2.5rem !important;
+  }
 }
 
 /* ================= Theme View Transitions (Apple Style Crossfade) ================= */
@@ -713,17 +795,31 @@ html {
   animation-duration: 0.6s;
   animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
+
 ::view-transition-old(root) {
   animation-name: theme-fade-out;
 }
+
 ::view-transition-new(root) {
   animation-name: theme-fade-in;
 }
+
 @keyframes theme-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
+
 @keyframes theme-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
 }

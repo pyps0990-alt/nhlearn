@@ -44,7 +44,7 @@ export default function CreditsTab({ user, triggerNotification }) {
       return;
     }
 
-    const unsub = onSnapshot(doc(db, 'users', user.uid, 'data', 'credits'), (snapshot) => {
+    const unsub = onSnapshot(doc(db, 'Users', user.uid, 'Credits', 'main'), (snapshot) => {
       if (snapshot.exists()) {
         setData(snapshot.data());
       } else {
@@ -66,7 +66,7 @@ export default function CreditsTab({ user, triggerNotification }) {
       return;
     }
     try {
-      await setDoc(doc(db, 'users', user.uid, 'data', 'credits'), {
+      await setDoc(doc(db, 'Users', user.uid, 'Credits', 'main'), {
         ...newData,
         lastUpdated: serverTimestamp()
       });

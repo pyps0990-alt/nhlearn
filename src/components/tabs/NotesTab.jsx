@@ -3,7 +3,7 @@ import {
   BrainCircuit, X, CheckCircle2, Library, Edit3, Trash2, Plus,
   ArrowLeft, Wand2, RefreshCw, Upload, Sparkles, Save, Calendar,
   FolderPlus, FileText, ChevronLeft, Book, BookOpen, FlaskConical,
-  Palette, Languages, Globe, Timer, Lightbulb, PenTool, Trophy, Music, Layout, BookMarked
+  Palette, Languages, Globe, Timer, Lightbulb, PenTool, Trophy, Music, Layout, BookMarked, Target
 } from 'lucide-react';
 import { NOTE_CATEGORIES, ICON_MAP } from '../../utils/constants';
 import { fetchAI } from '../../utils/helpers';
@@ -185,11 +185,35 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
     finally { setIsProcessingAI(false); }
   };
 
+  // 🚀 全新功能：錯題本專屬 AI 視覺深度分析
+  const handleAiMistakeAnalysis = async () => {
+    if (!localStorage.getItem('gsat_gemini_key')) { triggerNotification('未設定金鑰', '請先綁定 Gemini API Key'); return; }
+    const imgAttachment = attachments.find(a => a.type && a.type.startsWith('image/'));
+    if (!imgAttachment) { triggerNotification('缺少圖片', '請先上傳錯題照片'); return; }
+
+    setIsProcessingAI(true);
+    triggerNotification('AI 分析中', '正在深入解析錯題，請稍候...');
+    try {
+      // 取出 base64 資料段
+      const base64Data = imgAttachment.data.split(',')[1];
+      const prompt = `你是一位專業的高中家教。請分析這張錯題照片，並嚴格使用以下 Markdown 結構回傳（不需問候語）：\n### 📝 題目辨識\n(完整辨識照片中的題目文字)\n### 🎯 核心考點\n(點出這題在考什麼觀念或公式)\n### 💡 詳細解法\n(一步一步教導如何解題)\n### ⚠️ 常見陷阱\n(學生為什麼會寫錯？哪裡容易粗心？)\n### 🔄 舉一反三\n(出一題類似的簡單小問題，並附上解答)`;
+      
+      const analysis = await fetchAI(prompt, { temperature: 0.2, image: { mimeType: imgAttachment.type, data: base64Data } });
+      setNewNote(prev => ({ ...prev, content: prev.content ? `${prev.content}\n\n${analysis}` : analysis }));
+      triggerNotification('解析成功', '已自動填入詳細解法與考點！');
+    } catch (e) {
+      triggerNotification('AI 失敗', '無法解析錯題照片，請確認圖片清晰度');
+    } finally {
+      setIsProcessingAI(false);
+    }
+  };
+
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     files.forEach(file => {
       const reader = new FileReader();
-      reader.onloadend = () => setAttachments(prev => [...prev, { id: Date.now() + Math.random(), name: file.name, type: 'image', data: reader.result }]);
+      // 確保保存完整的 mimeType，供 Gemini Vision API 使用
+      reader.onloadend = () => setAttachments(prev => [...prev, { id: Date.now() + Math.random(), name: file.name, type: file.type || 'image/jpeg', data: reader.result }]);
       reader.readAsDataURL(file);
     });
   };

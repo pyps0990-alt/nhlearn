@@ -4,7 +4,7 @@ import {
   BookOpen, Plus, Upload, Brain, Trophy, Search, Trash2, Check, X,
   RefreshCw, Sparkles, Shuffle, PenTool, CheckCircle2, XCircle, Heart,
   FileSpreadsheet, Bug, Terminal, ChevronDown, ChevronUp, ChevronRight, Wand2, Volume2,
-  FileText, BarChart2, Flame, Clock, TrendingUp, Share2, Book, Zap
+  FileText, BarChart2, Flame, Clock, TrendingUp, Share2, Book, Zap, AlertCircle, Tag
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ReactMarkdown from 'react-markdown';
@@ -74,8 +74,40 @@ const Confetti = ({ score, total }) => {
   return <div className="absolute inset-0 pointer-events-none overflow-hidden z-50 rounded-[48px]">{particles.map(p => <div key={p.id} className="absolute -top-10 animate-confetti-fall" style={{ left: p.left, width: p.size, height: p.size, backgroundColor: p.color, animationDuration: p.animationDuration, animationDelay: p.animationDelay, borderRadius: p.shape }} />)}</div>;
 };
 
+// ─── 學習統計全屏視窗 ────────────────────────────────────────────────────────
+const StatsModal = ({ isOpen, onClose, stats }) => {
+  if (!isOpen) return null;
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStats = stats[todayStr] || { words: 0, time: 0 };
+  const todayMin = Math.floor(todayStats.time / 60);
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn" onClick={onClose}>
+      <div className="bg-white dark:bg-zinc-900 w-[320px] rounded-[36px] p-6 shadow-2xl border border-slate-100 dark:border-white/10 animate-pop-in text-center" onClick={e => e.stopPropagation()}>
+        <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-600 dark:text-emerald-400">
+          <Clock size={32} />
+        </div>
+        <h3 className="text-xl font-black text-slate-800 dark:text-white mb-6">今日學習數據</h3>
+        <div className="flex gap-4 mb-6">
+           <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-100 dark:border-white/5">
+             <div className="text-3xl font-black text-emerald-500 mb-1">{todayMin}</div>
+             <div className="text-[11px] font-bold text-slate-400">專注分鐘</div>
+           </div>
+           <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-100 dark:border-white/5">
+             <div className="text-3xl font-black text-blue-500 mb-1">{todayStats.words}</div>
+             <div className="text-[11px] font-bold text-slate-400">複習單字</div>
+           </div>
+        </div>
+        <button onClick={onClose} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black active:scale-95 transition-all shadow-md">
+          繼續努力
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // ─── 單字詳情全屏視窗 (Word Detail Overlay) ──────────────────────────────────
-const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClose, updateWord, triggerNotification, currentSet, addWords, isSaved, onSave, playVoice }) => {
+const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClose, updateWord, triggerNotification, currentSet, addWords, isSaved, onSave, playVoice, accent }) => {
   // 防呆：鎖定背景滾動、支援 ESC 鍵關閉，避免與底層元件衝突
   useEffect(() => {
     const handleKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
@@ -155,6 +187,7 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
               <span className="text-slate-400 text-[12px] font-bold">Level {word.level || '1'}</span>
               <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'US'); }} className="ml-2 px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg text-[11px] font-black hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇺🇸 US</button>
               <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'UK'); }} className="px-2.5 py-1 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-black hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇬🇧 UK</button>
+              <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, accent || 'US', 0.4); }} className="px-2.5 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg text-[11px] font-black hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95" title="慢速發音">🐢 慢速</button>
             </div>
             <p className="text-[20px] font-bold text-slate-600 dark:text-slate-300 mt-2">{word.meaning || word.chinese}</p>
           </div>
@@ -327,6 +360,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   const [showAdd, setShowAdd] = useState(false);
   const [notification, setNotification] = useState(null);
   const [accent, setAccent] = useState('US'); // 預設口音 (US / UK)
+  const [dbError, setDbError] = useState(''); // 記錄資料庫連線或權限錯誤
 
   // --- 通知系統 ---
   const triggerNotification = useCallback((title, message, type = 'success') => {
@@ -385,13 +419,13 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   }, []);
 
   // 🔊 原生語音引擎優化：智慧選擇自然音色
-  const playVoice = useCallback((text, targetAccent = 'US') => {
+  const playVoice = useCallback((text, targetAccent = 'US', rate = 0.9) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     const langCode = targetAccent === 'UK' ? 'en-GB' : 'en-US';
     utterance.lang = langCode;
-    utterance.rate = 0.9; // 降低一點語速，聽起來會比較自然且適合學習
+    utterance.rate = rate; // 支援動態語速 (一般 0.9，慢速 0.4)
 
     const voices = window.speechSynthesis.getVoices();
     const preferredVoices = voices.filter(v => v.lang.startsWith(langCode) || v.lang.replace('_', '-').startsWith(langCode));
@@ -407,7 +441,8 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   useEffect(() => {
     if (!db || !user?.uid) return;
 
-    const q = query(collection(db, 'users', user.uid, 'progress'));
+    // 新架構：個人學習進度/錯題本
+    const q = query(collection(db, 'Users', user.uid, 'PersonalVocab'));
     const unsub = onSnapshot(q, (snapshot) => {
       const progressData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setUserWords(progressData);
@@ -434,6 +469,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
           : localData;
         setWords(filteredLocal);
         setLastVisible(null); // 本地模式不支援分頁載入更多
+        setDbError('');
         return;
       } catch (e) {
         console.error("Local storage error:", e);
@@ -446,8 +482,8 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     // 使用動態來源
     // 修正路徑：如果是個人收藏，從使用者自己的私有目錄讀取
     const vocabRef = currentSet === 'Personal'
-      ? collection(db, 'users', user.uid, 'personal_vocab')
-      : collection(db, 'vocab', currentSet, 'words');
+      ? collection(db, 'Users', user.uid, 'PersonalVocab')
+      : collection(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab'); // 學校共用單字庫
 
     // 效能優化：若有搜尋字串，直接在服務端過濾 (前綴搜尋)
     if (search.trim()) {
@@ -468,9 +504,16 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       const mainData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setWords(mainData);
       setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+      setDbError('');
       logDebug('INFO', `已加載來源: ${currentSet}`, { count: mainData.length, mode: search ? 'Search' : 'Initial' });
     }, (error) => {
       logDebug('ERROR', '載入單字庫失敗', error.message);
+      if (error.code === 'permission-denied') {
+        setDbError('權限不足：請先登入 Google 帳號以存取雲端單字庫。');
+      } else {
+        setDbError(`載入失敗：${error.message}`);
+      }
+      setWords([]); // 清空以避免無限載入
     });
 
     return () => unsub();
@@ -482,17 +525,21 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     if (currentSet === 'Personal' && !user?.uid) return;
 
     const vocabRef = currentSet === 'Personal'
-      ? collection(db, 'users', user.uid, 'personal_vocab')
-      : collection(db, 'vocab', currentSet, 'words');
+      ? collection(db, 'Users', user.uid, 'PersonalVocab')
+      : collection(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab');
 
     const orderField = currentSet === 'Personal' ? 'createdAt' : 'word';
     const q = query(vocabRef, orderBy(orderField, 'asc'), startAfter(lastVisible), limit(30));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      const moreData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setWords(prev => [...prev, ...moreData]);
-      setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
-      logDebug('INFO', '已加載更多單字', { count: moreData.length });
+    try {
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const moreData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setWords(prev => [...prev, ...moreData]);
+        setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+        logDebug('INFO', '已加載更多單字', { count: moreData.length });
+      }
+    } catch (error) {
+      logDebug('ERROR', '載入更多單字失敗', error.message);
     }
   }, [lastVisible, search, currentSet, logDebug, user?.uid]);
 
@@ -562,7 +609,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
         allData.forEach((item, i) => {
           const word = String(item['單字'] || item['word'] || '').trim();
           if (!word) return;
-          const ref = doc(db, 'vocab', word.toLowerCase());
+          const ref = doc(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab', word.toLowerCase());
           batch.set(ref, {
             word: word,
             meaning: String(item['中文'] || item['chinese'] || '').trim(),
@@ -608,7 +655,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       return;
     }
 
-    const ref = doc(db, 'users', user.uid, 'progress', wordObj.word.toLowerCase());
+    const ref = doc(db, 'Users', user.uid, 'PersonalVocab', wordObj.word.toLowerCase());
     await setDoc(ref, {
       ...updates,
       word: wordObj.word,
@@ -637,8 +684,8 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
           return;
         }
         const ref = currentSet === 'Personal'
-          ? doc(db, 'users', user.uid, 'personal_vocab', wordObj.word.toLowerCase())
-          : doc(db, 'vocab', currentSet, 'words', wordObj.word.toLowerCase());
+          ? doc(db, 'Users', user.uid, 'PersonalVocab', wordObj.word.toLowerCase())
+          : doc(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab', wordObj.word.toLowerCase());
         await deleteDoc(ref);
         logDebug('SUCCESS', '已從雲端刪除單字', { word: wordObj.word, set: currentSet });
       }
@@ -683,8 +730,8 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       if (!wordVal) return;
 
       const ref = targetSet === 'Personal'
-        ? doc(db, 'users', user.uid, 'personal_vocab', wordVal.toLowerCase())
-        : doc(db, 'vocab', targetSet, 'words', wordVal.toLowerCase());
+        ? doc(db, 'Users', user.uid, 'PersonalVocab', wordVal.toLowerCase())
+        : doc(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab', wordVal.toLowerCase());
       const sn = Date.now() + i;
 
       batch.set(ref, {
@@ -696,6 +743,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
         type: targetSet === 'Personal' ? '個人' : (isAdmin ? (w.source || '教師') : '個人'),
         shared: isAdmin && targetSet !== 'Personal',
         serialNumber: sn,
+        tags: w.tags || [], // 確保寫入 tags 陣列
         date: new Date().toLocaleDateString(),
         userEmail: user.email || '',
         createdAt: serverTimestamp()
@@ -711,120 +759,76 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const todayMinutes = Math.floor((stats[todayStr]?.time || 0) / 60);
 
-  // IG 限動小卡匯出功能 (原生 Canvas 繪圖)
-  const handleExportIG = useCallback(async (wordObj, analysis) => {
+  // IG 限動小卡匯出功能：改為匯出「今日學習數據」
+  const handleExportIG = useCallback(async () => {
+    let currentStreak = 0;
+    try {
+      const statsData = JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {};
+      const tStr = new Date().toISOString().split('T')[0];
+      let tempDate = new Date();
+      while (true) {
+        const dStr = tempDate.toISOString().split('T')[0];
+        const s = statsData[dStr];
+        if (s && (s.words > 0 || s.time > 0)) {
+          currentStreak++;
+          tempDate.setDate(tempDate.getDate() - 1);
+        } else {
+          if (dStr === tStr) tempDate.setDate(tempDate.getDate() - 1);
+          else break;
+        }
+      }
+    } catch (e) {}
+
     const canvas = document.createElement('canvas');
     canvas.width = 1080;
     canvas.height = 1920;
     const ctx = canvas.getContext('2d');
 
-    // 1. 繪製深色漸層背景
     const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
-    grad.addColorStop(0, '#020617'); // slate-950
-    grad.addColorStop(1, '#064e3b'); // emerald-900
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(1, '#064e3b');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 1080, 1920);
 
-    // 2. 裝飾性彩色光暈
     ctx.beginPath(); ctx.arc(200, 300, 500, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(16, 185, 129, 0.15)'; ctx.fill();
     ctx.beginPath(); ctx.arc(900, 1500, 600, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'; ctx.fill();
 
-    // 3. 中央半透明玻璃卡片
     ctx.beginPath();
     ctx.roundRect(90, 400, 900, 1120, 60);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.fill();
     ctx.lineWidth = 2;
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.stroke();
 
-    // 4. 文字排版
     ctx.textAlign = 'center';
-
-    // App 品牌與等級
-    ctx.font = 'bold 36px sans-serif';
+    ctx.font = 'bold 40px sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.fillText(`LEVEL ${wordObj.level || 1}  •  GSAT PRO`, 540, 500);
+    ctx.fillText(`GSAT PRO • 學習紀錄`, 540, 520);
 
-    // 英文單字
-    ctx.font = 'bold 130px sans-serif';
+    ctx.font = 'bold 160px sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(wordObj.word, 540, 680);
-
-    // 詞性
-    ctx.font = 'bold 45px sans-serif';
+    ctx.fillText(`${currentStreak}`, 540, 780);
+    ctx.font = 'bold 50px sans-serif';
     ctx.fillStyle = '#34d399';
-    ctx.fillText(`[ ${wordObj.partOfSpeech || wordObj.pos || 'n.'} ]`, 540, 800);
+    ctx.fillText(`🔥 連續打卡天數`, 540, 880);
 
-    // 中文解釋
-    ctx.font = 'bold 75px sans-serif';
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillText(wordObj.meaning || wordObj.chinese || '', 540, 930);
+    const todayMin = Math.floor((stats[todayStr]?.time || 0) / 60);
+    ctx.font = 'bold 160px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${todayMin}`, 540, 1150);
+    ctx.font = 'bold 50px sans-serif';
+    ctx.fillStyle = '#60a5fa';
+    ctx.fillText(`⏱️ 今日專注時數 (分鐘)`, 540, 1250);
 
-    // 分隔線
-    ctx.beginPath(); ctx.moveTo(200, 1050); ctx.lineTo(880, 1050);
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.stroke();
-
-    // AI 解析或例句 (自動換行)
-    ctx.font = '45px sans-serif';
-    ctx.fillStyle = '#cbd5e1';
-    let details = wordObj.example ? `【例句】\n${wordObj.example}` : '';
-    if (analysis) details = analysis.replace(/\*\*/g, '').replace(/#/g, '').replace(/-/g, '•').trim();
-
-    const drawMultiline = (text, x, y, maxWidth, lineHeight, maxLines) => {
-      let currentY = y; let linesDrawn = 0; const paragraphs = text.split('\n');
-      for (const p of paragraphs) {
-        if (linesDrawn >= maxLines) break;
-        let line = '';
-        for (let i = 0; i < p.length; i++) {
-          let testLine = line + p[i];
-          if (ctx.measureText(testLine).width > maxWidth && i > 0) {
-            ctx.fillText(line, x, currentY); line = p[i]; currentY += lineHeight; linesDrawn++;
-            if (linesDrawn >= maxLines) break;
-          } else line = testLine;
-        }
-        if (linesDrawn < maxLines) { ctx.fillText(line, x, currentY); currentY += lineHeight; linesDrawn++; }
-      }
-    };
-
-    if (details) drawMultiline(details, 540, 1150, 780, 65, 5);
-    else { ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'; ctx.fillText('持續累積，迎戰學測 🚀', 540, 1250); }
-
-    // 5. 生成並繪製 QR Code (指向本專案網址)
-    const qrSize = 160;
-    const qrX = 1080 / 2 - qrSize / 2;
-    const qrY = 1550;
-    try {
-      const qrImg = new Image();
-      qrImg.crossOrigin = "Anonymous";
-      const url = encodeURIComponent(window.location.origin || 'https://gsat-pro.web.app');
-      // 調用外部穩定的 QR Code API 產生白底黑字圖碼
-      qrImg.src = `https://quickchart.io/qr?text=${url}&size=${qrSize}&margin=1&dark=020617&light=ffffff`;
-
-      await new Promise((resolve, reject) => {
-        qrImg.onload = resolve;
-        qrImg.onerror = reject;
-        setTimeout(resolve, 3000); // 避免 API 異常卡死下載 (3秒超時繼續執行)
-      });
-
-      // 為 QR Code 畫一個白色圓角底框使其更凸顯
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.roundRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20, 20); ctx.fill();
-      ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
-    } catch (e) {
-      console.error('QR failed', e);
-    }
-
-    // 底部浮水印
-    ctx.font = 'bold 32px sans-serif';
+    ctx.font = 'bold 36px sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.fillText('長按掃描 / 進入 GSAT Pro 數位助手', 540, 1800);
+    ctx.fillText('持續累積，突破自我 🚀', 540, 1420);
 
-    // 下載圖片
     const link = document.createElement('a');
-    link.download = `GSAT-Pro-${wordObj.word}.jpg`;
+    link.download = `GSAT-Pro-Stats.jpg`;
     link.href = canvas.toDataURL('image/jpeg', 0.95);
     link.click();
   }, []);
@@ -871,6 +875,9 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
           {/* 學習時數膠囊按鈕 */}
           <button onClick={() => setShowStatsModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-[12px] active:scale-95 transition-all border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm">
             <Clock size={14} className="shrink-0" /> <span className="hidden sm:inline">今日 </span>{todayMinutes}m
+          </button>
+          <button onClick={handleExportIG} className="flex items-center justify-center p-2 bg-gradient-to-br from-pink-500 to-orange-400 text-white rounded-xl active:scale-95 transition-all shadow-sm" title="分享至 IG 限時動態">
+            <Share2 size={16} />
           </button>
 
           <button onClick={() => setIsDebugMode(!isDebugMode)} className={`hidden sm:block p-2 rounded-xl transition-all ${isDebugMode ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500'}`} title="切換偵錯模式"><Bug size={16} /></button>
@@ -931,6 +938,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
             playVoice={playVoice}
             accent={accent}
             setAccent={setAccent}
+            dbError={dbError}
           />
         )}
         {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
@@ -1006,22 +1014,37 @@ const WordBank = ({
   currentSet, setCurrentSet, geminiKey, isAdmin, handleExportIG,
   detailedWordId, setDetailedWordId, analyzingIds, aiAnalysisData,
   setAiAnalysisData, setAnalyzingIds, filterPos, setFilterPos,
-  triggerNotification, playVoice, accent, setAccent
+  triggerNotification, playVoice, accent, setAccent, dbError
 }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [newWord, setNewWord] = useState('');
   const [newMeaning, setNewMeaning] = useState('');
   const [newPos, setNewPos] = useState('n.');
   const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const [newTags, setNewTags] = useState(''); // 新增標籤輸入狀態
+
+  const [filterTag, setFilterTag] = useState('all');
+  const [isBatchMode, setIsBatchMode] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState(new Set());
   
   // 記錄本次 session 已經點擊加入收藏的單字 ID，用於即時顯示動畫與狀態
   const [savedWords, setSavedWords] = useState(new Set());
 
+  // 動態萃取所有不重複的標籤
+  const availableTags = useMemo(() => {
+    const tags = new Set();
+    words.forEach(w => {
+      if (w.tags && Array.isArray(w.tags)) w.tags.forEach(t => tags.add(t));
+    });
+    return Array.from(tags).sort();
+  }, [words]);
+
   const filtered = useMemo(() => {
     let list = words;
     if (filterPos !== 'all') list = list.filter(w => (w.partOfSpeech || w.pos) === filterPos);
+    if (filterTag !== 'all') list = list.filter(w => w.tags && w.tags.includes(filterTag));
     return list;
-  }, [words, filterPos]);
+  }, [words, filterPos, filterTag]);
 
   const handleAiAnalyze = async (id, word) => {
     if (!geminiKey) return triggerNotification('需要 API Key', '請先至設定頁面輸入 Gemini API Key', 'error');
@@ -1046,7 +1069,7 @@ const WordBank = ({
    ### [語源與字根詳解]
    （詳細解說這個單字的歷史來源與字根演變）
    ### [實戰例句與搭配詞]
-   （提供 1 個學測難度的高品質例句與 2 個常用搭配詞）
+   （提供 1 個進階難度的高品質例句與 2 個常用搭配詞）
 
 請用親切且精簡的繁體中文撰寫，字數控制在 120 字內。直接回傳 Markdown 內容，不要問候語。`;
 
@@ -1105,12 +1128,32 @@ const WordBank = ({
       alert('請輸入單字與解釋');
       return;
     }
-    const wordObj = { word: newWord.trim(), meaning: newMeaning.trim(), partOfSpeech: newPos, level: 1, source: 'Personal' };
+    const tagsArray = newTags.split(/[,，\s]+/).filter(t => t.trim() !== ''); // 支援空格或逗號分隔
+    const wordObj = { word: newWord.trim(), meaning: newMeaning.trim(), partOfSpeech: newPos, level: 1, source: 'Personal', tags: tagsArray };
     const target = isAdmin ? currentSet : 'Personal';
     addWords([wordObj], target, false);
     if (!isAdmin && currentSet !== 'Personal') setCurrentSet('Personal');
-    setNewWord(''); setNewMeaning(''); setNewPos('n.');
+    setNewWord(''); setNewMeaning(''); setNewPos('n.'); setNewTags('');
     setShowAdd(false);
+  };
+
+  // 批次操作函式
+  const handleBatchDelete = () => {
+    if (selectedBatch.size === 0) return;
+    if (!window.confirm(`確定要刪除選中的 ${selectedBatch.size} 個單字嗎？`)) return;
+    selectedBatch.forEach(id => deleteWord(id));
+    setSelectedBatch(new Set());
+    setIsBatchMode(false);
+    triggerNotification('批次刪除', `已成功刪除 ${selectedBatch.size} 個單字`);
+  };
+
+  const handleBatchSave = () => {
+    if (selectedBatch.size === 0) return;
+    const wordsToSave = words.filter(w => selectedBatch.has(w.id));
+    addWords(wordsToSave, 'Personal', false);
+    setSelectedBatch(new Set());
+    setIsBatchMode(false);
+    triggerNotification('批次收藏', `已將 ${wordsToSave.length} 個單字加入個人收藏`);
   };
 
   const handleSpeak = (e, text) => {
@@ -1178,6 +1221,10 @@ const WordBank = ({
             className={`p-4 rounded-[24px] shadow-lg active:scale-[0.95] transition-all duration-300 ease-spring shrink-0 ${showAdd ? 'bg-slate-100 dark:bg-white/10 text-slate-500 rotate-45 shadow-none' : 'bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600'}`}>
             <Plus size={20} />
           </button>
+          <button onClick={() => { setIsBatchMode(!isBatchMode); setSelectedBatch(new Set()); }}
+            className={`p-4 rounded-[24px] shadow-sm transition-all duration-300 ease-spring shrink-0 ${isBatchMode ? 'bg-indigo-500 text-white shadow-indigo-500/20' : 'bg-white dark:bg-white/5 border border-slate-200/50 dark:border-white/10 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/10'}`} title="批次管理">
+            <CheckCircle2 size={20} />
+          </button>
         </div>
       </div>
 
@@ -1221,11 +1268,11 @@ const WordBank = ({
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="text" placeholder="輸入中文解釋..." value={newMeaning} onChange={e => setNewMeaning(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleManualAdd()}
-                className="flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all text-[var(--text-primary)]"
-              />
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input type="text" placeholder="輸入中文解釋..." value={newMeaning} onChange={e => setNewMeaning(e.target.value)} className="flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
+                <input type="text" placeholder="自訂標籤 (用空格分隔，例: 段考 L1)" value={newTags} onChange={e => setNewTags(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleManualAdd()} className="flex-1 sm:max-w-[200px] bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[14px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
+              </div>
               <button onClick={handleManualAdd} className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[24px] font-black text-[16px] shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 whitespace-nowrap">
                 <Check size={20} /> 儲存至{isAdmin ? currentSet : '個人收藏'}
               </button>
@@ -1243,6 +1290,43 @@ const WordBank = ({
           </button>
         ))}
       </div>
+      
+      {/* 批次管理工具列 */}
+      {isBatchMode && (
+        <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 p-3 mx-1 rounded-[20px] border border-indigo-200 dark:border-indigo-500/30 animate-slide-up-fade">
+          <span className="text-indigo-600 dark:text-indigo-400 font-black text-[13px] ml-2">已選取 {selectedBatch.size} 項</span>
+          <div className="flex gap-2">
+            {currentSet === 'Personal' || isAdmin ? (
+              <button onClick={handleBatchDelete} disabled={selectedBatch.size === 0} className="px-4 py-2 bg-rose-500 disabled:opacity-50 text-white rounded-xl text-[12px] font-black shadow-sm active:scale-95 transition-all">刪除</button>
+            ) : null}
+            {currentSet !== 'Personal' && (
+              <button onClick={handleBatchSave} disabled={selectedBatch.size === 0} className="px-4 py-2 bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-[12px] font-black shadow-sm active:scale-95 transition-all">加入收藏</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 標籤過濾器 (如果有自訂標籤才顯示) */}
+      {availableTags.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-1 pb-1">
+          <button onClick={() => setFilterTag('all')} className={`px-3 py-1.5 rounded-full text-[11px] font-black whitespace-nowrap transition-all ${filterTag === 'all' ? 'bg-indigo-500 text-white shadow-sm' : 'bg-white/40 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 text-slate-500 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-white/10'}`}>
+            所有標籤
+          </button>
+          {availableTags.map(tag => (
+            <button key={tag} onClick={() => setFilterTag(tag)} className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-black whitespace-nowrap transition-all ${filterTag === tag ? 'bg-indigo-500 text-white shadow-sm scale-105' : 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20 hover:bg-indigo-100 dark:hover:bg-indigo-500/30'}`}>
+              <Tag size={12} /> {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 錯誤提示 */}
+      {dbError && (
+        <div className="mx-1 mb-2 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-[20px] flex items-center gap-3 animate-slide-up-fade">
+          <AlertCircle size={20} className="text-red-500 shrink-0" />
+          <span className="text-sm font-bold text-red-600 dark:text-red-400">{dbError}</span>
+        </div>
+      )}
 
       {/* 單字列表 - 排版優化 */}
       <div className="space-y-4 pb-20 pt-2 px-1">
@@ -1266,6 +1350,20 @@ const WordBank = ({
                     setDetailedWordId(w.id);
                   }}
                 >
+                  {/* 批次選取 Checkbox */}
+                  {isBatchMode && (
+                    <div className="shrink-0 mr-1 animate-pop-in">
+                      <button onClick={(e) => {
+                        e.stopPropagation();
+                        const next = new Set(selectedBatch);
+                        if (next.has(w.id)) next.delete(w.id);
+                        else next.add(w.id);
+                        setSelectedBatch(next);
+                      }} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedBatch.has(w.id) ? 'bg-indigo-500 border-indigo-500 text-white scale-110' : 'border-slate-300 dark:border-slate-600'}`}>
+                        {selectedBatch.has(w.id) && <Check size={14} strokeWidth={3} />}
+                      </button>
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0 relative z-10 space-y-2">
                     {/* 第一行：單字 */}
                     <div className="flex items-center justify-between">
@@ -1296,11 +1394,24 @@ const WordBank = ({
                       <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none transition-all ${posColors[w.partOfSpeech || w.pos] || 'text-gray-500 bg-gray-500/10 border-gray-100'}`}>
                         {w.partOfSpeech || w.pos}
                       </span>
+                      {w.tags && w.tags.map(t => (
+                        <span key={t} className="text-[10px] font-black px-2 py-0.5 rounded-lg border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 leading-none">
+                          #{t}
+                        </span>
+                      ))}
                       <button
                         onClick={(e) => handleSpeak(e, w.word)}
                         className="p-1.5 text-slate-400 hover:text-emerald-500 bg-slate-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 rounded-xl transition-all active:scale-90"
+                        title="發音"
                       >
                         <Volume2 size={16} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); playVoice(w.word, accent, 0.4); }}
+                        className="p-1.5 text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-xl transition-all active:scale-90"
+                        title="慢速發音"
+                      >
+                        🐢
                       </button>
                     </div>
 
@@ -1331,6 +1442,7 @@ const WordBank = ({
           updateWord={updateWord}
           triggerNotification={triggerNotification}
           playVoice={playVoice}
+          accent={accent}
         />
       )}
     </div>
@@ -1583,6 +1695,12 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
             <p className="text-[22px] font-black text-emerald-700 dark:text-emerald-400 mb-4 pointer-events-none text-center break-words whitespace-normal px-4">{current.meaning}</p>
             {current.example && <p className="text-[14px] font-bold text-slate-500 dark:text-emerald-100/60 italic max-w-sm pointer-events-none text-center break-words whitespace-normal px-4">"{current.example}"</p>}
 
+            {/* 發音控制區 */}
+            <div className="flex items-center gap-4 my-2 pointer-events-auto">
+              <button onClick={(e) => { e.stopPropagation(); playVoice(current.word, accent); }} className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20"><Volume2 size={24}/></button>
+              <button onClick={(e) => { e.stopPropagation(); playVoice(current.word, accent, 0.4); }} className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm flex items-center justify-center border border-amber-200 dark:border-amber-500/20 text-xl">🐢</button>
+            </div>
+
             {/* 顯示 AI 解析筆記 */}
             {current.notes && (
               <div className="mt-4 p-3 bg-white/40 dark:bg-black/20 rounded-2xl border border-emerald-200/50 max-w-[280px] max-h-[120px] overflow-y-auto text-left pointer-events-auto custom-scrollbar">
@@ -1621,13 +1739,14 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
 // QUIZ MODE (Multiple Choice + Spelling + Grammar)
 // ═══════════════════════════════════════════════════════════════════════════════
 const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, playVoice, accent }) => {
-  const [quizType, setQuizType] = useState(null); // null | 'choice' | 'spell' | 'grammar'
+  const [quizType, setQuizType] = useState(null); // null | 'choice' | 'spell'
   const [questions, setQuestions] = useState([]);
   const [qIdx, setQIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [selected, setSelected] = useState(null);
   const [spellInput, setSpellInput] = useState('');
   const [showResult, setShowResult] = useState(false);
+  const [spellFailed, setSpellFailed] = useState(false); // 控制拼寫強制訂正模式
   const [quizDone, setQuizDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingType, setLoadingType] = useState(null); // 'grammar' | 'cloze'
@@ -1710,70 +1829,9 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, 
       word: w, answer: w.word.toLowerCase()
     }));
     setQuestions(qs);
-    setQIdx(0); setScore(0); setSpellInput(''); setShowResult(false); setQuizDone(false);
+    setQIdx(0); setScore(0); setSpellInput(''); setShowResult(false); setQuizDone(false); setSpellFailed(false);
     setQuizType('spell');
   }, [words, quizCount]);
-
-  const generateGrammarQuiz = useCallback(async () => {
-    if (!geminiKey && !localStorage.getItem('gsat_gemini_key')) {
-      alert("需要設定 API Key 才能使用 AI 文法測驗！");
-      return;
-    }
-    setLoading(true);
-    setLoadingType('grammar');
-    try {
-      const count = Math.min(quizCount, 10); // AI 出題限制最多 10 題，以防生成過慢
-      const sampleWords = [...words].sort(() => Math.random() - 0.5).slice(0, Math.max(5, count)).map(w => w.word);
-      const prompt = `你是英文文法測驗出題老師。請用以下單字出 ${count} 題英文文法選擇題，適合台灣高中生程度（學測）。
-單字：${sampleWords.join(', ')}
-回傳純 JSON 格式（不要 markdown）：
-[{"question": "題目（填空或改錯）", "options": ["A", "B", "C", "D"], "answer": "正確選項", "explanation": "解析"}]`;
-
-      const result = await fetchAI(prompt, { temperature: 0.5, responseJson: true });
-      if (result) {
-        const match = result.match(/\[[\s\S]*\]/);
-        if (match) {
-          const parsed = JSON.parse(match[0]);
-          setQuestions(parsed.map((q, i) => ({ ...q, id: i })));
-          setQIdx(0); setScore(0); setSelected(null); setShowResult(false); setQuizDone(false);
-          setQuizType('grammar');
-        }
-      }
-    } catch (e) { console.error('Grammar quiz error:', e); }
-    finally { setLoading(false); setLoadingType(null); }
-  }, [words, geminiKey, quizCount]);
-
-  const generateClozeQuiz = useCallback(async () => {
-    if (!geminiKey && !localStorage.getItem('gsat_gemini_key')) {
-      alert("需要設定 API Key 才能使用 AI 克漏字測驗！");
-      return;
-    }
-    if (words.length < 4) return alert("單字庫至少需要 4 個單字才能產生選項！");
-
-    setLoading(true);
-    setLoadingType('cloze');
-    try {
-      const count = Math.min(quizCount, 10);
-      const sampleWords = [...words].sort(() => Math.random() - 0.5).slice(0, Math.max(5, count)).map(w => w.word);
-      const prompt = `你是高中英文老師。請從以下單字中挑選 ${count} 個單字，各造一個符合台灣學測難度、有上下文情境的英文句子。
-請將目標單字挖空（替換為 "_____"）。
-單字庫：${sampleWords.join(', ')}
-回傳純 JSON 陣列格式（不要 markdown）：
-[{"question": "The boy ate an _____ to keep the doctor away.", "options": ["apple", "banana", "car", "dog"], "answer": "apple", "explanation": "根據 keep the doctor away 的語境，答案為 apple"}]`;
-
-      const result = await fetchAI(prompt, { temperature: 0.7, responseJson: true });
-      if (result) {
-        const match = result.match(/\[[\s\S]*\]/);
-        if (match) {
-          const parsed = JSON.parse(match[0]);
-          setQuestions(parsed.map((q, i) => ({ ...q, id: i })));
-          setQIdx(0); setScore(0); setSelected(null); setShowResult(false); setQuizDone(false);
-          setQuizType('cloze');
-        }
-      }
-    } catch (e) { console.error('Cloze quiz error:', e); }
-    finally { setLoading(false); setLoadingType(null); }
-  }, [words, geminiKey, quizCount]);
 
   const handleChoiceAnswer = (opt) => {
     if (showResult) return;
@@ -1799,40 +1857,33 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, 
   };
 
   const handleSpellSubmit = () => {
-    setShowResult(true);
-    incrementWordCount(); // 觸發單字統計
     const isCorrect = spellInput.trim().toLowerCase() === questions[qIdx].answer;
+    
     if (isCorrect) {
-      setScore(s => s + 1);
+      setShowResult(true);
+      if (!spellFailed) {
+        setScore(s => s + 1);
+        incrementWordCount(); // 只有第一次答對才算單字數
+        if (questions[qIdx].word) {
+          const updated = calculateNextReview(questions[qIdx].word, 4);
+          setWords(prev => prev.map(w => w.id === updated.id ? updated : w));
+        }
+      }
       playDing();
+      setTimeout(() => {
+        if (qIdx + 1 >= questions.length) setQuizDone(true);
+        else { setQIdx(q => q + 1); setSpellInput(''); setShowResult(false); setSpellFailed(false); setTimeout(() => spellRef.current?.focus(), 100); }
+      }, 1500);
     } else {
       playBuzzer();
+      setSpellFailed(true);
+      setSpellInput(''); // 清空輸入框強制重打
+      if (!spellFailed && questions[qIdx].word) {
+        const updated = calculateNextReview(questions[qIdx].word, 1);
+        setWords(prev => prev.map(w => w.id === updated.id ? updated : w));
+      }
+      setTimeout(() => spellRef.current?.focus(), 100);
     }
-    if (questions[qIdx].word) {
-      const updated = calculateNextReview(questions[qIdx].word, isCorrect ? 4 : 1);
-      setWords(prev => prev.map(w => w.id === updated.id ? updated : w));
-    }
-    setTimeout(() => {
-      if (qIdx + 1 >= questions.length) setQuizDone(true);
-      else { setQIdx(q => q + 1); setSpellInput(''); setShowResult(false); setTimeout(() => spellRef.current?.focus(), 100); }
-    }, 1500);
-  };
-
-  const handleGrammarAnswer = (opt) => {
-    if (showResult) return;
-    setSelected(opt);
-    setShowResult(true);
-    incrementWordCount(); // 觸發單字統計
-    if (opt === questions[qIdx].answer) {
-      setScore(s => s + 1);
-      playDing();
-    } else {
-      playBuzzer();
-    }
-    setTimeout(() => {
-      if (qIdx + 1 >= questions.length) setQuizDone(true);
-      else { setQIdx(q => q + 1); setSelected(null); setShowResult(false); }
-    }, 2500);
   };
 
   // ─── Menu ──────────────────────────────────────────────────────────────────
@@ -1869,20 +1920,6 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, 
           className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-[32px] border border-purple-100 dark:border-purple-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
           <div className="p-3 sm:p-4 bg-purple-500 rounded-2xl text-white shadow-lg shadow-purple-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0"><PenTool size={24} className="sm:w-7 sm:h-7" /></div>
           <div><span className="text-[15px] sm:text-[16px] font-black text-slate-800 dark:text-white block">拼寫測驗</span><span className="text-[11px] sm:text-[12px] font-bold text-slate-400">看中文拼英文，{quizCount} 題訓練記憶</span></div>
-        </button>
-        <button onClick={generateGrammarQuiz} disabled={words.length < 3 || loading}
-          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-[32px] border border-emerald-100 dark:border-emerald-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
-          <div className="p-3 sm:p-4 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0">
-            {loading && loadingType === 'grammar' ? <RefreshCw size={24} className="animate-spin sm:w-7 sm:h-7" /> : <Sparkles size={24} className="sm:w-7 sm:h-7" />}
-          </div>
-          <div><span className="text-[15px] sm:text-[16px] font-black text-slate-800 dark:text-white block">AI 文法測驗</span><span className="text-[11px] sm:text-[12px] font-bold text-slate-400">AI 動態生成 {Math.min(quizCount, 10)} 題文法題</span></div>
-        </button>
-        <button onClick={generateClozeQuiz} disabled={words.length < 4 || loading}
-          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-[32px] border border-orange-100 dark:border-orange-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
-          <div className="p-3 sm:p-4 bg-orange-500 rounded-2xl text-white shadow-lg shadow-orange-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0">
-            {loading && loadingType === 'cloze' ? <RefreshCw size={24} className="animate-spin sm:w-7 sm:h-7" /> : <FileText size={24} className="sm:w-7 sm:h-7" />}
-          </div>
-          <div><span className="text-[15px] sm:text-[16px] font-black text-slate-800 dark:text-white block">克漏字測驗 (Cloze)</span><span className="text-[11px] sm:text-[12px] font-bold text-slate-400">AI 根據單字庫產生 {Math.min(quizCount, 10)} 題情境填空</span></div>
         </button>
       </div>
     );
@@ -1951,7 +1988,6 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, 
 
   // ─── Spell Quiz ────────────────────────────────────────────────────────────
   if (quizType === 'spell') {
-    const isCorrect = showResult && spellInput.trim().toLowerCase() === q.answer;
     return (
       <div className="py-4 space-y-6">
         <div className="flex items-center gap-3">
@@ -1969,81 +2005,40 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, 
         </div>
         <div className="space-y-3">
           <input ref={spellRef} autoFocus type="text" value={spellInput} onChange={e => setSpellInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !showResult && handleSpellSubmit()}
-            disabled={showResult}
-            className={`w-full text-center text-[22px] sm:text-[24px] font-black py-4 sm:py-5 rounded-[20px] sm:rounded-[24px] border-2 outline-none transition-all duration-300 tracking-widest ${showResult
-              ? isCorrect ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]' : 'bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-500/30 scale-[1.02]'
-              : 'bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] focus:bg-white/60 dark:focus:bg-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
-              }`} placeholder="..." />
-          {showResult && !isCorrect && (
+            onKeyDown={e => e.key === 'Enter' && (!showResult || spellFailed) && handleSpellSubmit()}
+            disabled={showResult && !spellFailed}
+            className={`w-full text-center text-[22px] sm:text-[24px] font-black py-4 sm:py-5 rounded-[20px] sm:rounded-[24px] border-2 outline-none transition-all duration-300 tracking-widest ${
+              showResult && !spellFailed
+              ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]' 
+              : spellFailed
+                ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-400 text-rose-600 dark:text-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 placeholder:text-rose-300'
+                : 'bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] focus:bg-white/60 dark:focus:bg-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
+              }`} placeholder={spellFailed ? "再試一次..." : "..."} />
+          {spellFailed && (
             <div className="flex flex-col items-center gap-3 animate-slide-up-fade">
-              <p className="text-center text-[14px] font-black text-emerald-600 dark:text-emerald-400">
-                正確答案：{q.word.word}
-              </p>
+              <div className="bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 p-4 rounded-2xl border border-rose-200 dark:border-rose-500/20 text-center w-full shadow-sm mt-2">
+                <span className="text-[12px] font-black uppercase tracking-widest opacity-80">正確答案</span>
+                <div className="text-[28px] font-black tracking-widest mt-1 mb-1 select-all">{q.word.word}</div>
+                <span className="text-[12px] font-bold opacity-80">請在上方輸入框親手打一次加深記憶！</span>
+              </div>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  playVoice(q.word.word, accent);
+                  playVoice(q.word.word, accent, 0.4);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg text-[12px] font-black hover:bg-blue-100 dark:hover:bg-blue-500/30 transition-colors active:scale-95 shadow-sm"
+                className="flex items-center gap-1.5 px-4 py-2 bg-amber-50 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl text-[13px] font-black hover:bg-amber-100 dark:hover:bg-amber-500/30 transition-colors active:scale-95 shadow-sm"
               >
-                <Volume2 size={14} /> 聽聽正確發音
+                🐢 聽聽慢速發音
               </button>
             </div>
           )}
-          {!showResult && (
+          {(!showResult || spellFailed) && (
             <button onClick={handleSpellSubmit}
               className="w-full py-4 sm:py-5 bg-purple-500 hover:bg-purple-600 text-white rounded-[20px] sm:rounded-[24px] font-black text-[15px] sm:text-[16px] active:scale-[0.98] transition-all duration-300 ease-spring shadow-lg shadow-purple-500/30">
               確認
             </button>
           )}
         </div>
-      </div>
-    );
-  }
-
-  // ─── Grammar & Cloze Quiz ──────────────────────────────────────────────────
-  if (quizType === 'grammar' || quizType === 'cloze') {
-    return (
-      <div className="py-4 space-y-6">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setQuizType(null)} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={20} /></button>
-          <span className="text-[11px] font-black text-slate-400">{qIdx + 1}/{questions.length}</span>
-          <div className="flex-1 h-2 bg-[var(--border-color)] rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${((qIdx + 1) / questions.length) * 100}%` }} />
-          </div>
-          <span className="text-[13px] font-black text-emerald-500">✓ {score}</span>
-        </div>
-        <div className="bg-white/40 dark:bg-white/5 backdrop-blur-[24px] rounded-[32px] p-8 border border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)]">
-          <div className="flex items-center gap-2 mb-3">
-            {quizType === 'cloze' ? <FileText size={16} className="text-orange-500" /> : <Sparkles size={16} className="text-emerald-500" />}
-            <span className={`text-[11px] font-black uppercase tracking-widest ${quizType === 'cloze' ? 'text-orange-500' : 'text-emerald-500'}`}>{quizType === 'cloze' ? 'AI Cloze Test' : 'AI Grammar'}</span>
-          </div>
-          <p className="text-[16px] sm:text-[18px] font-black text-slate-900 dark:text-white leading-relaxed break-words whitespace-normal">{q.question}</p>
-        </div>
-        <div className="space-y-3">
-          {q.options.map((opt, i) => {
-            let cls = 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-white/60 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 hover:border-emerald-500/50 hover:shadow-md';
-            if (showResult) {
-              if (opt === q.answer) cls = 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30 scale-[1.02] z-10 relative';
-              else if (opt === selected) cls = 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30 scale-[1.02] z-10 relative animate-vocab-shake';
-              else cls += ' opacity-40 scale-[0.98] pointer-events-none'; // 讓非正確答案淡出
-            }
-            return (
-              <button key={i} onClick={() => handleGrammarAnswer(opt)}
-                className={`w-full text-left px-5 py-4 sm:px-6 sm:py-5 rounded-[20px] sm:rounded-[24px] border-2 font-bold text-[15px] sm:text-[16px] transition-all duration-300 ease-spring-smooth active:scale-[0.98] flex items-center break-words whitespace-normal ${cls}`}>
-                <span className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[12px] sm:text-[13px] font-black mr-3 sm:mr-4 shrink-0 transition-colors ${showResult && (opt === q.answer || opt === selected) ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400'}`}>{String.fromCharCode(65 + i)}</span>
-                <span className="flex-1">{opt}</span>
-              </button>
-            );
-          })}
-        </div>
-        {showResult && q.explanation && (
-          <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-2xl p-4 border border-emerald-200/50 dark:border-emerald-500/20 animate-slide-up-fade">
-            <p className="text-[12px] font-black text-emerald-600 dark:text-emerald-400 mb-1">📖 解析</p>
-            <p className="text-[13px] font-bold text-slate-600 dark:text-slate-400">{q.explanation}</p>
-          </div>
-        )}
       </div>
     );
   }

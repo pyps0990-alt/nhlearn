@@ -3,6 +3,7 @@ import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getMessaging } from "firebase/messaging";
 import { getFunctions } from "firebase/functions";
+import { getPerformance } from "firebase/performance";
 
 export const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BAAIWem3KGfCQyKFE7vgc4sygRAD6LaQhs9vt8JO3_rFW-6gDrGai6MqbvljUOaIMh4mdZyc2uwqWkBTpM2765g";
 
@@ -24,6 +25,7 @@ let db = null;
 let auth = null;
 let messaging = null;
 let functions = null;
+let perf = null;
 let firebaseError = null; // 👈 關鍵：必須在這裡先定義！
 
 try {
@@ -34,7 +36,7 @@ try {
 
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
-  
+
   // 3. 啟用離線快取以加速讀取速度
   if (typeof window !== 'undefined') {
     enableIndexedDbPersistence(db).catch((err) => {
@@ -49,6 +51,11 @@ try {
   auth = getAuth(app);
   messaging = getMessaging(app);
   functions = getFunctions(app);
+
+  // 🚀 啟用 Firebase 效能監控 (僅在瀏覽器環境下執行)
+  if (typeof window !== 'undefined') {
+    perf = getPerformance(app);
+  }
   console.log("✅ Firebase 初始化成功");
 } catch (error) {
   console.error("❌ Firebase 初始化失敗:", error);
@@ -56,4 +63,4 @@ try {
 }
 
 // 3. 正式導出
-export { db, auth, messaging, functions, firebaseError };
+export { db, auth, messaging, functions, perf, firebaseError };

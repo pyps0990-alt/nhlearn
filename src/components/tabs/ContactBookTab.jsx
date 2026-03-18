@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Notebook, ChevronLeft, ChevronRight, Plus, CheckCircle2,
   Trash2, BookOpen, Calendar, ChevronDown, Camera, Loader2, Bell,
@@ -7,8 +7,8 @@ import {
 import { WEEKDAYS, ICON_MAP } from '../../utils/constants';
 import { fetchAI } from '../../utils/helpers';
 import toast from 'react-hot-toast';
-import { db } from '../../config/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase'; // 確保路徑正確
+import { collection, addDoc, onSnapshot, query, where, doc, setDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID, user }) => {
   if (!contactBook || !subjects) return (
@@ -39,7 +39,6 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
   });
   const [newEntry, setNewEntry] = useState({ subject: subjects?.[0]?.name || '國文', homework: '', exam: '', examType: '小考', homeworkDeadline: '', examDeadline: '' });
   const [isParsing, setIsParsing] = useState(false);
-  const [sendPush, setSendPush] = useState(true); // 是否發送雲端通知
   const [viewMode, setViewMode] = useState('calendar'); // 'list' | 'calendar'
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date();
@@ -47,6 +46,29 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     return d;
   });
   const [collapsedSubjects, setCollapsedSubjects] = useState(new Set());
+  const [completedIds, setCompletedIds] = useState(new Set());
+
+  // 🚀 全新邏輯：同步個人完成狀態
+  useEffect(() => {
+    if (!classID) return;
+    if (!user?.uid) {
+      // 訪客模式：從 localStorage 讀取
+      try {
+        const localCompleted = JSON.parse(localStorage.getItem(`gsat_completed_${classID}`) || '[]');
+        setCompletedIds(new Set(localCompleted));
+      } catch { setCompletedIds(new Set()); }
+      return;
+    }
+
+    // 登入使用者：從 Firestore 讀取
+    const completedRef = collection(db, 'Users', user.uid, 'CompletedAssignments');
+    const q = query(completedRef, where('classId', '==', classID));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const ids = new Set(snapshot.docs.map(doc => doc.id));
+      setCompletedIds(ids);
+    });
+    return () => unsub();
+  }, [user, classID]);
 
   const addFormRef = useRef(null); // 用於快速跳轉至新增表單
 
@@ -93,8 +115,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
           id: Date.now() + 1,
           subject: newEntry.subject,
           homework: newEntry.homework,
-          homeworkDeadline: newEntry.homeworkDeadline,
-          acknowledgedBy: []
+          homeworkDeadline: newEntry.homeworkDeadline
         });
         addedCount++;
       }
@@ -112,8 +133,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
           subject: newEntry.subject,
           exam: newEntry.exam,
           examType: newEntry.examType,
-          examDeadline: newEntry.examDeadline,
-          acknowledgedBy: []
+          examDeadline: newEntry.examDeadline
         });
         addedCount++;
       }
@@ -126,23 +146,6 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
 
     setContactBook(newContactBook);
     await saveContactBookToFirestore(newContactBook);
-
-    // 發送雲端推播通知 (如果開啟且有綁定班級)
-    if (sendPush && classID) {
-      try {
-        const noticeTitle = `新增${newEntry.homework ? '作業' : '考試'}：${newEntry.subject}`;
-        const noticeContent = [newEntry.homework ? `📝 ${newEntry.homework}` : '', newEntry.exam ? `💯 ${newEntry.exam}` : ''].filter(Boolean).join(' | ');
-        await addDoc(collection(db, 'classes', classID, 'notices'), {
-          title: noticeTitle,
-          content: noticeContent,
-          type: newEntry.homework ? 'homework' : 'exam',
-          timestamp: Date.now()
-        });
-        toast.success('已同步推送通知給全班同學！');
-      } catch (e) {
-        console.error("推播通知失敗", e);
-      }
-    }
 
     setNewEntry({ subject: subjects?.[0]?.name || '國文', homework: '', exam: '', examType: '小考', homeworkDeadline: '', examDeadline: '' });
     toast.success('新增成功！');
@@ -214,30 +217,32 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     }
   };
 
-  // 處理「確認收到」的切換邏輯 (支援一次確認同科目的多筆項目)
-  const handleToggleAckGroup = async (dateStr, ids) => {
-    if (!user) {
-      toast.error('請先登入才能確認收到喔！');
-      return;
+  // 🚀 全新邏輯：處理個人完成狀態 (支援批次)
+  const handleToggleCompletionGroup = async (ids, allCurrentlyCompleted) => {
+    const newCompletedIds = new Set(completedIds);
+    if (allCurrentlyCompleted) {
+      ids.forEach(id => newCompletedIds.delete(id));
+    } else {
+      ids.forEach(id => newCompletedIds.add(id));
     }
-    const currentEntries = contactBook[dateStr] || [];
-    const groupEntries = currentEntries.filter(e => ids.includes(e.id));
-    const allAcked = groupEntries.length > 0 && groupEntries.every(e => e.acknowledgedBy?.includes(user.uid));
+    setCompletedIds(newCompletedIds);
 
-    const updatedEntries = currentEntries.map(entry => {
-      if (ids.includes(entry.id)) {
-        const acks = entry.acknowledgedBy || [];
-        return {
-          ...entry,
-          acknowledgedBy: allAcked ? acks.filter(uid => uid !== user.uid) : (acks.includes(user.uid) ? acks : [...acks, user.uid])
-        };
-      }
-      return entry;
-    });
-
-    const newContactBook = { ...contactBook, [dateStr]: updatedEntries };
-    setContactBook(newContactBook);
-    await saveContactBookToFirestore(newContactBook);
+    if (user?.uid) {
+      // 登入使用者：批次寫入 Firestore
+      const batch = writeBatch(db);
+      ids.forEach(id => {
+        const ref = doc(db, 'Users', user.uid, 'CompletedAssignments', String(id));
+        if (allCurrentlyCompleted) {
+          batch.delete(ref);
+        } else {
+          batch.set(ref, { completedAt: serverTimestamp(), classId: classID });
+        }
+      });
+      await batch.commit().catch(e => console.error("Completion batch error:", e));
+    } else {
+      // 訪客模式：寫入 localStorage
+      localStorage.setItem(`gsat_completed_${classID}`, JSON.stringify(Array.from(newCompletedIds)));
+    }
   };
 
   const renderCalendar = () => {
@@ -454,16 +459,15 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
-            <label className={`flex-1 flex items-center gap-3 px-5 py-4 rounded-[20px] cursor-pointer transition-colors border ${sendPush ? 'bg-orange-50/50 dark:bg-orange-500/10 border-orange-200/50 dark:border-orange-500/30' : 'bg-slate-50 dark:bg-black/20 border-slate-200 dark:border-white/5'}`}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${sendPush ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
-                <Bell size={18} className={sendPush ? 'animate-bounce-soft' : ''} />
+            <div className="flex-1 flex items-center gap-3 px-5 py-4 rounded-[20px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-500">
+                <Bell size={18} />
               </div>
               <div className="flex flex-col">
-                <span className={`text-[14px] font-black ${sendPush ? 'text-orange-700 dark:text-orange-400' : 'text-slate-500 dark:text-slate-400'}`}>發送推播通知</span>
-                <span className="text-[11px] font-bold text-slate-400">提醒全班同學（需綁定班級代碼）</span>
+                <span className="text-[14px] font-black text-slate-600 dark:text-slate-300">雲端自動推播</span>
+                <span className="text-[11px] font-bold text-slate-400">每日放學後將自動提醒全班</span>
               </div>
-              <input type="checkbox" className="hidden" checked={sendPush} onChange={e => setSendPush(e.target.checked)} />
-            </label>
+            </div>
             <button onClick={handleAddEntry} className="w-full sm:w-auto px-8 py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[16px] shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
               儲存與同步 <CheckCircle2 size={20} />
             </button>
@@ -490,15 +494,14 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
         {entriesForDate.length === 0 ? (
           <div className="text-center py-16 bg-gray-50/50 rounded-[40px] border-2 border-dashed border-gray-200 flex flex-col items-center gap-3">
             <div className="p-4 bg-white rounded-3xl shadow-sm text-gray-200">
-              <BookOpen size={32} />
+              <BookOpen size={32} className="text-slate-300" />
             </div>
             <p className="text-gray-400 font-bold text-[14px]">這天目前沒有任何紀錄 ✨</p>
           </div>
         ) : (
           Object.values(groupedEntries).map((group, idx) => {
             const subjectInfo = subjects.find(s => s.name === group.subject) || { icon: 'BookText', color: 'text-gray-500 bg-gray-50' };
-            const allAcked = group.items.length > 0 && group.items.every(item => item.acknowledgedBy?.includes(user?.uid));
-            const maxAckCount = Math.max(0, ...group.items.map(item => item.acknowledgedBy?.length || 0));
+            const allCompleted = group.items.length > 0 && group.items.every(item => completedIds.has(item.id));
             const isCollapsed = collapsedSubjects.has(group.subject);
 
             return (
@@ -568,11 +571,11 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                     {/* 互動區塊：打勾確認收到 */}
                     <div className="mt-5 pt-4 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between">
                       <div className="text-[11px] font-bold text-slate-400">
-                        {maxAckCount > 0 ? `${maxAckCount} 人已確認` : '尚未有人確認'}
+                        {allCompleted ? '太棒了！今日進度已達成 🎉' : '記得完成今日進度喔 💪'}
                       </div>
-                      <button onClick={() => handleToggleAckGroup(selectedDate, group.items.map(i => i.id))} className={`flex items-center gap-1.5 px-4 py-2 rounded-[16px] text-[12px] font-black transition-all active:scale-95 ${allAcked ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}>
-                        <CheckCircle2 size={16} className={allAcked ? 'text-white' : 'text-slate-400'} />
-                        {allAcked ? '已確認收到' : '確認收到'}
+                      <button onClick={() => handleToggleCompletionGroup(group.items.map(i => i.id), allCompleted)} className={`flex items-center gap-1.5 px-4 py-2 rounded-[16px] text-[12px] font-black transition-all active:scale-95 ${allCompleted ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10'}`}>
+                        <CheckCircle2 size={16} className={allCompleted ? 'text-white' : 'text-slate-400'} />
+                        {allCompleted ? '已完成' : '標記完成'}
                       </button>
                     </div>
                   </div>

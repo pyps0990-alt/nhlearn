@@ -42,6 +42,12 @@ const FeedbackTab = ({ userProfile, triggerNotification }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!userProfile?.uid) {
+      triggerNotification('權限不足', '根據最新的安全防護規則，您必須先登入 Google 帳號才能發送回饋。', 'error');
+      return;
+    }
+
     if (!feedback.trim()) {
       triggerNotification('提示', '請輸入您的寶貴建議');
       return;
@@ -49,9 +55,9 @@ const FeedbackTab = ({ userProfile, triggerNotification }) => {
 
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'feedback'), {
-        userId: userProfile?.uid || 'anonymous',
-        userName: userProfile?.displayName || '匿名用戶',
+      await addDoc(collection(db, 'Feedback'), {
+        userId: userProfile.uid,
+        userName: userProfile.displayName || '同學',
         email: contact,
         type: feedbackType,
         content: feedback,
@@ -110,7 +116,7 @@ const FeedbackTab = ({ userProfile, triggerNotification }) => {
       action: () => {
         if (navigator.share) {
           navigator.share({
-            title: 'GSAT Pro - 你的學測神助手',
+            title: 'GSAT Pro - 你的專屬學習助手',
             text: '這款 App 超好用，整合了班級課表和 AI 學習分析，推薦給你！',
             url: window.location.origin
           });

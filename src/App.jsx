@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import {
   Menu, Settings, LayoutDashboard, BookOpen, Notebook,
   BookMarked, Store, Bus, HelpCircle, ShieldCheck,
-  BellRing, Bell, AlertCircle, RefreshCw, MessageSquare, Globe, GraduationCap
+  BellRing, Bell, AlertCircle, RefreshCw, MessageSquare, Globe, GraduationCap, TrendingUp
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -16,6 +16,7 @@ import { timeToMins } from './utils/helpers';
 export const DEFAULT_DASHBOARD_LAYOUT = [
   { id: 'countdowns', visible: true, label: '自訂倒數計時' },
   { id: 'greeting', visible: true, label: '歡迎卡片與進度' },
+  { id: 'heatmap', visible: true, label: '學習熱力圖' },
   { id: 'pomodoro', visible: true, label: '專注模式 (番茄鐘)' },
   { id: 'schedule', visible: true, label: '今日課表與時間軸' },
   { id: 'links', visible: true, label: '自訂外部連結' },
@@ -24,7 +25,7 @@ export const DEFAULT_DASHBOARD_LAYOUT = [
 ];
 import { db, auth, messaging, firebaseError, VAPID_KEY, functions } from './config/firebase';
 import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc, serverTimestamp, collection, query, orderBy, limit, getDocs, addDoc, writeBatch } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
 import { httpsCallable } from 'firebase/functions';
 const DashboardTab = lazy(() => import('./components/tabs/DashboardTab'));
@@ -39,6 +40,7 @@ const LegalTab = lazy(() => import('./components/tabs/LegalTab'));
 const LandingPage = lazy(() => import('./components/layout/LandingPage'));
 const FeedbackTab = lazy(() => import('./components/tabs/FeedbackTab'));
 const CreditsTab = lazy(() => import('./components/tabs/CreditsTab'));
+const GradesTab = lazy(() => import('./components/tabs/GradesTab'));
 import CommandPalette from './components/layout/CommandPalette';
 import { IosNotification, WelcomeScreen, AuthScreen, PrivacyModal, TabSkeleton } from './components/ui/SharedComponents';
 
@@ -51,6 +53,7 @@ const preloadTab = (tabId) => {
     case 'notes': import('./components/tabs/NotesTab'); break;
     case 'settings': import('./components/tabs/SettingsTab'); break;
     case 'credits': import('./components/tabs/CreditsTab'); break;
+    case 'grades': import('./components/tabs/GradesTab'); break;
     default: break;
   }
 };
@@ -138,6 +141,37 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [showPushPrompt, setShowPushPrompt] = useState(false);
 
+  // 考試不打擾模式狀態與切換邏輯
+  const [dndEnabled, setDndEnabled] = useState(() => localStorage.getItem('gsat_dnd_enabled') === 'true');
+  
+  const handleToggleDnd = async (newVal) => {
+    setDndEnabled(newVal);
+    localStorage.setItem('gsat_dnd_enabled', String(newVal));
+    
+    if (user) {
+      await setDoc(doc(db, 'Users', user.uid), { dndEnabled: newVal }, { merge: true });
+    }
+    
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    try {
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY?.trim().replace(/\s/g, '') });
+      if (token && classID && functions) {
+        if (newVal) {
+          const unsubscribe = httpsCallable(functions, 'unsubscribeFromTopic');
+          await unsubscribe({ token, topic: `class_${classID}_alerts` }).catch(e=>console.warn(e));
+          triggerNotification('已開啟不打擾', '考試/上課期間將不再收到即時推播');
+        } else {
+          const subscribe = httpsCallable(functions, 'subscribeToTopic');
+          await subscribe({ token, topic: `class_${classID}_alerts` }).catch(e=>console.warn(e));
+          triggerNotification('已關閉不打擾', '已恢復即時上課與調課提醒');
+        }
+      }
+    } catch (e) {
+      console.error("DND toggle error", e);
+    }
+  };
+
   // 初始化時檢查網址是否有登入回傳的 Token，若有則直接進入 Loading 狀態
   const [isAuthLoading, setIsAuthLoading] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -185,7 +219,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       const data = JSON.parse(localStorage.getItem('gsat_custom_countdowns'));
       if (data && data.length > 0) return data;
       return [
-        { id: 'default-cd-1', title: '學科能力測驗', date: '2026-01-16', icon: '🎯', style: 'gradient' },
+        { id: 'default-cd-1', title: '重要大考', date: '2026-01-16', icon: '🎯', style: 'gradient' },
         { id: 'default-cd-2', title: '畢業典禮', date: '2026-06-01', icon: '🎓', style: 'neon' }
       ];
     } catch { return []; }
@@ -249,71 +283,78 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   // FCM 自動連線移至 App 層次
 
-  // Firestore Sync
+  // Firestore Sync (New Schema Structure)
   useEffect(() => {
-    if (!db || !classID) return;
+    if (!db || !classID || !user) return; // 🚀 配合新安全規則：未登入者不嘗試讀取，避免報錯
+    
+    // 預設環境變數 (目前寫死做測試)
+    const schoolId = "khsh";
+    const gradeId = "grade_2";
 
-    // ⚠️ 確保你的資料是存放在 'classes' 集合中
-    const docRef = doc(db, 'classes', classID);
-    const unsub = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const cloudData = docSnap.data().schedule;
-        if (Array.isArray(cloudData)) {
-          const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-          cloudData.forEach((item, idx) => {
-            if (transformed[item.day] !== undefined) {
-              transformed[item.day].push({
-                id: item.id || Date.now() + idx,
-                subject: item.course || item.subject,
-                teacher: item.teacher || '',
-                startTime: item.startTime || '08:00',
-                endTime: item.endTime || '09:00',
-                location: item.location || '',
-                rescheduled: item.rescheduled || false,
-                link: item.link || '',
-                color: item.color || ''
-              });
-            }
-          });
-          setWeeklySchedule(transformed);
-        }
-
-        // Sync Contact Book
-        if (docSnap.data().contactBook) {
-          setContactBook(docSnap.data().contactBook);
-        }
+    // 1. Sync ClassSchedule (班級共用課表)
+    const scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
+    const unsubSchedule = onSnapshot(scheduleRef, (snapshot) => {
+      if (!snapshot.empty) {
+        const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+        snapshot.docs.forEach((docSnap) => {
+          const item = docSnap.data();
+          if (item.day !== undefined && transformed[item.day]) {
+            transformed[item.day].push({
+              id: docSnap.id,
+              subject: item.courseName || item.subject, // 兼容新舊命名
+              teacher: item.teacher || '',
+              startTime: item.startTime || '08:00',
+              endTime: item.endTime || '09:00',
+              location: item.location || '',
+              rescheduled: item.rescheduled || false,
+              link: item.link || '',
+              color: item.color || ''
+            });
+          }
+        });
+        // 根據開始時間排序
+        Object.keys(transformed).forEach(day => {
+           transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
+        });
+        setWeeklySchedule(transformed);
       } else {
-        // 🚀 如果雲端找不到該班級，將本地資料重置為初始狀態
-        console.log(`雲端尚未建立 ${classID} 班的資料`);
-        setWeeklySchedule(JSON.parse(localStorage.getItem('gsat_schedule')) || INITIAL_WEEKLY_SCHEDULE);
-        setContactBook(JSON.parse(localStorage.getItem('gsat_contact_book')) || {});
+        console.log(`雲端尚未建立 ${classID} 班的課表資料`);
       }
-    }, (err) => {
-      console.error("Firestore sync error:", err);
-    });
-    return () => unsub();
-  }, [db, classID]);
+    }, (err) => console.error("Schedule sync error:", err));
 
-  // Notice System Sync
+    // 2. Sync Assignments (電子聯絡簿/作業)
+    const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
+    const unsubAssignments = onSnapshot(assignmentsRef, (snapshot) => {
+      const cb = {};
+      snapshot.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const dateStr = data.dueDate || data.date; 
+        if (dateStr) {
+          if (!cb[dateStr]) cb[dateStr] = [];
+          cb[dateStr].push({ id: docSnap.id, ...data });
+        }
+      });
+      setContactBook(cb);
+    }, (err) => console.error("Assignments sync error:", err));
+
+    return () => { unsubSchedule(); unsubAssignments(); };
+  }, [db, classID, user]); // 加入 user 作為依賴
+
+  // Notice System Sync (全站系統公告)
   useEffect(() => {
-    if (!db || !classID) return;
-    const noticesRef = collection(db, 'classes', classID, 'notices');
+    if (!db || !user) return; // 🚀 配合新安全規則：未登入者不嘗試讀取
+    const noticesRef = collection(db, 'MainNotifications');
     const q = query(noticesRef, orderBy('timestamp', 'desc'), limit(5));
 
     const unsub = onSnapshot(q, (snapshot) => {
       if (snapshot && snapshot.docs) {
         const allNotices = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-        // 僅保留：course (課程)、reschedule (調課)、homework (作業)、exam (考試)
-        const allowedTypes = ['course', 'reschedule', 'homework', 'exam', 'COURSE', 'RESCHEDULE', 'HOMEWORK', 'EXAM'];
-        const filteredNotices = allNotices.filter(n => allowedTypes.includes(n.type));
-        setNotices(filteredNotices);
+        setNotices(allNotices);
 
         if (snapshot.docChanges) {
           snapshot.docChanges().forEach((change) => {
             if (change.type === "added") {
               const data = change.doc.data();
-              if (!allowedTypes.includes(data.type)) return;
 
               // 🔴 關鍵修正：只對「App啟動後」才新增的通知進行推播
               // 解決 Timestamp 物件與 Number 比對永遠為 false 的 Bug
@@ -363,36 +404,80 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       console.error("Firestore sync error (Notices)：", err);
     });
     return () => unsub();
-  }, [db, classID]);
+  }, [db, classID, user]); // 加入 user 作為依賴
 
   const saveToFirestore = async (newSchedule) => {
     if (!db || !classID) return;
     try {
-      const flatSchedule = [];
+      const schoolId = "khsh";
+      const gradeId = "grade_2";
+      
+      const scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
+      const snap = await getDocs(scheduleRef);
+      
+      const batch = writeBatch(db);
+      const currentIds = new Set();
+
       Object.keys(newSchedule).forEach(dayKey => {
         const day = parseInt(dayKey);
         if (day >= 0 && day <= 6) {
-          (newSchedule[dayKey] || []).forEach(item => {
-            flatSchedule.push({
-              id: item.id, day: day, course: item.subject, teacher: item.teacher || '',
+          (newSchedule[dayKey] || []).forEach((item, idx) => {
+            const docId = item.id ? String(item.id) : `${day}_${idx}`;
+            currentIds.add(docId);
+            const docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule', docId);
+            batch.set(docRef, {
+              day: day, courseName: item.subject, teacher: item.teacher || '',
               startTime: item.startTime, endTime: item.endTime, location: item.location || '',
-              rescheduled: item.rescheduled || false, link: item.link || '',
-              color: item.color || ''
-            });
+              rescheduled: item.rescheduled || false, link: item.link || '', color: item.color || ''
+            }, { merge: true });
           });
         }
       });
-      await setDoc(doc(db, 'classes', classID), { schedule: flatSchedule, lastUpdated: serverTimestamp() }, { merge: true });
+
+      // 將舊課表中被刪除的課程一併移除
+      snap.docs.forEach(docSnap => {
+        if (!currentIds.has(docSnap.id)) {
+          batch.delete(docSnap.ref);
+        }
+      });
+
+      await batch.commit();
     } catch (e) { console.error("Firestore save error:", e); }
   };
 
   const saveContactBookToFirestore = async (newContactBook) => {
     if (!db || !classID) return;
     try {
-      await setDoc(doc(db, 'classes', classID), {
-        contactBook: newContactBook,
-        lastUpdated: serverTimestamp()
-      }, { merge: true });
+      const schoolId = "khsh";
+      const gradeId = "grade_2";
+      
+      const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
+      const snap = await getDocs(assignmentsRef);
+      
+      const batch = writeBatch(db);
+      const currentIds = new Set();
+
+      Object.keys(newContactBook).forEach(dateStr => {
+        newContactBook[dateStr].forEach(item => {
+          const docId = item.id ? String(item.id) : Date.now().toString() + Math.floor(Math.random()*1000);
+          currentIds.add(docId);
+          const docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments', docId);
+          batch.set(docRef, {
+            ...item,
+            dueDate: dateStr,
+            isNotified: item.isNotified !== undefined ? item.isNotified : false
+          }, { merge: true });
+        });
+      });
+
+      // 將畫面上被刪除的作業從 Firestore 移除
+      snap.docs.forEach(docSnap => {
+        if (!currentIds.has(docSnap.id)) {
+          batch.delete(docSnap.ref);
+        }
+      });
+
+      await batch.commit();
     } catch (e) { console.error("Firestore contact book save error:", e); }
   };
 
@@ -413,15 +498,21 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     });
     setWeeklySchedule(transformed);
 
-    await setDoc(doc(db, 'classes', '206'), {
-      className: "206", school: "內湖高中",
-      schedule: SCHEDULE_206_TEMPLATE.map((item, idx) => ({
-        id: Date.now() + idx, day: item.day, course: item.course, teacher: item.teacher,
+    const schoolId = "khsh";
+    const gradeId = "grade_2";
+    const batch = writeBatch(db);
+    
+    SCHEDULE_206_TEMPLATE.forEach((item, idx) => {
+      const docId = `${item.day}_${idx}`;
+      const docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', '206', 'ClassSchedule', docId);
+      batch.set(docRef, {
+        day: item.day, courseName: item.course, teacher: item.teacher,
         startTime: item.startTime, endTime: item.endTime, location: '',
         rescheduled: false, link: '', color: ''
-      })),
-      lastUpdated: serverTimestamp()
-    }, { merge: true });
+      }, { merge: true });
+    });
+
+    await batch.commit();
 
     triggerNotification('導入成功', '內中 206 班課表已導入並同步至雲端！');
   };
@@ -702,6 +793,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     { id: 'english', icon: BookOpen, label: '單字特訓' },
     { id: 'contactBook', icon: Notebook, label: '電子聯絡簿' },
     { id: 'notes', icon: BookMarked, label: '知識筆記' },
+    { id: 'grades', icon: TrendingUp, label: '成績趨勢' },
     { id: 'credits', icon: GraduationCap, label: '學分計算' },
     { id: 'stores', icon: Store, label: '特約商店' },
     { id: 'traffic', icon: Bus, label: '交通與 YouBike' },
@@ -778,7 +870,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
         isOpen={cmdPaletteOpen}
         onClose={() => setCmdPaletteOpen(false)}
         onSelectTab={(id) => {
-          const map = { dashboard: 'dashboard', vocabulary: 'english', contact: 'contactBook', stores: 'stores', traffic: 'traffic', settings: 'settings', feedback: 'feedback', tutorial: 'help' };
+          const map = { dashboard: 'dashboard', vocabulary: 'english', contact: 'contactBook', stores: 'stores', traffic: 'traffic', settings: 'settings', feedback: 'feedback', tutorial: 'help', grades: 'grades' };
           setActiveTab(map[id] || id);
           setIsNavOpen(false);
         }}
@@ -915,6 +1007,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
             />
           )}
           {activeTab === 'credits' && <CreditsTab user={user} triggerNotification={triggerNotification} />}
+          {activeTab === 'grades' && <GradesTab user={user} triggerNotification={triggerNotification} />}
           {activeTab === 'stores' && <StoresTab isAdmin={isAdmin} campusName={campusName} />}
           {activeTab === 'traffic' && <TrafficTab campusName={campusName} campusAddress={campusAddress} campusLat={campusLat} campusLng={campusLng} />}
           {activeTab === 'feedback' && <FeedbackTab userProfile={userProfile} triggerNotification={triggerNotification} onBack={() => navTo(previousTab)} onSuccess={() => navTo('dashboard')} />}
@@ -955,6 +1048,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
               setCampusLng={setCampusLng}
               dashboardLayout={dashboardLayout}
               setDashboardLayout={setDashboardLayout}
+              dndEnabled={dndEnabled}
+              handleToggleDnd={handleToggleDnd}
+              subjects={subjects}
+              setSubjects={setSubjects}
             />
           )}
           {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
@@ -976,17 +1073,45 @@ export default function App() {
       if (Notification.permission !== 'granted') return;
       const token = await getToken(messaging, { vapidKey: VAPID_KEY?.trim().replace(/\s/g, '') });
       if (token) {
-        const currentClass = localStorage.getItem('gsat_class_id') || '206';
-        await setDoc(doc(db, 'users', currentUser.uid), {
+        // 1. 從新的資料庫結構 Users/{userId} 讀取使用者的 classId
+        const userRef = doc(db, 'Users', currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        
+        let currentClass = localStorage.getItem('gsat_class_id') || '206';
+        if (userSnap.exists() && userSnap.data().classId) {
+          currentClass = userSnap.data().classId;
+          localStorage.setItem('gsat_class_id', currentClass); // 確保本地端狀態同步
+        }
+
+        // 🚀 配合安全規則：寫入 role 欄位以供後端判定身分
+        const role = currentUser.email?.endsWith('@nhsh.tp.edu.tw') ? 'admin' : 'student';
+
+        await setDoc(userRef, {
           fcmToken: token, lastActive: serverTimestamp(),
           userName: currentUser.displayName || '同學',
-          email: currentUser.email || '', classID: currentClass
+          email: currentUser.email || '', classId: currentClass, role: role
         }, { merge: true });
 
         // 🚀 自動訂閱該班級的 FCM 主題
         if (functions) {
           const subscribe = httpsCallable(functions, 'subscribeToTopic');
           await subscribe({ token, topic: `class_${currentClass}` }).catch(e => console.warn("主題訂閱失敗:", e));
+          
+          // 依據不打擾模式決定是否訂閱即時推播 (alerts)
+          let dnd = false;
+          if (userSnap.exists() && userSnap.data().dndEnabled !== undefined) {
+            dnd = userSnap.data().dndEnabled;
+            localStorage.setItem('gsat_dnd_enabled', String(dnd));
+          } else {
+            dnd = localStorage.getItem('gsat_dnd_enabled') === 'true';
+          }
+          
+          if (!dnd) {
+            await subscribe({ token, topic: `class_${currentClass}_alerts` }).catch(e => console.warn(e));
+          } else {
+            const unsubscribe = httpsCallable(functions, 'unsubscribeFromTopic');
+            await unsubscribe({ token, topic: `class_${currentClass}_alerts` }).catch(e => console.warn(e));
+          }
         }
       }
     } catch (err) { console.error("FCM Error:", err); }

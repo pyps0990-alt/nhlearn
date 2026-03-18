@@ -6,8 +6,8 @@ import {
   Sun, Moon, Coffee, ChevronRight, ArrowUpDown, Check,
   Timer, Play, Pause, RotateCcw, Zap, ExternalLink, Notebook, Search, Flame,
   CheckCircle2, PenTool, UserPlus, UserMinus,
-  Languages, Calculator, Beaker, Dna, History, Map as MapIcon, Scale, Library, GraduationCap,
-  Music, Palette, Trophy, Laptop, Lightbulb
+  Languages, Calculator, Beaker, Dna, History, Map as MapIcon, Scale, Library, GraduationCap, TrendingUp,
+  Music, Palette, Trophy, Laptop, Lightbulb, GripVertical
 } from 'lucide-react';
 
 import { fetchAI } from '../../utils/helpers';
@@ -158,6 +158,10 @@ const FocusTimerWidget = ({ triggerNotification }) => {
   const [sessions, setSessions] = useState(() => Number(localStorage.getItem('gsat_pomo_sessions') || '0'));
   const [expanded, setExpanded] = useState(false);
   const intervalRef = useRef(null);
+  
+  // 白噪音狀態與音軌控制
+  const [noiseType, setNoiseType] = useState('none'); 
+  const noiseNodeRef = useRef(null);
   const audioCtx = useRef(null);
 
   const playDing = useCallback(() => {
@@ -173,12 +177,51 @@ const FocusTimerWidget = ({ triggerNotification }) => {
     } catch { }
   }, []);
 
+  const stopNoise = useCallback(() => {
+    if (noiseNodeRef.current) {
+      try { noiseNodeRef.current.stop(); } catch(e) {}
+      noiseNodeRef.current.disconnect();
+      noiseNodeRef.current = null;
+    }
+  }, []);
+
+  // 🚀 純 Web Audio API 演算出的沉浸式下雨白噪音 (不需載入任何外部資源)
+  const playNoise = useCallback((type) => {
+    stopNoise();
+    if (type === 'none') return;
+    try {
+      const ctx = audioCtx.current || new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx.current = ctx;
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      let lastOut = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        // Brownian noise 演算法，聽起來極度類似下雨聲/海浪聲
+        output[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = output[i];
+        output[i] *= 3.5; 
+      }
+      const node = ctx.createBufferSource();
+      node.buffer = buffer;
+      node.loop = true;
+      const gain = ctx.createGain();
+      gain.gain.value = type === 'rain' ? 0.3 : 0.05; // 控制下雨聲或輕微海浪聲的音量
+      node.connect(gain);
+      gain.connect(ctx.destination);
+      node.start(0);
+      noiseNodeRef.current = node;
+    } catch(e) { console.error("Audio error", e); }
+  }, [stopNoise]);
+
   useEffect(() => {
     if (isRunning && timeLeft > 0) {
       intervalRef.current = setInterval(() => setTimeLeft(t => t - 1), 1000);
     } else if (timeLeft <= 0 && isRunning) {
       setIsRunning(false);
       playDing();
+      stopNoise(); // 結束時自動停止白噪音
       if (mode === 'focus') {
         const newCount = sessions + 1;
         setSessions(newCount);
@@ -195,9 +238,18 @@ const FocusTimerWidget = ({ triggerNotification }) => {
       }
     }
     return () => clearInterval(intervalRef.current);
-  }, [isRunning, timeLeft, mode, sessions, playDing, triggerNotification]);
+  }, [isRunning, timeLeft, mode, sessions, playDing, stopNoise, triggerNotification]);
 
-  const reset = () => { setIsRunning(false); setTimeLeft(duration); };
+  // 當使用者手動暫停時，自動暫停白噪音；繼續時自動恢復
+  useEffect(() => {
+    if (isRunning && noiseType !== 'none') {
+      playNoise(noiseType);
+    } else {
+      stopNoise();
+    }
+  }, [isRunning, noiseType, playNoise, stopNoise]);
+
+  const reset = () => { setIsRunning(false); setTimeLeft(duration); stopNoise(); };
   const progress = duration > 0 ? ((duration - timeLeft) / duration) * 100 : 0;
   const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
   const secs = String(timeLeft % 60).padStart(2, '0');
@@ -274,6 +326,21 @@ const FocusTimerWidget = ({ triggerNotification }) => {
             </span>
           </div>
         </div>
+
+      {/* 白噪音選擇器 */}
+      <div className="flex gap-2 mb-6 bg-white/40 dark:bg-black/20 p-1.5 rounded-[20px] backdrop-blur-md">
+        {[{id:'none', icon:'🔇 無', label: '關閉'}, {id:'rain', icon:'🌧️ 雨聲', label: '下雨'}, {id:'wave', icon:'🌊 海浪', label: '海浪'}].map(n => (
+          <button
+            key={n.id}
+            onClick={() => setNoiseType(n.id)}
+            className={`px-4 py-2.5 rounded-[16px] text-[12px] font-black transition-all duration-300 ease-spring-smooth ${
+              noiseType === n.id 
+              ? (mode === 'focus' ? 'bg-rose-500 text-white shadow-md' : 'bg-emerald-500 text-white shadow-md')
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
+            }`}
+          >{n.icon}</button>
+        ))}
+      </div>
 
         {/* Controls */}
         <div className="flex items-center gap-4">
@@ -415,7 +482,7 @@ const AiBriefing = React.memo(({ weeklySchedule, contactBook, user }) => {
 
   const generateBriefing = useCallback(async (isManual = false) => {
     const isThrottleActive = Date.now() - lastGenerated < 5 * 60 * 1000;
-    if (!isManual && isThrottleActive && briefing) return; 
+    if (!isManual && isThrottleActive && briefing) return;
     if (loading) return;
 
     setLoading(true);
@@ -425,7 +492,7 @@ const AiBriefing = React.memo(({ weeklySchedule, contactBook, user }) => {
       const dateStr = today.toISOString().split('T')[0];
       const todayClasses = (weeklySchedule && weeklySchedule[day]) || [];
       const todayTasks = (contactBook && contactBook[dateStr]) || [];
-      
+
       const prompt = `你是一位親切、幽默的學習小助手。請根據以下資訊，為學生寫一段大約 80 字的今日摘要。
       - 今日課程：${todayClasses.map(c => c.subject).join(', ') || '無'}
       - 重點任務：${todayTasks.map(t => (t.homework ? `作業:${t.homework}` : `考試:${t.exam}`)).join('; ') || '無'}
@@ -457,14 +524,14 @@ const AiBriefing = React.memo(({ weeklySchedule, contactBook, user }) => {
               <Sparkles size={16} />
               AI 學習小助手
             </div>
-            <button 
+            <button
               onClick={() => generateBriefing(true)}
               className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors"
             >
               <RefreshCw size={14} className={`${loading ? 'animate-spin' : ''} text-slate-400`} />
             </button>
           </div>
-          
+
           <div className="min-h-[60px]">
             {loading ? (
               <div className="space-y-2 py-2">
@@ -477,9 +544,9 @@ const AiBriefing = React.memo(({ weeklySchedule, contactBook, user }) => {
               </p>
             )}
           </div>
-          
+
           <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex justify-end">
-            <button 
+            <button
               onClick={() => setIsOpen(false)}
               className="text-[12px] font-black text-slate-400 hover:text-slate-600 dark:hover:text-white"
             >
@@ -492,9 +559,8 @@ const AiBriefing = React.memo(({ weeklySchedule, contactBook, user }) => {
       {/* 主按鈕 */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-500 hover:scale-110 active:scale-95 group relative ${
-          isOpen ? 'bg-zinc-900 text-white rotate-90' : 'bg-gradient-to-br from-indigo-500 to-emerald-500 text-white'
-        }`}
+        className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-500 hover:scale-110 active:scale-95 group relative ${isOpen ? 'bg-zinc-900 text-white rotate-90' : 'bg-gradient-to-br from-indigo-500 to-emerald-500 text-white'
+          }`}
       >
         {isOpen ? (
           <Plus className="rotate-45" size={24} />
@@ -507,6 +573,123 @@ const AiBriefing = React.memo(({ weeklySchedule, contactBook, user }) => {
           </>
         )}
       </button>
+    </div>
+  );
+});
+
+// === GitHub 風格學習熱力圖 Widget ===
+const LearningHeatmapWidget = React.memo(({ streak }) => {
+  const stats = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {}; }
+    catch { return {}; }
+  }, []);
+
+  const { days, monthLabels } = useMemo(() => {
+    const today = new Date();
+    const currentDayOfWeek = today.getDay(); // 0(Sun) - 6(Sat)
+    const weeksToShow = 14;
+    const totalDays = weeksToShow * 7;
+    
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - (weeksToShow - 1) * 7 - currentDayOfWeek);
+
+    const daysArr = [];
+    const mLabels = [];
+    let lastMonth = -1;
+
+    const formatDate = (dateObj) => {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const d = String(dateObj.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    const todayStr = formatDate(today);
+
+    for (let i = 0; i < totalDays; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const dateStr = formatDate(d);
+      const isFuture = d > today;
+      const dayStats = stats[dateStr] || { words: 0, time: 0 };
+      
+      const totalMins = Math.floor((dayStats.time || 0) / 60);
+      const words = dayStats.words || 0;
+      
+      // 計算活躍等級 0~4
+      let level = 0;
+      if (totalMins >= 90 || words >= 100) level = 4;
+      else if (totalMins >= 45 || words >= 50) level = 3;
+      else if (totalMins >= 20 || words >= 20) level = 2;
+      else if (totalMins > 0 || words > 0) level = 1;
+
+      let colorClass = 'bg-slate-100 dark:bg-white/5';
+      if (!isFuture) {
+        if (level === 4) colorClass = 'bg-emerald-600 dark:bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.4)] z-10';
+        else if (level === 3) colorClass = 'bg-emerald-500 dark:bg-emerald-500';
+        else if (level === 2) colorClass = 'bg-emerald-400 dark:bg-emerald-600/80';
+        else if (level === 1) colorClass = 'bg-emerald-200 dark:bg-emerald-800/60';
+      } else {
+        colorClass = 'bg-transparent';
+      }
+
+      daysArr.push({ date: dateStr, level, colorClass, isFuture, stats: dayStats, isToday: dateStr === todayStr });
+      
+      if (d.getDay() === 0) {
+         if (d.getMonth() !== lastMonth) {
+           mLabels.push({ colIndex: i / 7, label: d.toLocaleString('zh-TW', { month: 'short' }) });
+           lastMonth = d.getMonth();
+         }
+      }
+    }
+    return { days: daysArr, monthLabels: mLabels };
+  }, [stats]);
+
+  return (
+    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[36px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-[600ms] hover:-translate-y-1 animate-slide-up-fade">
+      <div className="flex items-center justify-between mb-4">
+         <h3 className="text-[16px] font-black text-slate-800 dark:text-white flex items-center gap-2 tracking-tight">
+           <TrendingUp className="text-emerald-500" size={20} /> 學習熱力圖
+         </h3>
+         {streak > 0 && (
+           <div className="flex items-center gap-1.5 text-[11px] font-black text-orange-600 bg-orange-50 dark:bg-orange-500/20 dark:text-orange-400 px-3 py-1.5 rounded-xl border border-orange-100 dark:border-orange-500/30 shadow-sm animate-pulse-slow">
+             <Flame size={14} /> 連續打卡 {streak} 天
+           </div>
+         )}
+      </div>
+      
+      <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 pb-2">
+         <div className="relative h-4 mb-1 text-[10px] font-bold text-slate-400" style={{ width: `${14 * 20}px` }}>
+            {monthLabels.map((m, idx) => (
+              <span key={idx} className="absolute top-0" style={{ left: `${m.colIndex * 20}px` }}>{m.label}</span>
+            ))}
+         </div>
+         <div className="flex gap-2 min-w-max">
+           <div className="flex flex-col gap-[5px] text-[9px] font-bold text-slate-400 justify-between mt-1">
+             <span>日</span><span className="opacity-0">一</span><span>二</span>
+             <span className="opacity-0">三</span><span>四</span><span className="opacity-0">五</span><span>六</span>
+           </div>
+           <div className="grid grid-flow-col gap-[5px]" style={{ gridTemplateRows: 'repeat(7, 1fr)' }}>
+             {days.map((d, i) => (
+               <div
+                 key={i}
+                 title={d.isFuture ? '未來' : `${d.date}\n專注: ${Math.floor((d.stats.time || 0)/60)} 分鐘\n單字: ${d.stats.words || 0} 個`}
+                 className={`relative w-[15px] h-[15px] rounded-[4px] ${d.colorClass} transition-all duration-300 hover:scale-125 cursor-pointer ${d.isToday ? 'ring-2 ring-emerald-500/50 ring-offset-1 dark:ring-offset-slate-900' : ''}`}
+               />
+             ))}
+           </div>
+         </div>
+      </div>
+      
+      <div className="flex justify-end items-center gap-1.5 mt-4 text-[10px] font-bold text-slate-400">
+        <span className="mr-1">Less</span>
+        <div className="w-3 h-3 rounded-[3px] bg-slate-100 dark:bg-white/5" />
+        <div className="w-3 h-3 rounded-[3px] bg-emerald-200 dark:bg-emerald-800/60" />
+        <div className="w-3 h-3 rounded-[3px] bg-emerald-400 dark:bg-emerald-600/80" />
+        <div className="w-3 h-3 rounded-[3px] bg-emerald-500 dark:bg-emerald-500" />
+        <div className="w-3 h-3 rounded-[3px] bg-emerald-600 dark:bg-emerald-400" />
+        <span className="ml-1">More</span>
+      </div>
     </div>
   );
 });
@@ -531,6 +714,9 @@ const DashboardTab = ({
   const [isSwapMode, setIsSwapMode] = useState(false);
   const [selectedForSwap, setSelectedForSwap] = useState([]); // Array of 2 IDs
   const [streak, setStreak] = useState(0);
+  
+  // --- 課表拖曳狀態 ---
+  const [draggedScheduleIdx, setDraggedScheduleIdx] = useState(null);
 
   // --- 自訂代課彈窗狀態 ---
   const [showSubModal, setShowSubModal] = useState(false);
@@ -595,12 +781,9 @@ const DashboardTab = ({
     const now = new Date(currentTime);
     const day = now.getDay();
     const hours = now.getHours();
+    const currentMins = hours * 60 + now.getMinutes();
 
-    // 計算今天最後一堂課的結束時間
     const todayClasses = (weeklySchedule && weeklySchedule[day]) || [];
-    const lastClassMins = todayClasses.reduce((max, c) => Math.max(max, timeToMins(c.endTime)), 0);
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-
     const hasSat = weeklySchedule && weeklySchedule[6] && weeklySchedule[6].length > 0;
     const hasSun = weeklySchedule && weeklySchedule[0] && weeklySchedule[0].length > 0;
 
@@ -614,7 +797,20 @@ const DashboardTab = ({
 
     let tDay = day;
     let display = new Date(now);
-    let tomorrowMode = hours >= 20;
+    let tomorrowMode = false;
+
+    // 💡 優化：如果今天有課，過了最後一堂課的結束時間，就自動切換成明天模式
+    // 若今天沒課，預設下午 13:00 後切換為明天模式
+    if (todayClasses.length > 0) {
+      const lastClassMins = todayClasses.reduce((max, c) => Math.max(max, timeToMins(c.endTime)), 0);
+      if (currentMins >= lastClassMins) {
+        tomorrowMode = true;
+      }
+    } else {
+      if (hours >= 13) {
+        tomorrowMode = true;
+      }
+    }
 
     if (tomorrowMode) {
       tDay = (tDay + 1) % 7;
@@ -777,6 +973,26 @@ const DashboardTab = ({
     }));
   };
 
+  const handleScheduleDragStart = (e, index) => {
+    setDraggedScheduleIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleScheduleDragEnter = (e, index) => {
+    if (draggedScheduleIdx === null || draggedScheduleIdx === index) return;
+    const setter = previewSchedule ? setPreviewSchedule : setWeeklySchedule;
+    setter(prev => {
+      const newDaySchedule = [...(prev[editDayTab] || [])];
+      const draggedItem = newDaySchedule[draggedScheduleIdx];
+      newDaySchedule.splice(draggedScheduleIdx, 1);
+      newDaySchedule.splice(index, 0, draggedItem);
+      return { ...prev, [editDayTab]: newDaySchedule };
+    });
+    setDraggedScheduleIdx(index);
+  };
+  const handleScheduleDragEnd = () => setDraggedScheduleIdx(null);
+  const handleScheduleDragOver = (e) => e.preventDefault();
+
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -912,17 +1128,6 @@ const DashboardTab = ({
       const cleanSchedule = JSON.parse(JSON.stringify(newWeekly));
       await saveToFirestore(cleanSchedule);
 
-      // 新增：發送調課通知推播給全班
-      try {
-        await addDoc(collection(db, 'classes', classID, 'notices'), {
-          title: '調課異動通知 ⚡',
-          content: noticeContent,
-          type: 'RESCHEDULE',
-          targetCourse: originalSubj1,
-          timestamp: Date.now()
-        });
-      } catch (e) { console.error("調課推播失敗:", e); }
-
       triggerNotification('調課成功 ⚡', `已對調並同步至班級雲端`);
     } else {
       triggerNotification('調課成功 ⚡', `已對調並儲存至本機`);
@@ -962,15 +1167,6 @@ const DashboardTab = ({
     if (classID) {
       const cleanSchedule = JSON.parse(JSON.stringify(newWeekly));
       await saveToFirestore(cleanSchedule);
-      try {
-        await addDoc(collection(db, 'classes', classID, 'notices'), {
-          title: '調課異動通知 ⚡',
-          content: noticeContent,
-          type: 'RESCHEDULE',
-          targetCourse: originalSubj,
-          timestamp: Date.now()
-        });
-      } catch (e) { console.error("調課推播失敗:", e); }
       triggerNotification('調課成功 ⚡', `已變更並同步至班級雲端`);
     } else {
       triggerNotification('調課成功 ⚡', `已變更並儲存至本機`);
@@ -1051,16 +1247,6 @@ const DashboardTab = ({
       triggerNotification('連線中', '正在將課表上傳至雲端...');
       try {
         await saveToFirestore(weeklySchedule);
-
-        try {
-          // 新增：發送課表更新通知給全班
-          await addDoc(collection(db, 'classes', classID, 'notices'), {
-            title: '課表異動通知 🗓️',
-            content: '班級課表已更新，請查看最新排程！',
-            type: 'COURSE',
-            timestamp: Date.now()
-          });
-        } catch (e) { console.error("更新推播失敗:", e); }
 
         triggerNotification('同步成功 🎉', '課表已安全備份至班級雲端！');
       } catch (err) {
@@ -1201,6 +1387,8 @@ const DashboardTab = ({
     />
   );
 
+  const widgetHeatmap = <LearningHeatmapWidget streak={streak} />;
+
   const widgetPomodoro = <FocusTimerWidget triggerNotification={triggerNotification} />;
 
   const widgetSchedule = (
@@ -1334,9 +1522,22 @@ const DashboardTab = ({
           </div>
 
           <div className="space-y-4">
-            {(displaySchedule[editDayTab] || []).map(item => (
-              <div key={item.id} className={`p-6 bg-white/50 dark:bg-black/20 backdrop-blur-xl rounded-[32px] border ${getSubjectTheme(item, subjects).border} relative group transition-all duration-500 ease-spring hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] animate-slide-up-fade`}>
-                <div className="flex flex-col gap-4">
+            {(displaySchedule[editDayTab] || []).map((item, index) => (
+              <div 
+                key={item.id} 
+                draggable
+                onDragStart={(e) => handleScheduleDragStart(e, index)}
+                onDragEnter={(e) => handleScheduleDragEnter(e, index)}
+                onDragEnd={handleScheduleDragEnd}
+                onDragOver={handleScheduleDragOver}
+                className={`p-6 bg-white/50 dark:bg-black/20 backdrop-blur-xl rounded-[32px] border ${getSubjectTheme(item, subjects).border} relative group transition-all duration-500 ease-spring hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] animate-slide-up-fade ${draggedScheduleIdx === index ? 'opacity-50 scale-[0.98] border-dashed border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20 z-50 shadow-xl' : ''}`}
+              >
+                {/* 拖曳手把 (大螢幕顯示，手機端可直接長按卡片拖曳) */}
+                <div className="absolute left-1.5 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-slate-300 hover:text-emerald-500 transition-colors hidden sm:flex h-[80%] items-center px-1 z-10">
+                  <GripVertical size={20} />
+                </div>
+
+                <div className="flex flex-col gap-4 sm:pl-5">
 
                   {/* Row 1: Subject, Color Picker and Time */}
                   <div className="flex flex-col md:flex-row md:items-stretch gap-4">
@@ -1572,8 +1773,8 @@ const DashboardTab = ({
                               <div
                                 onClick={() => toggleSwapSelect(item.id)}
                                 className={`relative overflow-hidden flex items-center gap-4 px-6 py-4 rounded-[32px] border transition-all duration-300 cursor-pointer active:scale-[0.96] hover:shadow-[0_12px_24px_rgba(0,0,0,0.15)] backdrop-blur-md ${isActive ? `${theme.activeBg} border-white/30 shadow-lg scale-[1.02] ring-4 ${theme.ring}` :
-                                    item.rescheduled ? 'bg-orange-50/30 dark:bg-orange-950/30 border-orange-500/60 shadow-[0_0_20px_rgba(255,152,0,0.15)] hover:scale-[1.01]' :
-                                      `bg-white/60 dark:bg-white/5 shadow-sm dark:shadow-none ${theme.border} hover:-translate-y-0.5 hover:scale-[1.01]`
+                                  item.rescheduled ? 'bg-orange-50/30 dark:bg-orange-950/30 border-orange-500/60 shadow-[0_0_20px_rgba(255,152,0,0.15)] hover:scale-[1.01]' :
+                                    `bg-white/60 dark:bg-white/5 shadow-sm dark:shadow-none ${theme.border} hover:-translate-y-0.5 hover:scale-[1.01]`
                                   } ${selectedForSwap.includes(item.id) ? 'border-orange-500 ring-4 ring-orange-500/20 scale-105' : ''}`}
                                 style={item.rescheduled && !isActive ? { border: '2px solid #ff9800', boxShadow: '0 0 15px rgba(255, 152, 0, 0.3)' } : {}}
                               >
@@ -1720,7 +1921,7 @@ const DashboardTab = ({
                   {item.exam ? `考試：${item.exam}` : item.homework}
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => handleToggleAck(item._originalDateKey, item.id)}
                 className={`w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90 ${item.acknowledgedBy?.includes(user?.uid) ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-300 hover:text-emerald-500 dark:text-gray-600 dark:hover:text-emerald-400'}`}
               >
@@ -1743,9 +1944,9 @@ const DashboardTab = ({
     greeting: (
       <React.Fragment>
         {widgetGreeting}
-        {widgetAiBriefing}
       </React.Fragment>
     ),
+    heatmap: widgetHeatmap,
     pomodoro: widgetPomodoro,
     schedule: widgetSchedule,
     links: widgetLinks,
@@ -1755,7 +1956,7 @@ const DashboardTab = ({
 
   const layout = dashboardLayout || [
     { id: 'countdowns', visible: true }, { id: 'greeting', visible: true }, { id: 'pomodoro', visible: true },
-    { id: 'schedule', visible: true }, { id: 'links', visible: true }, { id: 'news', visible: true }, { id: 'prep', visible: true }
+    { id: 'heatmap', visible: true }, { id: 'schedule', visible: true }, { id: 'links', visible: true }, { id: 'news', visible: true }, { id: 'prep', visible: true }
   ];
 
   return (

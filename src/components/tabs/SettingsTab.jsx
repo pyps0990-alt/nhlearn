@@ -5,9 +5,13 @@ import {
   Bell, Sparkles, Cloud, BrainCircuit, RefreshCw, GraduationCap,
   CheckCircle2, X, Store, Trash2, Lock, MapPin, Globe, Plus, Link, Share, PlusSquare, Smartphone,
   Utensils, Coffee, CupSoda, PenTool, Clock, LayoutTemplate, Eye, EyeOff, ArrowUp, ArrowDown, GripVertical, Palette
+  , BookOpen, BookText, Languages, Calculator, Zap, Beaker, Dna, History, Scale, Library, Music, Trophy, Laptop, Lightbulb
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+
+const SUBJECT_ICONS = { BookText, Languages, Calculator, Zap, Beaker, Dna, History, MapPin, Scale, Library, Globe, GraduationCap, Music, Palette, Trophy, Laptop, PenTool, Lightbulb, BookOpen };
+const COLOR_CLASSES = [{ key: 'emerald', hex: 'bg-emerald-500' }, { key: 'blue', hex: 'bg-blue-500' }, { key: 'rose', hex: 'bg-rose-500' }, { key: 'amber', hex: 'bg-amber-500' }, { key: 'purple', hex: 'bg-purple-500' }, { key: 'indigo', hex: 'bg-indigo-500' }, { key: 'slate', hex: 'bg-slate-500' }];
 
 const SettingsTab = ({
   isAdmin, setIsAdmin, triggerNotification, handleAuthClick,
@@ -19,7 +23,9 @@ const SettingsTab = ({
   handleImport206Template, customCountdowns, setCustomCountdowns,
   campusName, setCampusName, campusAddress, setCampusAddress,
   dashboardLayout, setDashboardLayout,
-  campusLat, setCampusLat, campusLng, setCampusLng
+  campusLat, setCampusLat, campusLng, setCampusLng,
+  dndEnabled, handleToggleDnd,
+  subjects, setSubjects
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
   const [editingCampus, setEditingCampus] = useState(false);
@@ -185,7 +191,7 @@ const SettingsTab = ({
 
   useEffect(() => {
     if (!isAdmin) return;
-    const unsub = onSnapshot(collection(db, 'stores'), snapshot => {
+    const unsub = onSnapshot(collection(db, 'Schools', 'khsh', 'Stores'), snapshot => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setStores(data);
@@ -222,15 +228,38 @@ const SettingsTab = ({
     }
   };
 
+  // --- 自定義科目管理 ---
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
+  const [newSubject, setNewSubject] = useState({ name: '', icon: 'BookText', color: 'emerald' });
+
+  const handleAddSubject = () => {
+    if (!newSubject.name.trim()) return;
+    if (subjects.find(s => s.name === newSubject.name.trim())) {
+      triggerNotification('重複科目', '該科目已存在！');
+      return;
+    }
+    setSubjects([...subjects, { ...newSubject, name: newSubject.name.trim() }]);
+    setNewSubject({ name: '', icon: 'BookText', color: 'emerald' });
+    setIsAddingSubject(false);
+    triggerNotification('新增成功', `已加入科目：${newSubject.name.trim()}`);
+  };
+
+  const handleRemoveSubject = (name) => {
+    if (window.confirm(`確定要刪除「${name}」嗎？\n這將不會刪除已建立的筆記或課表，但未來無法再選取此科目。`)) {
+      setSubjects(subjects.filter(s => s.name !== name));
+      triggerNotification('已刪除', `已移除科目：${name}`);
+    }
+  };
+
   const handleAddOrUpdateStore = async () => {
     if (!newStore.name || !newStore.discount) { triggerNotification('資料不完整', '請輸入商店名稱與優惠'); return; }
     try {
       if (editingStore) {
-        await updateDoc(doc(db, 'stores', editingStore), { ...newStore, updatedAt: Date.now() });
+        await updateDoc(doc(db, 'Schools', 'khsh', 'Stores', editingStore), { ...newStore, updatedAt: Date.now() });
         triggerNotification('更新成功', `${newStore.name} 已更新`);
         setEditingStore(null);
       } else {
-        await addDoc(collection(db, 'stores'), { ...newStore, createdAt: Date.now() });
+        await addDoc(collection(db, 'Schools', 'khsh', 'Stores'), { ...newStore, createdAt: Date.now() });
         triggerNotification('新增成功', `${newStore.name} 已加入`);
       }
       setNewStore({ name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '', operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: '' });
@@ -239,7 +268,7 @@ const SettingsTab = ({
 
   const handleDeleteStore = async (id, name) => {
     if (!window.confirm(`確定刪除「${name}」？`)) return;
-    try { await deleteDoc(doc(db, 'stores', id)); triggerNotification('刪除成功', `${name} 已移除`); }
+    try { await deleteDoc(doc(db, 'Schools', 'khsh', 'Stores', id)); triggerNotification('刪除成功', `${name} 已移除`); }
     catch (e) { triggerNotification('刪除失敗', '請稍後再試'); }
   };
 
@@ -463,6 +492,65 @@ const SettingsTab = ({
                     ))}
                   </div>
                 )}
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <BookOpen size={16} className="text-blue-600 neon-glow-blue" />
+                  <h3 className="text-sm font-black text-[var(--text-secondary)] dark:text-gray-400 uppercase tracking-wider">全域科目管理</h3>
+                </div>
+                <button onClick={() => setIsAddingSubject(!isAddingSubject)} className={`p-2 rounded-xl transition-all active:scale-95 ${isAddingSubject ? 'bg-red-50 text-red-500 rotate-45' : 'bg-blue-50 text-blue-600'}`}>
+                  <Plus size={20} />
+                </button>
+              </div>
+
+              {isAddingSubject && (
+                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl p-6 rounded-[32px] border border-blue-300/50 dark:border-blue-500/30 animate-slide-up-fade">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">科目名稱</label>
+                      <input placeholder="例如：物理" className="w-full p-4 rounded-[20px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)]" value={newSubject.name} onChange={e => setNewSubject({ ...newSubject, name: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">選擇圖標</label>
+                      <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
+                        {Object.keys(SUBJECT_ICONS).map(iconKey => {
+                          const IconComp = SUBJECT_ICONS[iconKey];
+                          return (
+                            <button key={iconKey} onClick={() => setNewSubject({ ...newSubject, icon: iconKey })} className={`shrink-0 p-3 rounded-2xl transition-all ${newSubject.icon === iconKey ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/30 shadow-sm ring-2 ring-blue-400 scale-105' : 'bg-white dark:bg-white/5 text-slate-500'}`}>
+                              <IconComp size={24} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">選擇顏色</label>
+                      <div className="flex gap-3 overflow-x-auto scrollbar-hide py-1">
+                        {COLOR_CLASSES.map(c => (
+                          <button key={c.key} onClick={() => setNewSubject({ ...newSubject, color: c.key })} className={`shrink-0 w-8 h-8 rounded-full ${c.hex} transition-transform ${newSubject.color === c.key ? 'ring-4 ring-offset-2 ring-blue-400 dark:ring-slate-700 scale-110' : 'opacity-70 hover:opacity-100'}`} />
+                        ))}
+                      </div>
+                    </div>
+                    <button onClick={handleAddSubject} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all">確認新增科目</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white/50 dark:bg-zinc-900/40 p-4 rounded-[32px] border border-white/60 dark:border-white/10 flex flex-wrap gap-2">
+                {subjects.map(sub => {
+                  const IconComp = SUBJECT_ICONS[sub.icon] || BookOpen;
+                  const colorConfig = COLOR_CLASSES.find(c => c.key === sub.color) || COLOR_CLASSES[0];
+                  return (
+                    <div key={sub.name} className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-white dark:bg-white/5 border border-slate-100 dark:border-white/5 shadow-sm group">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white ${colorConfig.hex}`}><IconComp size={12} /></div>
+                      <span className="text-sm font-black text-slate-700 dark:text-slate-200">{sub.name}</span>
+                      <button onClick={() => handleRemoveSubject(sub.name)} className="ml-1 p-1 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 size={14} /></button>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           </>
@@ -727,6 +815,21 @@ const SettingsTab = ({
                     enabled={locPermission === 'granted'}
                     onChange={(val) => val ? handleLocationRequest() : triggerNotification('資訊', '請至瀏覽器設定關閉權限')}
                     colorClass="bg-emerald-500"
+                  />
+                </div>
+                {/* 考試不打擾開關 */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-50 dark:bg-purple-500/10 rounded-xl flex items-center justify-center text-purple-500 shrink-0"><Moon size={20} className="shrink-0" /></div>
+                    <div>
+                      <div className="text-sm font-black text-[var(--text-primary)]">考試不打擾模式</div>
+                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">暫停上課與調課等即時通知</div>
+                    </div>
+                  </div>
+                  <Switch
+                    enabled={dndEnabled}
+                    onChange={handleToggleDnd}
+                    colorClass="bg-purple-500"
                   />
                 </div>
                 <div className="pt-2 border-t border-slate-50 dark:border-white/5 flex gap-3">

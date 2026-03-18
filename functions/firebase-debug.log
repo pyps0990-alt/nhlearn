@@ -1,0 +1,30 @@
+[debug] [2026-03-18T14:39:40.233Z] ----------------------------------------------------------------------
+[debug] [2026-03-18T14:39:40.234Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\陳奕嘉\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2026-03-18T14:39:40.235Z] CLI Version:   15.9.1
+[debug] [2026-03-18T14:39:40.235Z] Platform:      win32
+[debug] [2026-03-18T14:39:40.235Z] Node Version:  v24.14.0
+[debug] [2026-03-18T14:39:40.235Z] Time:          Wed Mar 18 2026 22:39:40 GMT+0800 (台北標準時間)
+[debug] [2026-03-18T14:39:40.235Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-03-18T14:39:40.237Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-03-18T14:39:41.771Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-18T14:39:41.772Z] > authorizing via signed-in user (pyps0990@gmail.com)
+[debug] [2026-03-18T14:39:41.772Z] [iam] checking project gsat-pro for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-03-18T14:39:41.772Z] Checked if tokens are valid: false, expires at: 1773840869510
+[debug] [2026-03-18T14:39:41.772Z] Checked if tokens are valid: false, expires at: 1773840869510
+[debug] [2026-03-18T14:39:41.772Z] > refreshing access token with scopes: []
+[debug] [2026-03-18T14:39:41.773Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-03-18T14:39:41.773Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-03-18T14:39:41.889Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-03-18T14:39:41.889Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-03-18T14:39:41.899Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/gsat-pro:testIamPermissions [none]
+[debug] [2026-03-18T14:39:41.899Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/gsat-pro:testIamPermissions  x-goog-user-project=gsat-pro
+[debug] [2026-03-18T14:39:41.899Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/gsat-pro:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-03-18T14:39:42.190Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-03-18T14:39:42.191Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-03-18T14:39:42.772Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/gsat-pro:testIamPermissions 200
+[debug] [2026-03-18T14:39:42.772Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/gsat-pro:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-03-18T14:39:42.772Z] Checked if tokens are valid: true, expires at: 1773848380889
+[debug] [2026-03-18T14:39:42.772Z] Checked if tokens are valid: true, expires at: 1773848380889
+[debug] [2026-03-18T14:39:42.772Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/gsat-pro/serviceAccounts/gsat-pro@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-03-18T14:39:42.772Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/gsat-pro/serviceAccounts/gsat-pro@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
