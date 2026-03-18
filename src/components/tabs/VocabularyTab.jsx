@@ -486,26 +486,31 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       }
     }
 
-    if (currentSet === 'Personal' && !user?.uid) return;
+    // 🚨 雲端讀取防呆：如果未登入，強制阻擋讀取雲端資料庫，避免權限報錯
+    if (!user?.uid) {
+      setDbError('💡 提示：請先登入 Google 帳號，即可解鎖雲端 6000 單字庫與跨裝置同步功能！');
+      setWords([]);
+      return;
+    }
 
     let q;
     const vocabRef = currentSet === 'Personal'
       ? collection(db, 'Users', user.uid, 'PersonalVocab')
-      : collection(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab'); // 學校共用單字庫
+      : collection(db, 'Schools', 'nhsh', 'SchoolVocab'); // 學校共用單字庫
 
-    // 🚀 Firebase 雲端原生搜尋：利用 debouncedSearch 進行查詢
+    // 🚀 Firebase 雲端原生搜尋：利用 Document ID (__name__) 達成完美的不分大小寫搜尋
     if (debouncedSearch.trim()) {
-      const searchStr = debouncedSearch.trim();
+      const searchStr = debouncedSearch.trim().toLowerCase(); // 強制轉小寫以匹配 Document ID
       q = query(
         vocabRef,
-        where('word', '>=', searchStr),
-        where('word', '<=', searchStr + '\uf8ff'),
-        orderBy('word', 'asc'), // Firebase 要求範圍查詢必須與 orderBy 欄位一致
+        where('__name__', '>=', searchStr),
+        where('__name__', '<=', searchStr + '\uf8ff'),
+        orderBy('__name__', 'asc'), // 依據 Firebase 限制，範圍查詢必須與 orderBy 欄位一致
         limit(30)
       );
     } else {
-      // 🚀 預設統一使用 word 排序。避免部分單字因為缺少 createdAt 欄位而「隱形」
-      q = query(vocabRef, orderBy('word', 'asc'), limit(30));
+      // 🚀 預設統一使用 __name__ (單字小寫 ID) 排序，保證所有單字都能 100% 讀取出現
+      q = query(vocabRef, orderBy('__name__', 'asc'), limit(30));
     }
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -517,7 +522,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     }, (error) => {
       logDebug('ERROR', '載入單字庫失敗', error.message);
       if (error.code === 'permission-denied') {
-        setDbError('權限不足：請先登入 Google 帳號以存取雲端單字庫。');
+        setDbError('權限不足：請確認您已登入，且資料庫安全規則設定正確。');
       } else {
         setDbError(`載入失敗：${error.message}`);
       }
@@ -530,13 +535,13 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   // 加載更多 (效能優化)
   const loadMoreWords = useCallback(async () => {
     if (!db || !lastVisible || debouncedSearch.trim()) return; // 搜尋模式下暫不啟用無窮下拉
-    if (currentSet === 'Personal' && !user?.uid) return;
+    if (!user?.uid) return; // 確保有登入才能加載雲端
 
     const vocabRef = currentSet === 'Personal'
       ? collection(db, 'Users', user.uid, 'PersonalVocab')
-      : collection(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab');
+      : collection(db, 'Schools', 'nhsh', 'SchoolVocab');
 
-    const q = query(vocabRef, orderBy('word', 'asc'), startAfter(lastVisible), limit(30));
+    const q = query(vocabRef, orderBy('__name__', 'asc'), startAfter(lastVisible), limit(30));
     try {
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
@@ -616,7 +621,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
         allData.forEach((item, i) => {
           const word = String(item['單字'] || item['word'] || '').trim();
           if (!word) return;
-          const ref = doc(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab', word.toLowerCase());
+          const ref = doc(db, 'Schools', 'nhsh', 'SchoolVocab', word.toLowerCase());
           batch.set(ref, {
             word: word,
             meaning: String(item['中文'] || item['chinese'] || '').trim(),
@@ -692,7 +697,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
         }
         const ref = currentSet === 'Personal'
           ? doc(db, 'Users', user.uid, 'PersonalVocab', wordObj.word.toLowerCase())
-          : doc(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab', wordObj.word.toLowerCase());
+          : doc(db, 'Schools', 'nhsh', 'SchoolVocab', wordObj.word.toLowerCase());
         await deleteDoc(ref);
         logDebug('SUCCESS', '已從雲端刪除單字', { word: wordObj.word, set: currentSet });
       }
@@ -738,7 +743,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
 
       const ref = targetSet === 'Personal'
         ? doc(db, 'Users', user.uid, 'PersonalVocab', wordVal.toLowerCase())
-        : doc(db, 'Schools', 'khsh', 'Grades', 'grade_2', 'SchoolVocab', wordVal.toLowerCase());
+        : doc(db, 'Schools', 'nhsh', 'SchoolVocab', wordVal.toLowerCase());
       const sn = Date.now() + i;
 
       batch.set(ref, {
