@@ -22,10 +22,11 @@ export const DEFAULT_DASHBOARD_LAYOUT = [
   { id: 'news', visible: true, label: '校園最新公告' },
   { id: 'prep', visible: true, label: '明日準備事項' }
 ];
-import { db, auth, messaging, firebaseError, VAPID_KEY } from './config/firebase';
+import { db, auth, messaging, firebaseError, VAPID_KEY, functions } from './config/firebase';
 import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit, getDocs, addDoc } from 'firebase/firestore';
 import { getToken } from 'firebase/messaging';
+import { httpsCallable } from 'firebase/functions';
 const DashboardTab = lazy(() => import('./components/tabs/DashboardTab'));
 const VocabularyTab = lazy(() => import('./components/tabs/VocabularyTab'));
 const ContactBookTab = lazy(() => import('./components/tabs/ContactBookTab'));
@@ -315,13 +316,18 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
               if (!allowedTypes.includes(data.type)) return;
 
               // 🔴 關鍵修正：只對「App啟動後」才新增的通知進行推播
-              if (data.timestamp <= lastNoticeTimestamp.current) {
+              // 解決 Timestamp 物件與 Number 比對永遠為 false 的 Bug
+              let noticeTime = 0;
+              if (data.timestamp?.toMillis) noticeTime = data.timestamp.toMillis();
+              else if (typeof data.timestamp === 'number') noticeTime = data.timestamp;
+
+              if (noticeTime && noticeTime <= lastNoticeTimestamp.current) {
                 console.log('偵測到舊通知，已略過推播:', data.title);
                 return;
               }
 
-              // 🚀 僅觸發原生 Web Push 通知 (前景)，移除 App 內橫幅
-              triggerNativeNotification(data.title || '系統通知', data.content || '');
+              // 🚀 解除本地主動觸發，統一交由 Firebase Cloud Messaging 廣播發送 (解決三重重複)
+              // 這裡只負責更新畫面狀態或紅點
 
               // 🔴 更新 iOS / Android 桌面 App 圖示的未讀紅點 (Badge API)
               setUnreadCount(prev => {
@@ -435,38 +441,13 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   const triggerNotification = useCallback((title, message) => {
     setNotification({ show: true, title: String(title), message: String(message) });
     setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 4000); // 縮短駐留時間
-    triggerNativeNotification(title, message);
+    // 🚀 移除本地原生推播，讓一般操作提示僅留在 App 內部橫幅，避免干擾使用者
+    // 真正的系統通知已全部移交給 Firebase Cloud Functions (FCM) 派發
   }, []);
 
   // ─── 網頁端本地定時提醒 (晚上 20:00) ──────────────────────────────────────
-  // 防呆機制：若無部署 Firebase Functions，只要網頁處於開啟狀態，晚上八點一樣會觸發原生推播
-  const contactBookRef = useRef(contactBook);
-  useEffect(() => { contactBookRef.current = contactBook; }, [contactBook]);
-
-  useEffect(() => {
-    const checkLocalReminder = () => {
-      const now = new Date();
-      // 在 20:00 的第 0 分鐘觸發
-      if (now.getHours() === 20 && now.getMinutes() === 0) {
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowStr = tomorrow.toISOString().split('T')[0];
-        const cb = contactBookRef.current || {};
-        const tomorrowsEntries = cb[tomorrowStr] || [];
-
-        if (tomorrowsEntries.length > 0) {
-          const exams = tomorrowsEntries.filter(e => e.exam).length;
-          const hws = tomorrowsEntries.filter(e => e.homework).length;
-          let txt = [];
-          if (exams > 0) txt.push(`💯 ${exams} 項考試`);
-          if (hws > 0) txt.push(`📝 ${hws} 項作業`);
-          triggerNativeNotification('明日準備事項 🎒', `明天有 ${txt.join(" 以及 ")}，請記得準備！`);
-        }
-      }
-    };
-    const timer = setInterval(checkLocalReminder, 60000);
-    return () => clearInterval(timer);
-  }, []); // 獨立執行，避免依賴重渲染
+  // 🚀 防呆機制已移除：已全面交由 Firebase Cloud Functions (dailyExamReminder) 雲端發送推播
+  // 移除本地排程以徹底斬斷「雙重通知」的發生
 
   // ─── 測試 Firebase 雲端通知推播 ──────────────────────────────────────────
   const sendTestNotice = async () => {
@@ -995,11 +976,18 @@ export default function App() {
       if (Notification.permission !== 'granted') return;
       const token = await getToken(messaging, { vapidKey: VAPID_KEY?.trim().replace(/\s/g, '') });
       if (token) {
+        const currentClass = localStorage.getItem('gsat_class_id') || '206';
         await setDoc(doc(db, 'users', currentUser.uid), {
           fcmToken: token, lastActive: serverTimestamp(),
           userName: currentUser.displayName || '同學',
-          email: currentUser.email || '', classID: localStorage.getItem('gsat_class_id') || '206'
+          email: currentUser.email || '', classID: currentClass
         }, { merge: true });
+
+        // 🚀 自動訂閱該班級的 FCM 主題
+        if (functions) {
+          const subscribe = httpsCallable(functions, 'subscribeToTopic');
+          await subscribe({ token, topic: `class_${currentClass}` }).catch(e => console.warn("主題訂閱失敗:", e));
+        }
       }
     } catch (err) { console.error("FCM Error:", err); }
   };
