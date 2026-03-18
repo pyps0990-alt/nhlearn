@@ -1,2 +1,5 @@
 node_modules/
 *.local
+gsat-pro-firebase-adminsdk-fbsvc-20fbd19baa.json
+gsat-pro-firebase-adminsdk-fbsvc-ec1c2ced63.json
+initData.js

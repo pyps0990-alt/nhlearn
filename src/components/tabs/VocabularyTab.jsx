@@ -89,14 +89,14 @@ const StatsModal = ({ isOpen, onClose, stats }) => {
         </div>
         <h3 className="text-xl font-black text-slate-800 dark:text-white mb-6">今日學習數據</h3>
         <div className="flex gap-4 mb-6">
-           <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-100 dark:border-white/5">
-             <div className="text-3xl font-black text-emerald-500 mb-1">{todayMin}</div>
-             <div className="text-[11px] font-bold text-slate-400">專注分鐘</div>
-           </div>
-           <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-100 dark:border-white/5">
-             <div className="text-3xl font-black text-blue-500 mb-1">{todayStats.words}</div>
-             <div className="text-[11px] font-bold text-slate-400">複習單字</div>
-           </div>
+          <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-100 dark:border-white/5">
+            <div className="text-3xl font-black text-emerald-500 mb-1">{todayMin}</div>
+            <div className="text-[11px] font-bold text-slate-400">專注分鐘</div>
+          </div>
+          <div className="flex-1 bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-100 dark:border-white/5">
+            <div className="text-3xl font-black text-blue-500 mb-1">{todayStats.words}</div>
+            <div className="text-[11px] font-bold text-slate-400">複習單字</div>
+          </div>
         </div>
         <button onClick={onClose} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black active:scale-95 transition-all shadow-md">
           繼續努力
@@ -194,11 +194,11 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
           <div className="flex items-center gap-2 md:gap-3 shrink-0">
             {currentSet !== 'Personal' && (
               <button
-                onClick={(e) => { 
-                  e.preventDefault(); e.stopPropagation(); 
+                onClick={(e) => {
+                  e.preventDefault(); e.stopPropagation();
                   if (isSaved) return;
                   if (onSave) onSave();
-                  addWords([word], 'Personal', false); 
+                  addWords([word], 'Personal', false);
                 }}
                 className={`p-2.5 md:p-3 rounded-full transition-all active:scale-90 shadow-sm flex items-center justify-center ${isSaved ? 'bg-rose-500 text-white shadow-rose-500/30' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-100'}`}
                 title="加入個人收藏"
@@ -224,8 +224,8 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
                         {p.label || 'Part'}
                       </span>
                       <div className={`px-6 py-4 rounded-3xl border-2 transition-all duration-500 scale-105 shadow-lg ${p.label === 'Prefix' ? 'bg-blue-50/50 border-blue-200 text-blue-600 dark:bg-blue-500/10 dark:border-blue-500/30' :
-                          p.label === 'Root' ? 'bg-rose-50/50 border-rose-200 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/30' :
-                            'bg-emerald-50/50 border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/30'
+                        p.label === 'Root' ? 'bg-rose-50/50 border-rose-200 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/30' :
+                          'bg-emerald-50/50 border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/30'
                         }`}>
                         <span className="text-[24px] font-black">{p.value}</span>
                       </div>
@@ -354,6 +354,8 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [userWords, setUserWords] = useState([]); // 個人學習進度
   const [currentSet, setCurrentSet] = useState('6000 words'); // 目前選擇的單字庫來源
+  const [teacherGrade, setTeacherGrade] = useState('grade_2'); // 教師推薦的年級選擇
+  const [teacherStage, setTeacherStage] = useState('stage_1'); // 教師推薦的階段選擇
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [detailedWordId, setDetailedWordId] = useState(null);
   const [analyzingIds, setAnalyzingIds] = useState(new Set());
@@ -486,17 +488,17 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
       }
     }
 
-    // 🚨 雲端讀取防呆：如果未登入，強制阻擋讀取雲端資料庫，避免權限報錯
-    if (!user?.uid) {
-      setDbError('💡 提示：請先登入 Google 帳號，即可解鎖雲端 6000 單字庫與跨裝置同步功能！');
-      setWords([]);
-      return;
-    }
-
     let q;
-    const vocabRef = currentSet === 'Personal'
-      ? collection(db, 'Users', user.uid, 'PersonalVocab')
-      : collection(db, 'Schools', 'nhsh', 'SchoolVocab'); // 學校共用單字庫
+    let vocabRef;
+    if (currentSet === 'Personal') {
+      vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
+    } else if (currentSet === 'Teacher Picks') {
+      // 🚀 對齊全新巢狀結構路徑： Schools/nhsh/Grades/{grade}/GradeVocab/init_{grade}_vocab/Stages/{stage}/Words
+      vocabRef = collection(db, 'Schools', 'nhsh', 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
+    } else {
+      // 6000 核心單字
+      vocabRef = collection(db, 'Schools', 'nhsh', 'SchoolVocab');
+    }
 
     // 🚀 Firebase 雲端原生搜尋：利用 Document ID (__name__) 達成完美的不分大小寫搜尋
     if (debouncedSearch.trim()) {
@@ -530,16 +532,21 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     });
 
     return () => unsub();
-  }, [debouncedSearch, currentSet, logDebug, user?.uid]);
+  }, [debouncedSearch, currentSet, teacherGrade, teacherStage, logDebug, user?.uid]);
 
   // 加載更多 (效能優化)
   const loadMoreWords = useCallback(async () => {
     if (!db || !lastVisible || debouncedSearch.trim()) return; // 搜尋模式下暫不啟用無窮下拉
-    if (!user?.uid) return; // 確保有登入才能加載雲端
+    if (currentSet === 'Personal' && !user?.uid) return;
 
-    const vocabRef = currentSet === 'Personal'
-      ? collection(db, 'Users', user.uid, 'PersonalVocab')
-      : collection(db, 'Schools', 'nhsh', 'SchoolVocab');
+    let vocabRef;
+    if (currentSet === 'Personal') {
+      vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
+    } else if (currentSet === 'Teacher Picks') {
+      vocabRef = collection(db, 'Schools', 'nhsh', 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
+    } else {
+      vocabRef = collection(db, 'Schools', 'nhsh', 'SchoolVocab');
+    }
 
     const q = query(vocabRef, orderBy('__name__', 'asc'), startAfter(lastVisible), limit(30));
     try {
@@ -553,7 +560,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
     } catch (error) {
       logDebug('ERROR', '載入更多單字失敗', error.message);
     }
-  }, [lastVisible, debouncedSearch, currentSet, logDebug, user?.uid]);
+  }, [lastVisible, debouncedSearch, currentSet, teacherGrade, teacherStage, logDebug, user?.uid]);
 
   // 合併單字與個人進度 (確保未在當前分頁的個人單字也能被測驗與複習)
   const mergedWords = useMemo(() => {
@@ -697,7 +704,9 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
         }
         const ref = currentSet === 'Personal'
           ? doc(db, 'Users', user.uid, 'PersonalVocab', wordObj.word.toLowerCase())
-          : doc(db, 'Schools', 'nhsh', 'SchoolVocab', wordObj.word.toLowerCase());
+          : currentSet === 'Teacher Picks'
+            ? doc(db, 'Schools', 'nhsh', 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', wordObj.word.toLowerCase())
+            : doc(db, 'Schools', 'nhsh', 'SchoolVocab', wordObj.word.toLowerCase());
         await deleteDoc(ref);
         logDebug('SUCCESS', '已從雲端刪除單字', { word: wordObj.word, set: currentSet });
       }
@@ -743,7 +752,9 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
 
       const ref = targetSet === 'Personal'
         ? doc(db, 'Users', user.uid, 'PersonalVocab', wordVal.toLowerCase())
-        : doc(db, 'Schools', 'nhsh', 'SchoolVocab', wordVal.toLowerCase());
+        : targetSet === 'Teacher Picks'
+          ? doc(db, 'Schools', 'nhsh', 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', wordVal.toLowerCase())
+          : doc(db, 'Schools', 'nhsh', 'SchoolVocab', wordVal.toLowerCase());
       const sn = Date.now() + i;
 
       batch.set(ref, {
@@ -789,7 +800,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
           else break;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const canvas = document.createElement('canvas');
     canvas.width = 1080;
@@ -951,6 +962,10 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
             accent={accent}
             setAccent={setAccent}
             dbError={dbError}
+            teacherGrade={teacherGrade}
+            setTeacherGrade={setTeacherGrade}
+            teacherStage={teacherStage}
+            setTeacherStage={setTeacherStage}
           />
         )}
         {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
@@ -1026,7 +1041,9 @@ const WordBank = ({
   currentSet, setCurrentSet, geminiKey, isAdmin, handleExportIG,
   detailedWordId, setDetailedWordId, analyzingIds, aiAnalysisData,
   setAiAnalysisData, setAnalyzingIds, filterPos, setFilterPos,
-  triggerNotification, playVoice, accent, setAccent, dbError
+  triggerNotification, playVoice, accent, setAccent, dbError,
+  teacherGrade, setTeacherGrade,
+  teacherStage, setTeacherStage
 }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [newWord, setNewWord] = useState('');
@@ -1038,7 +1055,7 @@ const WordBank = ({
   const [filterTag, setFilterTag] = useState('all');
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState(new Set());
-  
+
   // 記錄本次 session 已經點擊加入收藏的單字 ID，用於即時顯示動畫與狀態
   const [savedWords, setSavedWords] = useState(new Set());
 
@@ -1207,6 +1224,30 @@ const WordBank = ({
           ))}
         </div>
 
+        {/* 教師推薦的細分選擇 (僅在切換到 Teacher Picks 時顯示) */}
+        {currentSet === 'Teacher Picks' && (
+          <div className="space-y-2 animate-fadeIn">
+            {/* 年級切換 */}
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-1">
+              {[1, 2, 3].map(g => (
+                <button key={g} onClick={() => setTeacherGrade(`grade_${g}`)}
+                  className={`px-3 py-1.5 rounded-full text-[11px] font-black whitespace-nowrap transition-all ${teacherGrade === `grade_${g}` ? 'bg-purple-500 text-white shadow-md' : 'bg-white/40 dark:bg-white/5 text-slate-500 border border-white/60 dark:border-white/10'}`}>
+                  高{g === 1 ? '一' : g === 2 ? '二' : '三'}推薦
+                </button>
+              ))}
+            </div>
+            {/* 階段切換 (段考範圍) */}
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-1 pb-1">
+              {[1, 2, 3].map(s => (
+                <button key={s} onClick={() => setTeacherStage(`stage_${s}`)}
+                  className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all ${teacherStage === `stage_${s}` ? 'bg-indigo-500 text-white shadow-sm' : 'bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20'}`}>
+                  第 {s === 1 ? '一' : s === 2 ? '二' : '三'} 段考範圍
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-3 px-1">
           <div className="flex-1 flex items-center gap-3 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl backdrop-saturate-200 border border-white/60 dark:border-white/10 rounded-[24px] px-5 py-3.5 shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.2)] focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/30 transition-all duration-300 transform-gpu will-change-transform">
             <Search size={18} className="text-slate-400 shrink-0" />
@@ -1302,7 +1343,7 @@ const WordBank = ({
           </button>
         ))}
       </div>
-      
+
       {/* 批次管理工具列 */}
       {isBatchMode && (
         <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 p-3 mx-1 rounded-[20px] border border-indigo-200 dark:border-indigo-500/30 animate-slide-up-fade">
@@ -1709,7 +1750,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
 
             {/* 發音控制區 */}
             <div className="flex items-center gap-4 my-2 pointer-events-auto">
-              <button onClick={(e) => { e.stopPropagation(); playVoice(current.word, accent); }} className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20"><Volume2 size={24}/></button>
+              <button onClick={(e) => { e.stopPropagation(); playVoice(current.word, accent); }} className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20"><Volume2 size={24} /></button>
               <button onClick={(e) => { e.stopPropagation(); playVoice(current.word, accent, 0.4); }} className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full hover:scale-110 active:scale-90 transition-transform shadow-sm flex items-center justify-center border border-amber-200 dark:border-amber-500/20 text-xl">🐢</button>
             </div>
 
@@ -1870,7 +1911,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, 
 
   const handleSpellSubmit = () => {
     const isCorrect = spellInput.trim().toLowerCase() === questions[qIdx].answer;
-    
+
     if (isCorrect) {
       setShowResult(true);
       if (!spellFailed) {
@@ -2019,12 +2060,11 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, 
           <input ref={spellRef} autoFocus type="text" value={spellInput} onChange={e => setSpellInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (!showResult || spellFailed) && handleSpellSubmit()}
             disabled={showResult && !spellFailed}
-            className={`w-full text-center text-[22px] sm:text-[24px] font-black py-4 sm:py-5 rounded-[20px] sm:rounded-[24px] border-2 outline-none transition-all duration-300 tracking-widest ${
-              showResult && !spellFailed
-              ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]' 
-              : spellFailed
-                ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-400 text-rose-600 dark:text-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 placeholder:text-rose-300'
-                : 'bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] focus:bg-white/60 dark:focus:bg-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
+            className={`w-full text-center text-[22px] sm:text-[24px] font-black py-4 sm:py-5 rounded-[20px] sm:rounded-[24px] border-2 outline-none transition-all duration-300 tracking-widest ${showResult && !spellFailed
+                ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]'
+                : spellFailed
+                  ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-400 text-rose-600 dark:text-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 placeholder:text-rose-300'
+                  : 'bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] focus:bg-white/60 dark:focus:bg-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
               }`} placeholder={spellFailed ? "再試一次..." : "..."} />
           {spellFailed && (
             <div className="flex flex-col items-center gap-3 animate-slide-up-fade">
