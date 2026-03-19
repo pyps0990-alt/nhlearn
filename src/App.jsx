@@ -284,60 +284,94 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   // Firestore Sync (New Schema Structure)
   useEffect(() => {
-    if (!db || !classID || !user) return; // 🚀 配合新安全規則：未登入者不嘗試讀取，避免報錯
+    if (!db) return;
     
     // 預設環境變數 (目前寫死做測試)
     const schoolId = "nhsh";
     const gradeId = "grade_2";
 
-    // 1. Sync ClassSchedule (班級共用課表)
-    const scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
-    const unsubSchedule = onSnapshot(scheduleRef, (snapshot) => {
-      if (!snapshot.empty) {
-        const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-        snapshot.docs.forEach((docSnap) => {
-          const item = docSnap.data();
-          if (item.day !== undefined && transformed[item.day]) {
-            transformed[item.day].push({
-              id: docSnap.id,
-              subject: item.courseName || item.subject, // 兼容新舊命名
-              teacher: item.teacher || '',
-              startTime: item.startTime || '08:00',
-              endTime: item.endTime || '09:00',
-              location: item.location || '',
-              rescheduled: item.rescheduled || false,
-              link: item.link || '',
-              color: item.color || ''
-            });
-          }
-        });
-        // 根據開始時間排序
-        Object.keys(transformed).forEach(day => {
-           transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
-        });
-        setWeeklySchedule(transformed);
-      } else {
-        console.log(`雲端尚未建立 ${classID} 班的課表資料`);
-      }
-    }, (err) => console.error("Schedule sync error:", err));
+    let unsubSchedule = () => {};
+
+    if (classID) {
+      // 1. Sync ClassSchedule (班級共用課表)
+      const scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
+      unsubSchedule = onSnapshot(scheduleRef, (snapshot) => {
+        if (!snapshot.empty) {
+          const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+          snapshot.docs.forEach((docSnap) => {
+            const item = docSnap.data();
+            if (item.day !== undefined && transformed[item.day]) {
+              transformed[item.day].push({
+                id: docSnap.id,
+                subject: item.courseName || item.subject || '未命名課程',
+                teacher: item.teacher || '',
+                startTime: item.startTime || '08:00',
+                endTime: item.endTime || '09:00',
+                location: item.location || '',
+                rescheduled: item.rescheduled || false,
+                link: item.link || '',
+                color: item.color || '',
+                icon: item.icon || ''
+              });
+            }
+          });
+          Object.keys(transformed).forEach(day => {
+             transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
+          });
+          setWeeklySchedule(transformed);
+        }
+      }, (err) => console.error("Schedule sync error:", err));
+    } else if (user) {
+      // Sync PersonalSchedule (個人自訂課表)
+      const personalScheduleRef = collection(db, 'Users', user.uid, 'PersonalSchedule');
+      unsubSchedule = onSnapshot(personalScheduleRef, (snapshot) => {
+        if (!snapshot.empty) {
+          const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+          snapshot.docs.forEach((docSnap) => {
+            const item = docSnap.data();
+            if (item.day !== undefined && transformed[item.day]) {
+              transformed[item.day].push({
+                id: docSnap.id,
+                subject: item.courseName || item.subject || '未命名課程',
+                teacher: item.teacher || '',
+                startTime: item.startTime || '08:00',
+                endTime: item.endTime || '09:00',
+                location: item.location || '',
+                rescheduled: item.rescheduled || false,
+                link: item.link || '',
+                color: item.color || '',
+                icon: item.icon || ''
+              });
+            }
+          });
+          Object.keys(transformed).forEach(day => {
+             transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
+          });
+          setWeeklySchedule(transformed);
+        }
+      }, (err) => console.error("Personal schedule sync error:", err));
+    }
 
     // 2. Sync Assignments (電子聯絡簿/作業)
-    const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
-    const unsubAssignments = onSnapshot(assignmentsRef, (snapshot) => {
-      const cb = {};
-      snapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const dateStr = data.dueDate || data.date; 
-        if (dateStr) {
-          if (!cb[dateStr]) cb[dateStr] = [];
-          cb[dateStr].push({ id: docSnap.id, ...data });
-        }
-      });
-      setContactBook(cb);
-    }, (err) => console.error("Assignments sync error:", err));
+    let unsubAssignments = () => {};
+    if (classID) {
+      const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
+      unsubAssignments = onSnapshot(assignmentsRef, (snapshot) => {
+        const cb = {};
+        snapshot.docs.forEach(docSnap => {
+          const data = docSnap.data();
+          const dateStr = data.dueDate || data.date; 
+          if (dateStr) {
+            if (!cb[dateStr]) cb[dateStr] = [];
+            cb[dateStr].push({ id: docSnap.id, ...data });
+          }
+        });
+        setContactBook(cb);
+      }, (err) => console.error("Assignments sync error:", err));
+    }
 
     return () => { unsubSchedule(); unsubAssignments(); };
-  }, [db, classID, user]); // 加入 user 作為依賴
+  }, [db, classID, user]);
 
   // Notice System Sync (全站系統公告)
   useEffect(() => {
@@ -406,12 +440,20 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   }, [db, classID, user]); // 加入 user 作為依賴
 
   const saveToFirestore = async (newSchedule) => {
-    if (!db || !classID) return;
+    if (!db) return;
+    if (!user && !classID) return;
+
     try {
       const schoolId = "nhsh";
       const gradeId = "grade_2";
       
-      const scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
+      let scheduleRef;
+      if (classID) {
+        scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
+      } else {
+        scheduleRef = collection(db, 'Users', user.uid, 'PersonalSchedule');
+      }
+
       const snap = await getDocs(scheduleRef);
       
       const batch = writeBatch(db);
@@ -423,11 +465,19 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
           (newSchedule[dayKey] || []).forEach((item, idx) => {
             const docId = item.id ? String(item.id) : `${day}_${idx}`;
             currentIds.add(docId);
-            const docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule', docId);
+            
+            let docRef;
+            if (classID) {
+               docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule', docId);
+            } else {
+               docRef = doc(db, 'Users', user.uid, 'PersonalSchedule', docId);
+            }
+
             batch.set(docRef, {
-              day: day, courseName: item.subject, teacher: item.teacher || '',
-              startTime: item.startTime, endTime: item.endTime, location: item.location || '',
-              rescheduled: item.rescheduled || false, link: item.link || '', color: item.color || ''
+              day: day, courseName: item.subject || '未命名課程', teacher: item.teacher || '',
+              startTime: item.startTime || '08:00', endTime: item.endTime || '09:00', location: item.location || '',
+              rescheduled: item.rescheduled || false, link: item.link || '', color: item.color || '',
+              icon: item.icon || ''
             }, { merge: true });
           });
         }
@@ -441,7 +491,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       });
 
       await batch.commit();
-    } catch (e) { console.error("Firestore save error:", e); }
+    } catch (e) { console.error("Firestore save error:", e); throw e; }
   };
 
   const saveContactBookToFirestore = async (newContactBook) => {

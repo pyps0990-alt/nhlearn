@@ -796,17 +796,6 @@ const DashboardTab = ({
     };
   }, []);
 
-  // 🔥 修復：當編輯結束時自動儲存到雲端，並強勢濾除 undefined
-  const prevIsEditing = useRef(isEditingSchedule);
-  useEffect(() => {
-    if (prevIsEditing.current === true && isEditingSchedule === false) {
-      // 確保將所有的 undefined 清除，防止 Firestore 報錯
-      const cleanSchedule = JSON.parse(JSON.stringify(weeklySchedule || {}));
-      saveToFirestore(cleanSchedule);
-    }
-    prevIsEditing.current = isEditingSchedule;
-  }, [isEditingSchedule, weeklySchedule, saveToFirestore]);
-
   const encouragement = useMemo(() => {
     const seed = new Date().toDateString();
     let hash = 0;
@@ -1156,12 +1145,12 @@ const DashboardTab = ({
     setIsSwapMode(false);
     setSelectedForSwap([]);
 
-    if (classID) {
+    if (classID || user) {
       // Sync to Firebase directly
       const cleanSchedule = JSON.parse(JSON.stringify(newWeekly));
       await saveToFirestore(cleanSchedule);
 
-      triggerNotification('調課成功 ⚡', `已對調並同步至班級雲端`);
+      triggerNotification('調課成功 ⚡', `已對調並同步至雲端`);
     } else {
       triggerNotification('調課成功 ⚡', `已對調並儲存至本機`);
     }
@@ -1197,10 +1186,10 @@ const DashboardTab = ({
     setSelectedForSwap([]);
     setShowSubModal(false);
 
-    if (classID) {
+    if (classID || user) {
       const cleanSchedule = JSON.parse(JSON.stringify(newWeekly));
       await saveToFirestore(cleanSchedule);
-      triggerNotification('調課成功 ⚡', `已變更並同步至班級雲端`);
+      triggerNotification('調課成功 ⚡', `已變更並同步至雲端`);
     } else {
       triggerNotification('調課成功 ⚡', `已變更並儲存至本機`);
     }
@@ -1276,17 +1265,18 @@ const DashboardTab = ({
   }, [displaySchedule, currentTime]);
 
   const handleSaveEdit = async () => {
-    if (classID) {
+    const cleanSchedule = JSON.parse(JSON.stringify(weeklySchedule || {}));
+    if (classID || user) {
       triggerNotification('連線中', '正在將課表上傳至雲端...');
       try {
-        await saveToFirestore(weeklySchedule);
+        await saveToFirestore(cleanSchedule);
 
-        triggerNotification('同步成功 🎉', '課表已安全備份至班級雲端！');
+        triggerNotification('同步成功 🎉', classID ? '課表已安全備份至班級雲端！' : '個人自訂課表已備份至雲端！');
       } catch (err) {
         triggerNotification('同步失敗 ❌', '請檢查網路或系統權限');
       }
     } else {
-      triggerNotification('儲存成功', '個人自訂課表已儲存至本機！');
+      triggerNotification('儲存成功', '個人自訂課表已儲存至本機（未登入無法雲端備份）！');
     }
     setIsEditingSchedule(false);
   };
@@ -1518,7 +1508,15 @@ const DashboardTab = ({
           {previewSchedule && (
             <div className="flex gap-3">
               <button onClick={() => setPreviewSchedule(null)} className="flex-1 py-4 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-2xl font-black active:scale-95 transition-all">放棄重測</button>
-              <button onClick={() => { setWeeklySchedule(previewSchedule); setPreviewSchedule(null); setIsEditingSchedule(false); }} className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">儲存結果</button>
+              <button onClick={() => { 
+                const cleanSchedule = JSON.parse(JSON.stringify(previewSchedule || {}));
+                setWeeklySchedule(previewSchedule); 
+                setPreviewSchedule(null); 
+                if (classID || user) saveToFirestore(cleanSchedule);
+                setIsEditingSchedule(false); 
+                triggerNotification('儲存成功', '已儲存課表結果！');
+              }} 
+              className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">儲存結果</button>
             </div>
           )}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -1550,7 +1548,7 @@ const DashboardTab = ({
               onClick={handleSaveEdit}
               className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[24px] font-black text-[16px] shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
-              <Check size={20} /> {classID ? '完成編輯並同步至雲端' : '儲存我的自訂課表'}
+              <Check size={20} /> {classID || user ? '完成編輯並同步至雲端' : '儲存我的自訂課表'}
             </button>
           </div>
 
