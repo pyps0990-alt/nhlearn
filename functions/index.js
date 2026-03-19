@@ -135,67 +135,83 @@ exports.dailyExamReminder = onSchedule({ schedule: "0 20 * * *", timeZone: "Asia
     }
 });
 
-// 3. 每天下午 17:00 執行：最後一節課結束發送，並標記 isNotified
-exports.dailyHomeworkReminder = onSchedule({ schedule: "0 17 * * *", timeZone: "Asia/Taipei" }, async (event) => {
-    // 撈取全校所有尚未推播過的聯絡簿作業
-    const assignmentsSnap = await admin.firestore().collectionGroup("Assignments").where("isNotified", "==", false).get();
+// 3. 🚀 動態比對：平日(週一至週五)的 12:00~18:00 間，每 15 分鐘檢查一次是否剛放學
+exports.dailyHomeworkReminder = onSchedule({ schedule: "*/15 12-18 * * 1-5", timeZone: "Asia/Taipei" }, async (event) => {
+    const nowTaipei = DateTime.now().setZone("Asia/Taipei");
+    const currentTimeStr = nowTaipei.toFormat("HH:mm");
+    const jsDay = nowTaipei.weekday === 7 ? 0 : nowTaipei.weekday;
 
-    const classGroups = {};
-    assignmentsSnap.docs.forEach(docSnap => {
-        const classId = docSnap.ref.parent.parent.id;
-        if (!classGroups[classId]) classGroups[classId] = { items: [], refs: [] };
-        classGroups[classId].items.push(docSnap.data());
-        classGroups[classId].refs.push(docSnap.ref);
-    });
+    // 1. 取得所有班級
+    const classesSnap = await admin.firestore().collectionGroup("Classes").get();
 
-    for (const classId in classGroups) {
-        const group = classGroups[classId];
-        if (group.items.length > 0) {
-            const message = {
-                notification: {
-                    title: "放學囉！明日作業提醒 📝",
-                    body: `今天新增了 ${group.items.length} 筆聯絡簿事項，放學回家記得看喔！`
-                },
-                data: { type: "homework", classId: classId },
-                topic: `class_${classId}`
-            };
-            try {
-                await admin.messaging().send(message);
-                console.log(`[${classId}]明日作業提醒已發送`);
+    for (const classDoc of classesSnap.docs) {
+        const classId = classDoc.id;
 
-                // 推播成功後，使用 Batch 將 isNotified 改為 true
-                const batch = admin.firestore().batch();
-                group.refs.forEach(ref => batch.update(ref, { isNotified: true }));
-                await batch.commit();
+        // 2. 查詢該班級今天的課表，找出最後一堂課的結束時間
+        const scheduleSnap = await classDoc.ref.collection("ClassSchedule").where("day", "==", jsDay).get();
+        if (scheduleSnap.empty) continue;
 
-            } catch (err) {
-                console.error(`[${classId}]發送作業提醒失敗: `, err);
+        let lastEndTime = "00:00";
+        scheduleSnap.docs.forEach(docSnap => {
+            const c = docSnap.data();
+            if (c.endTime > lastEndTime) lastEndTime = c.endTime;
+        });
+
+        // 3. 判斷現在時間是否大於等於最後一堂課結束時間 (即「已經放學」)
+        if (currentTimeStr >= lastEndTime) {
+            // 撈取該班級尚未推播過的聯絡簿作業
+            const assignmentsSnap = await classDoc.ref.collection("Assignments").where("isNotified", "==", false).get();
+
+            if (!assignmentsSnap.empty) {
+                const count = assignmentsSnap.size;
+                const message = {
+                    notification: {
+                        title: "放學囉！今日作業提醒 📝",
+                        body: `今天新增了 ${count} 筆聯絡簿事項，放學回家記得看喔！`
+                    },
+                    data: { type: "homework", classId: classId },
+                    topic: `class_${classId}`
+                };
+                try {
+                    await admin.messaging().send(message);
+                    console.log(`[${classId}] 放學作業提醒已發送 (${lastEndTime} 放學)`);
+
+                    // 推播成功後，將 isNotified 改為 true 避免重複發送
+                    const batch = admin.firestore().batch();
+                    assignmentsSnap.docs.forEach(docSnap => batch.update(docSnap.ref, { isNotified: true }));
+                    await batch.commit();
+
+                } catch (err) {
+                    console.error(`[${classId}] 發送作業提醒失敗: `, err);
+                }
             }
         }
     }
 });
 
-// 4. 每 1 分鐘檢查一次，掃描 ClassSchedule 尋找 5 分鐘後開始的課程
+// 4. 🚀 優化：每 5 分鐘檢查一次，掃描 ClassSchedule 尋找接下來 5~10 分鐘內開始的課程
 exports.checkAndSendClassReminders = onSchedule({
-    schedule: "every 1 minutes",
+    schedule: "*/5 7-18 * * 1-5",
     timeZone: "Asia/Taipei"
 }, async (event) => {
     // 獲取台北時間
     const nowTaipei = DateTime.now().setZone("Asia/Taipei");
 
-    // 🚀 改為精準抓取「剛好在 5 分鐘後」的課程
-    const targetStart = nowTaipei.plus({ minutes: 5 });
+    // 檢查區間改為未來 5~10 分鐘內，大幅減少 Function 執行次數與成本 (減少 80%)
+    const windowStart = nowTaipei.plus({ minutes: 5 });
+    const windowEnd = nowTaipei.plus({ minutes: 10 }); // 不包含此分鐘
 
-    // 轉換 Luxon weekday 到 JS day (0=Sun...6=Sat)
-    const jsDay = targetStart.weekday === 7 ? 0 : targetStart.weekday;
-    const targetTimeStr = targetStart.toFormat("HH:mm");
+    const jsDay = windowStart.weekday === 7 ? 0 : windowStart.weekday;
+    const startTimeStr = windowStart.toFormat("HH:mm");
+    const endTimeStr = windowEnd.toFormat("HH:mm");
 
-    console.log(`正在檢查課表(台北時間: ${nowTaipei.toFormat("HH:mm")}), 目標時間: ${targetTimeStr} `);
+    console.log(`正在檢查課表(台北時間: ${nowTaipei.toFormat("HH:mm")}), 目標區間: ${startTimeStr} ~ ${endTimeStr}`);
 
     // 跨集合搜尋所有符合時間的課程
     const schedulesSnap = await admin.firestore().collectionGroup("ClassSchedule")
         .where("day", "==", jsDay)
-        .where("startTime", "==", targetTimeStr)
+        .where("startTime", ">=", startTimeStr)
+        .where("startTime", "<", endTimeStr)
         .get();
 
     for (const docSnap of schedulesSnap.docs) {
@@ -203,10 +219,16 @@ exports.checkAndSendClassReminders = onSchedule({
         // docSnap.ref.parent 是 ClassSchedule 集合，parent.parent 則是 Classes/{classId} 文件
         const classId = docSnap.ref.parent.parent.id;
 
+        // 動態計算精確的倒數分鐘數
+        const [cH, cM] = course.startTime.split(':').map(Number);
+        const [nH, nM] = nowTaipei.toFormat("HH:mm").split(':').map(Number);
+        let diffMins = (cH * 60 + cM) - (nH * 60 + nM);
+        if (diffMins < 0) diffMins += 24 * 60; // 處理跨日問題
+
         const message = {
             notification: {
                 title: `即將上課：${course.courseName} 🔔`,
-                body: `課程將在 5 分鐘後(${course.startTime}) 開始${course.location ? `，地點：${course.location}` : ''} `
+                body: `課程將在 ${diffMins} 分鐘後 (${course.startTime}) 開始${course.location ? `，地點：${course.location}` : ''}`
             },
             data: {
                 type: "course",
@@ -217,7 +239,7 @@ exports.checkAndSendClassReminders = onSchedule({
 
         try {
             await admin.messaging().send(message);
-            console.log(`[${classId}]課程提醒推播已發送.`);
+            console.log(`[${classId}] 課程提醒推播已發送 (${course.startTime})`);
         } catch (err) {
             console.error("發送課程提醒失敗:", err);
         }

@@ -345,7 +345,7 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
-export default function VocabularyTab({ geminiKey, user, isAdmin }) {
+export default function VocabularyTab({ user, isAdmin }) {
   const [words, setWords] = useState([]); // 從 Firestore 動態載入
   const [subTab, setSubTab] = useState('bank');
   const [search, setSearch] = useState('');
@@ -946,7 +946,6 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
             addWords={addWords}
             currentSet={currentSet}
             setCurrentSet={setCurrentSet}
-            geminiKey={geminiKey}
             isAdmin={isAdmin}
             handleExportIG={handleExportIG}
             detailedWordId={detailedWordId}
@@ -969,8 +968,8 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
           />
         )}
         {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
-        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} geminiKey={geminiKey} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
-        {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} geminiKey={geminiKey} />}
+        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
+        {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} />}
       </div>
 
       {/* Debug Panel (Fixed to bottom if active) */}
@@ -1038,7 +1037,7 @@ export default function VocabularyTab({ geminiKey, user, isAdmin }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 const WordBank = ({
   words, search, setSearch, updateWord, deleteWord, addWords,
-  currentSet, setCurrentSet, geminiKey, isAdmin, handleExportIG,
+  currentSet, setCurrentSet, isAdmin, handleExportIG,
   detailedWordId, setDetailedWordId, analyzingIds, aiAnalysisData,
   setAiAnalysisData, setAnalyzingIds, filterPos, setFilterPos,
   triggerNotification, playVoice, accent, setAccent, dbError,
@@ -1076,7 +1075,6 @@ const WordBank = ({
   }, [words, filterPos, filterTag]);
 
   const handleAiAnalyze = async (id, word) => {
-    if (!geminiKey) return triggerNotification('需要 API Key', '請先至設定頁面輸入 Gemini API Key', 'error');
     setAnalyzingIds(prev => new Set(prev).add(id));
     try {
       const prompt = `你是一位專業的英文語源學老師與記憶專家。請針對單字 "${word}" 提供結構化解析。
@@ -1102,7 +1100,7 @@ const WordBank = ({
 
 請用親切且精簡的繁體中文撰寫，字數控制在 120 字內。直接回傳 Markdown 內容，不要問候語。`;
 
-      const response = await fetchAI(prompt, { geminiKey });
+      const response = await fetchAI(prompt);
       if (!response) throw new Error('API 回傳為空');
       setAiAnalysisData(prev => ({ ...prev, [id]: response }));
 
@@ -1110,7 +1108,7 @@ const WordBank = ({
       await updateWord(id, { notes: response });
     } catch (e) {
       setAiAnalysisData(prev => ({ ...prev, [id]: 'ERROR:AI 解析失敗，可能是 API 繁忙或連線異常。' }));
-      triggerNotification('解析失敗', '請點擊重試按鈕再試一次', 'error');
+      triggerNotification('解析失敗', 'AI 伺服器連線失敗', 'error');
     } finally {
       setAnalyzingIds(prev => {
         const newSet = new Set(prev);
@@ -1122,7 +1120,6 @@ const WordBank = ({
 
   const handleAiAutoFill = async () => {
     if (!newWord.trim()) return triggerNotification('請先輸入單字', '需要輸入單字才能進行 AI 填入', 'error');
-    if (!geminiKey) return triggerNotification('需要 API Key', '請先設定 Gemini API Key 才能使用此功能', 'error');
 
     setIsAutoFilling(true);
     try {
@@ -1130,7 +1127,7 @@ const WordBank = ({
 請嚴格以 JSON 格式回傳，不要有任何 Markdown 或其他文字：
 {"meaning": "繁體中文解釋", "pos": "詞性縮寫(n./v./adj./adv./prep./conj./phr.)"}`;
 
-      const response = await fetchAI(prompt, { geminiKey });
+      const response = await fetchAI(prompt);
       if (response) {
         const match = response.match(/\{[\s\S]*\}/);
         if (match) {
@@ -1146,7 +1143,7 @@ const WordBank = ({
       }
     } catch (e) {
       console.error(e);
-      triggerNotification('自動填入失敗', '請檢查網路連線或稍後再試，也可直接手動輸入', 'error');
+      triggerNotification('自動填入失敗', 'AI 伺服器連線失敗，請稍後再試', 'error');
     } finally {
       setIsAutoFilling(false);
     }
@@ -1791,7 +1788,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
 // ═══════════════════════════════════════════════════════════════════════════════
 // QUIZ MODE (Multiple Choice + Spelling + Grammar)
 // ═══════════════════════════════════════════════════════════════════════════════
-const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, playVoice, accent }) => {
+const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, accent }) => {
   const [quizType, setQuizType] = useState(null); // null | 'choice' | 'spell'
   const [questions, setQuestions] = useState([]);
   const [qIdx, setQIdx] = useState(0);
@@ -2099,7 +2096,7 @@ const QuizMode = ({ words, updateWord, setWords, geminiKey, incrementWordCount, 
 // ═══════════════════════════════════════════════════════════════════════════════
 // IMPORT TAB
 // ═══════════════════════════════════════════════════════════════════════════════
-const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin, geminiKey }) => {
+const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin }) => {
   const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
@@ -2130,25 +2127,8 @@ const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin, geminiKey }) => 
                       2. 盡力確保拼寫正確。
                       3. 詞性必須符合規範縮寫。`;
 
-      // 3. 調用 Gemini Vision API (這裡假設 fetchAI 支援 Vision 或直接實作)
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey || localStorage.getItem('gsat_gemini_key')}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: file.type, data: base64Data } }
-              ]
-            }]
-          })
-        }
-      );
-
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      // 3. 調用內建 AI Proxy
+      const text = await fetchAI(prompt, { image: { mimeType: file.type, data: base64Data } });
 
       if (text) {
         const jsonMatch = text.match(/\[[\s\S]*\]/);
@@ -2183,6 +2163,7 @@ const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin, geminiKey }) => 
 
     try {
       const data = await file.arrayBuffer();
+      const XLSX = await import('xlsx'); // 🚀 動態載入：只有在使用者真的上傳 Excel 時才下載這個巨大的套件
       const wb = XLSX.read(data);
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });

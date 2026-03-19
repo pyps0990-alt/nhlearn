@@ -122,7 +122,6 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   const [userProfile, setUserProfile] = useState(() => {
     try { return JSON.parse(localStorage.getItem('gsat_user_profile')) || null; } catch { return null; }
   });
-  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('gsat_gemini_key') || '');
   const [appPhase, setAppPhase] = useState(() => {
     if (!localStorage.getItem('gsat_onboarding_done')) return 'auth';
     return 'app';
@@ -288,7 +287,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     if (!db || !classID || !user) return; // 🚀 配合新安全規則：未登入者不嘗試讀取，避免報錯
     
     // 預設環境變數 (目前寫死做測試)
-    const schoolId = "khsh";
+    const schoolId = "nhsh";
     const gradeId = "grade_2";
 
     // 1. Sync ClassSchedule (班級共用課表)
@@ -409,7 +408,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   const saveToFirestore = async (newSchedule) => {
     if (!db || !classID) return;
     try {
-      const schoolId = "khsh";
+      const schoolId = "nhsh";
       const gradeId = "grade_2";
       
       const scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
@@ -447,8 +446,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   const saveContactBookToFirestore = async (newContactBook) => {
     if (!db || !classID) return;
+    if (!user) {
+      throw new Error('GUEST_MODE');
+    }
     try {
-      const schoolId = "khsh";
+      const schoolId = "nhsh";
       const gradeId = "grade_2";
       
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
@@ -478,7 +480,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       });
 
       await batch.commit();
-    } catch (e) { console.error("Firestore contact book save error:", e); }
+    } catch (e) { 
+      console.error("Firestore contact book save error:", e); 
+      throw e; 
+    }
   };
 
   const handleImport206Template = async () => {
@@ -498,7 +503,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     });
     setWeeklySchedule(transformed);
 
-    const schoolId = "khsh";
+    const schoolId = "nhsh";
     const gradeId = "grade_2";
     const batch = writeBatch(db);
     
@@ -517,22 +522,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     triggerNotification('導入成功', '內中 206 班課表已導入並同步至雲端！');
   };
 
-  // ─── Notifications ────────────────────────────────────────────────────────
-  const triggerNativeNotification = async (title, message) => {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    try {
-      new Notification(String(title), { body: String(message), icon: '/favicon.ico' });
-    } catch (e) {
-      if (navigator.serviceWorker) {
-        try { (await navigator.serviceWorker.ready).showNotification(String(title), { body: String(message) }); } catch { }
-      }
-    }
-  };
-
+  // ─── Notifications (改為純 UI 提示) ──────────────────────────────────────────
   const triggerNotification = useCallback((title, message) => {
     setNotification({ show: true, title: String(title), message: String(message) });
     setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 4000); // 縮短駐留時間
-    // 🚀 移除本地原生推播，讓一般操作提示僅留在 App 內部橫幅，避免干擾使用者
     // 真正的系統通知已全部移交給 Firebase Cloud Functions (FCM) 派發
   }, []);
 
@@ -542,29 +535,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   // ─── 測試 Firebase 雲端通知推播 ──────────────────────────────────────────
   const sendTestNotice = async () => {
-    // 僅觸發原生 Web Push 通知，不寫入資料庫產生畫面橫幅
-    triggerNativeNotification('原生推播測試 🚀', '這是一則系統原生推播測試！如果您看到這個通知，代表 Web Push 運作完全正常 ✅');
-  };
-
-  // ─── AI Test ─────────────────────────────────────────────────────────────
-  const testAiConnection = async () => {
-    if (!geminiKey) return triggerNotification('提示', '請先輸入 API Key');
-    setAiTestStatus('testing');
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: 'Hi' }] }] }) }
-      );
-      if ((await res.json()).candidates) {
-        setAiTestStatus('success');
-        triggerNotification('驗證成功 🎉', 'AI 已就緒！');
-      } else throw new Error('驗證失敗');
-    } catch (e) {
-      setAiTestStatus('error');
-      triggerNotification('驗證失敗', e.message);
-    } finally {
-      setTimeout(() => setAiTestStatus('idle'), 3000);
-    }
+    // 替換為單純的 UI 提示，不再觸發前端本地推播
+    toast.success('這是一則測試通知 (雲端推播已接管)');
   };
 
   // ─── Theme ────────────────────────────────────────────────────────────────
@@ -989,7 +961,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
               dashboardLayout={dashboardLayout}
             />
           )}
-          {activeTab === 'english' && <VocabularyTab user={user} geminiKey={geminiKey} isAdmin={isAdmin} />}
+          {activeTab === 'english' && <VocabularyTab user={user} isAdmin={isAdmin} />}
           {activeTab === 'contactBook' && (
             <ContactBookTab
               contactBook={contactBook}
@@ -1028,10 +1000,6 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
               testPushNotification={sendTestNotice}
               theme={theme}
               setTheme={setTheme}
-              aiTestStatus={aiTestStatus}
-              testAiConnection={testAiConnection}
-              geminiKey={geminiKey}
-              setGeminiKey={setGeminiKey}
               navTo={navTo}
               previousTab={previousTab}
               customLinks={customLinks}
@@ -1081,11 +1049,13 @@ export default function App() {
         const userRef = doc(db, 'Users', currentUser.uid);
         const userSnap = await getDoc(userRef);
         
-        let currentClass = localStorage.getItem('gsat_class_id') || '206';
-        if (userSnap.exists() && userSnap.data().classId) {
+        const oldClass = userSnap.exists() ? userSnap.data().classId : null;
+        let currentClass = localStorage.getItem('gsat_class_id');
+        if (userSnap.exists() && userSnap.data().classId !== undefined && currentClass === null) {
           currentClass = userSnap.data().classId;
           localStorage.setItem('gsat_class_id', currentClass); // 確保本地端狀態同步
         }
+        if (!currentClass) currentClass = '';
 
         // 🚀 配合安全規則：寫入 role 欄位以供後端判定身分
         const role = currentUser.email?.endsWith('@nhsh.tp.edu.tw') ? 'admin' : 'student';
@@ -1098,6 +1068,15 @@ export default function App() {
 
         // 🚀 自動訂閱該班級的 FCM 主題
         if (functions) {
+          // 1. 若班級發生變更，主動退訂舊班級（防止幽靈推播）
+          if (oldClass && oldClass !== currentClass) {
+            const unsubscribe = httpsCallable(functions, 'unsubscribeFromTopic');
+            await unsubscribe({ token, topic: `class_${oldClass}` }).catch(e => console.warn(e));
+            await unsubscribe({ token, topic: `class_${oldClass}_alerts` }).catch(e => console.warn(e));
+          }
+
+          // 2. 僅當有設定班級時，才執行訂閱 (避免本機模式收到預設 206 的通知)
+          if (currentClass) {
           const subscribe = httpsCallable(functions, 'subscribeToTopic');
           await subscribe({ token, topic: `class_${currentClass}` }).catch(e => console.warn("主題訂閱失敗:", e));
           
@@ -1115,6 +1094,7 @@ export default function App() {
           } else {
             const unsubscribe = httpsCallable(functions, 'unsubscribeFromTopic');
             await unsubscribe({ token, topic: `class_${currentClass}_alerts` }).catch(e => console.warn(e));
+          }
           }
         }
       }

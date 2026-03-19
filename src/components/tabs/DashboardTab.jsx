@@ -33,8 +33,14 @@ const INITIAL_WEEKLY_SCHEDULE = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [
 const LiveClock = React.memo(() => {
   const [time, setTime] = React.useState(new Date());
   React.useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    const update = () => setTime(new Date());
+    const timer = setInterval(update, 1000);
+    const handleVisibility = () => document.visibilityState === 'visible' && update();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
   return (
     <span className="text-white text-[24px] font-black font-mono">
@@ -215,10 +221,35 @@ const FocusTimerWidget = ({ triggerNotification }) => {
     } catch(e) { console.error("Audio error", e); }
   }, [stopNoise]);
 
+  const expectedEndTimeRef = useRef(null);
+
   useEffect(() => {
-    if (isRunning && timeLeft > 0) {
-      intervalRef.current = setInterval(() => setTimeLeft(t => t - 1), 1000);
-    } else if (timeLeft <= 0 && isRunning) {
+    if (isRunning) {
+      // 🚀 核心修復：儲存絕對結束時間，抵禦 iOS 背景凍結
+      expectedEndTimeRef.current = Date.now() + timeLeft * 1000;
+      
+      const tick = () => {
+        const remaining = Math.round((expectedEndTimeRef.current - Date.now()) / 1000);
+        setTimeLeft(Math.max(0, remaining));
+      };
+
+      intervalRef.current = setInterval(tick, 1000);
+      
+      // 當手機解鎖或 App 從背景喚醒時，立刻校正一次時間
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible') tick();
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
+
+      return () => {
+        clearInterval(intervalRef.current);
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
+    }
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (isRunning && timeLeft <= 0) {
       setIsRunning(false);
       playDing();
       stopNoise(); // 結束時自動停止白噪音
@@ -237,8 +268,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
         setTimeLeft(25 * 60);
       }
     }
-    return () => clearInterval(intervalRef.current);
-  }, [isRunning, timeLeft, mode, sessions, playDing, stopNoise, triggerNotification]);
+  }, [timeLeft, isRunning, mode, sessions, playDing, stopNoise, triggerNotification]);
 
   // 當使用者手動暫停時，自動暫停白噪音；繼續時自動恢復
   useEffect(() => {
@@ -754,8 +784,16 @@ const DashboardTab = ({
 
   // 定期更新時間
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000); // 🚀 效能優化：降至每分鐘更新，避免整頁頻繁重繪卡死手機
-    return () => clearInterval(timer);
+    const update = () => setCurrentTime(new Date());
+    const timer = setInterval(update, 60000); // 🚀 效能優化：降至每分鐘更新，避免整頁頻繁重繪卡死手機
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') update();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   // 🔥 修復：當編輯結束時自動儲存到雲端，並強勢濾除 undefined
@@ -996,11 +1034,6 @@ const DashboardTab = ({
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
-    if (!localStorage.getItem('gsat_gemini_key') && !localStorage.getItem('gsat_openrouter_key')) {
-      triggerNotification('設定未完成', '請先至設定綁定 API Key');
-      return;
-    }
 
     setUploadLoading(true);
     triggerNotification('讀取中', '正在解析課表照片...');
@@ -1633,9 +1666,9 @@ const DashboardTab = ({
           </div>
         </div>
       ) : (
-        <div className="relative pl-8">
+        <div className="relative pl-[40px]">
           {/* Timeline Vertical Line */}
-          <div className="absolute left-[3px] top-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-500/40 via-emerald-500/20 to-transparent dark:from-emerald-500/30 dark:via-emerald-500/10 rounded-full" />
+          <div className="absolute left-[15px] top-2 bottom-6 w-[2px] bg-gradient-to-b from-emerald-500/40 via-emerald-500/20 to-transparent dark:from-emerald-500/30 dark:via-emerald-500/10 rounded-full" />
 
           <div className="space-y-10">
             {!hasScheduleData && !isEditingSchedule ? (
@@ -1730,10 +1763,10 @@ const DashboardTab = ({
                         return elements.map((el) => {
                           if (el.type === 'now') {
                             return (
-                              <div key={el.id} className="relative flex items-center gap-4 py-2 my-1">
-                                <div className="absolute -left-[35px] w-4.5 h-4.5 bg-rose-500 rounded-full border-[3.5px] border-white dark:border-slate-900 shadow-[0_0_15px_rgba(244,63,94,0.8)] z-20 animate-pulse" />
+                          <div key={el.id} className="relative flex items-center gap-4 py-3 my-1">
+                            <div className="absolute left-[-32px] w-4 h-4 bg-rose-500 rounded-full border-[3px] border-white dark:border-slate-900 shadow-[0_0_15px_rgba(244,63,94,0.8)] z-20 animate-pulse" />
                                 <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-500/60 to-transparent relative">
-                                  <span className="absolute -top-4 left-3 text-[10px] font-black text-rose-500 bg-rose-50/80 dark:bg-rose-950/40 px-2 py-0.5 rounded-full backdrop-blur-md border border-rose-200/50 dark:border-rose-500/20 tracking-tighter shadow-sm">現在時間</span>
+                              <span className="absolute -top-5 left-0 text-[10px] font-black text-rose-500 bg-rose-50/90 dark:bg-rose-950/80 px-2 py-1 rounded-lg backdrop-blur-md border border-rose-200/50 dark:border-rose-500/30 tracking-widest shadow-sm">現在時間 NOW</span>
                                 </div>
                               </div>
                             );
@@ -1747,7 +1780,7 @@ const DashboardTab = ({
                             return (
                               <div key={el.id} className={`relative group/break py-3 pr-2 transition-all duration-500 ${isCurrentBreak ? 'scale-[1.02] opacity-100' : 'opacity-60 hover:opacity-100'}`}>
                                 {/* Break Indicator on Timeline */}
-                                <div className={`absolute -left-[30px] top-0 bottom-0 w-[4px] rounded-full transition-colors ${isCurrentBreak ? 'bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.5)]' : 'bg-gray-200 dark:bg-white/10'}`} />
+                              <div className={`absolute left-[-26px] top-0 bottom-0 w-[4px] rounded-full transition-colors ${isCurrentBreak ? 'bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.5)]' : 'bg-gray-200 dark:bg-white/10'}`} />
 
                                 <div className={`ml-4 flex items-center gap-3 p-3 rounded-2xl border transition-all ${isCurrentBreak ? 'bg-orange-50/40 dark:bg-orange-950/20 border-orange-200/50 dark:border-orange-500/20' : 'bg-transparent border-transparent'}`}>
                                   <div className={`h-[1px] w-6 border-t border-dashed transition-colors ${isCurrentBreak ? 'border-orange-400' : 'border-gray-300 dark:border-gray-600'}`} />
@@ -1767,7 +1800,7 @@ const DashboardTab = ({
                           return (
                             <div key={item.id} className="relative group">
                               {/* Timeline Node */}
-                              <div className={`absolute -left-[33px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-[3px] transition-all duration-500 z-10 ${isActive ? 'bg-emerald-500 border-emerald-200 dark:border-emerald-800 scale-125 neon-glow-emerald shadow-[0_0_15px_#10b981]' : 'bg-gray-300 dark:bg-slate-700 border-white dark:border-slate-900 group-hover:border-emerald-500/50'}`} />
+                          <div className={`absolute left-[-31px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-[3px] transition-all duration-500 z-10 ${isActive ? 'bg-emerald-500 border-emerald-200 dark:border-emerald-800 scale-125 neon-glow-emerald shadow-[0_0_15px_#10b981]' : 'bg-gray-300 dark:bg-slate-700 border-white dark:border-slate-900 group-hover:border-emerald-500/50'}`} />
 
                               {/* Pill Card */}
                               <div
@@ -1779,14 +1812,12 @@ const DashboardTab = ({
                                 style={item.rescheduled && !isActive ? { border: '2px solid #ff9800', boxShadow: '0 0 15px rgba(255, 152, 0, 0.3)' } : {}}
                               >
                                 {isActive && (
-                                  <div className="absolute bottom-0 left-0 right-0 h-1.5 px-1 pb-1">
-                                    <div className="bg-white/20 rounded-full h-full">
-                                      <div
-                                        className="bg-white rounded-full h-full transition-all duration-1000 ease-linear"
-                                        style={{ width: `${currentClassProgress}%` }}
-                                      ></div>
-                                    </div>
-                                  </div>
+                              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/10 dark:bg-white/10">
+                                <div
+                                  className="bg-white/90 h-full transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                                  style={{ width: `${currentClassProgress}%` }}
+                                ></div>
+                              </div>
                                 )}
                                 {selectedForSwap.length === 1 && selectedForSwap[0] === item.id && (
                                   <div className="flex gap-1 absolute -top-3 left-1/2 -translate-x-1/2 z-[20]">

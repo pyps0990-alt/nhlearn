@@ -47,6 +47,8 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
   });
   const [collapsedSubjects, setCollapsedSubjects] = useState(new Set());
   const [completedIds, setCompletedIds] = useState(new Set());
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [expiredConfirmOpen, setExpiredConfirmOpen] = useState(false);
 
   // 🚀 全新邏輯：同步個人完成狀態
   useEffect(() => {
@@ -88,7 +90,8 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     setSelectedDate(d.toISOString().split('T')[0]);
   };
 
-  const handleAddEntry = async () => {
+  const handleAddEntry = async (skipDateCheckOrEvent) => {
+    const skipDateCheck = skipDateCheckOrEvent === true;
     if (!newEntry.homework && !newEntry.exam) {
       toast.error('請輸入作業或考試內容！');
       return;
@@ -96,9 +99,10 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
 
     // Validation: Check deadline
     const today = new Date().toISOString().split('T')[0];
-    if ((newEntry.homeworkDeadline && newEntry.homeworkDeadline < today) ||
-      (newEntry.examDeadline && newEntry.examDeadline < today)) {
-      if (!window.confirm('截止日期似乎已經過了，確定要新增嗎？')) return;
+    if (!skipDateCheck && ((newEntry.homeworkDeadline && newEntry.homeworkDeadline < today) ||
+      (newEntry.examDeadline && newEntry.examDeadline < today))) {
+      setExpiredConfirmOpen(true);
+      return;
     }
 
     const newContactBook = { ...contactBook };
@@ -145,23 +149,43 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     }
 
     setContactBook(newContactBook);
-    await saveContactBookToFirestore(newContactBook);
 
     setNewEntry({ subject: subjects?.[0]?.name || '國文', homework: '', exam: '', examType: '小考', homeworkDeadline: '', examDeadline: '' });
-    toast.success('新增成功！');
+
+    try {
+      await saveContactBookToFirestore(newContactBook);
+      toast.success('新增成功並同步至雲端！');
+    } catch (error) {
+      if (error.message === 'GUEST_MODE') {
+        toast.success('新增成功！(訪客模式已暫存於本機)');
+      } else {
+        toast.error('無法同步至雲端，已暫存於本機。請檢查權限或網路連線。');
+      }
+    }
   };
 
-  const handleDeleteEntry = async (id) => {
-    if (!window.confirm('確定要刪除這項記錄嗎？')) return;
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
+    const id = deleteConfirmId;
     // 防止刪除後出現殘留，遍歷全部日期找出並過濾
     const newContactBook = { ...contactBook };
     Object.keys(newContactBook).forEach(date => {
       newContactBook[date] = newContactBook[date].filter(item => item.id !== id);
     });
 
-    await saveContactBookToFirestore(newContactBook);
     setContactBook(newContactBook);
-    toast.success('刪除成功');
+    setDeleteConfirmId(null);
+
+    try {
+      await saveContactBookToFirestore(newContactBook);
+      toast.success('刪除成功');
+    } catch (error) {
+      if (error.message === 'GUEST_MODE') {
+        toast.success('刪除成功！(本機紀錄)');
+      } else {
+        toast.error('無法同步至雲端，本機紀錄已刪除。');
+      }
+    }
   };
 
   const handleAIParse = async (e) => {
@@ -203,15 +227,15 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
             homeworkDeadline: parsed.homeworkDeadline || '',
             examDeadline: parsed.examDeadline || ''
           }));
-          alert('AI 辨識完成！請校準內容後點擊同步。');
+          toast.success('AI 辨識完成！請校準內容後點擊同步。');
         } catch (err) {
           console.error('AI 解析失敗:', result);
-          alert('AI 解析格式錯誤，請手動調整。');
+          toast.error('AI 解析格式錯誤，請手動調整。');
         }
       };
       reader.readAsDataURL(file);
     } catch (err) {
-      alert('辨識失敗，請重試。');
+      toast.error('辨識失敗，請重試。');
     } finally {
       setIsParsing(false);
     }
@@ -458,18 +482,9 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
-            <div className="flex-1 flex items-center gap-3 px-5 py-4 rounded-[20px] bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-500">
-                <Bell size={18} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[14px] font-black text-slate-600 dark:text-slate-300">雲端自動推播</span>
-                <span className="text-[11px] font-bold text-slate-400">每日放學後將自動提醒全班</span>
-              </div>
-            </div>
-            <button onClick={handleAddEntry} className="w-full sm:w-auto px-8 py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[16px] shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
-              儲存與同步 <CheckCircle2 size={20} />
+          <div className="flex justify-end mt-2">
+            <button onClick={handleAddEntry} className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[15px] shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
+              儲存與同步 <CheckCircle2 size={18} />
             </button>
           </div>
         </div>
@@ -561,7 +576,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                               </div>
                             </div>
                           )}
-                          <button onClick={() => handleDeleteEntry(entry.id)} className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all active:scale-90">
+                          <button onClick={() => setDeleteConfirmId(entry.id)} className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all active:scale-90">
                             <Trash2 size={18} />
                           </button>
                         </div>
@@ -585,6 +600,62 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
           })
         )}
       </div>
+
+      {/* 刪除確認 Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 w-full max-w-sm shadow-2xl border border-white/20 dark:border-white/10 transform transition-all animate-pop-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-2xl">
+                <Trash2 size={24} />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 dark:text-white">確認刪除</h3>
+            </div>
+            <p className="text-sm font-bold text-slate-500 dark:text-gray-400 mb-6">
+              刪除後將無法復原，確定要移除這筆聯絡簿紀錄嗎？
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 py-3.5 rounded-2xl font-black bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95"
+              >
+                取消
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 py-3.5 rounded-2xl font-black bg-red-500 text-white shadow-lg shadow-red-500/30 hover:bg-red-600 active:scale-95 transition-all"
+              >
+                確認刪除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 期限過期確認 Modal */}
+      {expiredConfirmOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 w-full max-w-sm shadow-2xl border border-white/20 dark:border-white/10 transform transition-all animate-pop-in">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl">
+                <Calendar size={24} />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 dark:text-white">日期已過期</h3>
+            </div>
+            <p className="text-sm font-bold text-slate-500 dark:text-gray-400 mb-6">
+              您設定的截止日期似乎已經過了，確定要繼續新增嗎？
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setExpiredConfirmOpen(false)} className="flex-1 py-3.5 rounded-2xl font-black bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-gray-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-all active:scale-95">
+                修改日期
+              </button>
+              <button onClick={() => { setExpiredConfirmOpen(false); handleAddEntry(true); }} className="flex-1 py-3.5 rounded-2xl font-black bg-amber-500 text-white shadow-lg shadow-amber-500/30 hover:bg-amber-600 active:scale-95 transition-all">
+                確定新增
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

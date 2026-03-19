@@ -144,8 +144,6 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
   };
 
   const handleGenerateQuiz = async () => {
-    const geminiKey = localStorage.getItem('gsat_gemini_key');
-    if (!geminiKey) { triggerNotification('未設定金鑰', '請先綁定 Gemini API Key'); return; }
     const subjectNotes = notes.filter(n => n.subject === selectedSubject?.name);
     if (subjectNotes.length === 0) { triggerNotification('筆記不足', '請先新增筆記內容'); return; }
     setIsGeneratingQuiz(true);
@@ -155,7 +153,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
       const summary = await fetchAI(prompt, { temperature: 0.7, responseJson: true });
       setQuizData(JSON.parse(summary.replace(/```json/gi, '').replace(/```/g, '').trim()));
       setIsQuizOpen(true);
-    } catch (e) { triggerNotification('出題失敗', '請稍後再試'); }
+    } catch (e) { triggerNotification('出題失敗', 'AI 伺服器連線失敗'); }
     finally { setIsGeneratingQuiz(false); }
   };
 
@@ -176,18 +174,16 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
   };
 
   const handleAiSummarize = async () => {
-    if (!localStorage.getItem('gsat_gemini_key')) { triggerNotification('未設定金鑰', '請先綁定 Gemini API Key'); return; }
     setIsProcessingAI(true);
     try {
       const summary = await fetchAI(`摘要這份筆記：\n${newNote.content}`, { temperature: 0.3 });
       setNewNote(prev => ({ ...prev, content: `【AI 重點整理】\n${summary}\n\n---\n${prev.content}` }));
-    } catch (e) { triggerNotification('AI 失敗', '無法產生摘要'); }
+    } catch (e) { triggerNotification('AI 失敗', 'AI 伺服器連線失敗'); }
     finally { setIsProcessingAI(false); }
   };
 
   // 🚀 全新功能：錯題本專屬 AI 視覺深度分析
   const handleAiMistakeAnalysis = async () => {
-    if (!localStorage.getItem('gsat_gemini_key')) { triggerNotification('未設定金鑰', '請先綁定 Gemini API Key'); return; }
     const imgAttachment = attachments.find(a => a.type && a.type.startsWith('image/'));
     if (!imgAttachment) { triggerNotification('缺少圖片', '請先上傳錯題照片'); return; }
 
@@ -202,7 +198,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
       setNewNote(prev => ({ ...prev, content: prev.content ? `${prev.content}\n\n${analysis}` : analysis }));
       triggerNotification('解析成功', '已自動填入詳細解法與考點！');
     } catch (e) {
-      triggerNotification('AI 失敗', '無法解析錯題照片，請確認圖片清晰度');
+      triggerNotification('AI 失敗', 'AI 伺服器連線失敗');
     } finally {
       setIsProcessingAI(false);
     }

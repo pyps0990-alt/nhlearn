@@ -16,8 +16,7 @@ const COLOR_CLASSES = [{ key: 'emerald', hex: 'bg-emerald-500' }, { key: 'blue',
 const SettingsTab = ({
   isAdmin, setIsAdmin, triggerNotification, handleAuthClick,
   isGoogleConnected, handleSignoutClick, requestPushPermission,
-  testPushNotification, theme, setTheme, aiTestStatus,
-  testAiConnection, geminiKey, setGeminiKey,
+  testPushNotification, theme, setTheme,
   customLinks, setCustomLinks,
   classID, setClassID, setIsEditingSchedule, navTo,
   handleImport206Template, customCountdowns, setCustomCountdowns,
@@ -253,6 +252,10 @@ const SettingsTab = ({
 
   const handleAddOrUpdateStore = async () => {
     if (!newStore.name || !newStore.discount) { triggerNotification('資料不完整', '請輸入商店名稱與優惠'); return; }
+    if (!isGoogleConnected) {
+      triggerNotification('權限不足', '訪客模式無法修改特約商店資料喔！');
+      return;
+    }
     try {
       if (editingStore) {
         await updateDoc(doc(db, 'Schools', 'khsh', 'Stores', editingStore), { ...newStore, updatedAt: Date.now() });
@@ -268,6 +271,10 @@ const SettingsTab = ({
 
   const handleDeleteStore = async (id, name) => {
     if (!window.confirm(`確定刪除「${name}」？`)) return;
+    if (!isGoogleConnected) {
+      triggerNotification('權限不足', '訪客模式無法刪除特約商店資料喔！');
+      return;
+    }
     try { await deleteDoc(doc(db, 'Schools', 'khsh', 'Stores', id)); triggerNotification('刪除成功', `${name} 已移除`); }
     catch (e) { triggerNotification('刪除失敗', '請稍後再試'); }
   };
@@ -897,36 +904,6 @@ const SettingsTab = ({
         {
           activeSubTab === 'advanced' && (
             <>
-              <section className="space-y-4">
-                <div className="flex items-center gap-2 px-1">
-                  <BrainCircuit size={16} className="text-purple-600 shrink-0" />
-                  <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">AI 引擎設定</h3>
-                </div>
-                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
-                  <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2"><Sparkles className="text-purple-500" size={16} /> API 金鑰管理</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between items-end mb-2">
-                        <label className="text-[12px] font-black text-slate-400 dark:text-gray-500">GEMINI KEY {!geminiKey && <span className="text-amber-500">未設定</span>}</label>
-                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-[11px] font-black text-purple-600 hover:underline">🔗 取得金鑰</a>
-                      </div>
-                      <div className="flex gap-3">
-                        <input type="password" placeholder="貼上您的 API Key" value={geminiKey}
-                          onChange={e => { setGeminiKey(e.target.value); localStorage.setItem('gsat_gemini_key', e.target.value); }}
-                          className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-5 py-3 text-sm font-black outline-none focus:border-purple-400 focus:bg-white dark:focus:bg-slate-800 text-[var(--text-primary)] transition-all" />
-                        <button onClick={testAiConnection} disabled={aiTestStatus === 'testing'}
-                          className={`px-5 rounded-2xl font-black text-sm active:scale-95 transition-all flex items-center justify-center gap-2 ${aiTestStatus === 'success' ? 'bg-emerald-500 text-white' : aiTestStatus === 'error' ? 'bg-red-500 text-white' : 'bg-purple-600 text-white hover:bg-purple-500 shadow-md'}`}>
-                          {aiTestStatus === 'testing' ? <RefreshCw size={16} className="animate-spin" /> : aiTestStatus === 'success' ? <CheckCircle2 size={16} /> : aiTestStatus === 'error' ? <X size={16} /> : '測試'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-purple-50/80 dark:bg-purple-900/10 rounded-2xl border border-purple-100 dark:border-purple-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
-                      💡 使用 Gemini 2.5 Flash 模型，金鑰僅存在您的瀏覽器中。
-                    </div>
-                  </div>
-                </div>
-              </section>
-
               <section className="space-y-4">
                 <div className="flex items-center gap-2 px-1">
                   <Lock size={16} className="text-gray-600" />

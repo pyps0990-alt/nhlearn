@@ -15,7 +15,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
       color: 'text-amber-500',
       bg: 'bg-amber-50',
       content: [
-        { q: '第一次啟動要做什麼？', a: '1. 允許通知 ➜ 掌握課表與重要提醒\n2. 連結 Google ➜ 啟用跨裝置雲端備份\n3. 綁定 Gemini API Key ➜ 解鎖強大的 AI 學習輔助\n4. 前往「設定」自訂你的專屬首頁！' },
+        { q: '第一次啟動要做什麼？', a: '1. 允許通知 ➜ 掌握課表與重要提醒\n2. 連結 Google ➜ 啟用跨裝置雲端備份\n3. 前往「設定」自訂你的專屬首頁！' },
         { q: '需要帳號才能使用嗎？', a: '不需要！若選擇訪客模式，所有資料（課表、聯絡簿、筆記）皆會安全地儲存於您的本機設備中。登入 Google 僅是為了讓資料能備份上雲端。' },
         { q: '如何獲得最佳體驗？', a: '強烈建議在 iOS / Android 瀏覽器中點擊「加入主畫面」，讓 GSAT Pro 成為全螢幕且能穩定接收通知的沉浸式 App！' }
       ]
@@ -49,7 +49,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
       content: [
         { q: '單字特訓有什麼功能？', a: '📚 單字庫檢視 / 🧠 記憶曲線(SRS)今日複習 / 🏆 多元測驗模式 (選擇、拼寫、AI文法) / 📸 AI 考卷掃描匯入。' },
         { q: 'AI 自動填入如何使用？', a: '手動新增單字時，只需輸入英文，點擊旁邊的「✨ AI 填入」，系統會自動幫您補齊最精準的中文解釋與詞性。' },
-        { q: '測驗模式怎麼玩？', a: '選擇題考驗字義反應，拼寫題強化肌肉記憶。如果您有綁定 AI 金鑰，還能讓系統根據您的單字，即時生成帶有詳解的「進階英文文法題」！' },
+        { q: '測驗模式怎麼玩？', a: '選擇題考驗字義反應，拼寫題強化肌肉記憶。系統還能根據您的單字，即時生成帶有詳解的進階解析！' },
         {
           q: '有專屬的單字庫可以參考嗎？',
           a: `當然有！系統已經將「${campusName || '校園'}專屬 6000 核心單字」以及「教師推薦」無縫同步至雲端單字庫。您不再需要複製貼上，只需在單字庫中切換分類，就能一鍵將不熟的單字加入「個人收藏」，並搭配 AI 測驗與記憶曲線進行每日特訓！`
@@ -96,16 +96,6 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
       ]
     },
     {
-      title: '🤖 AI 功能設定',
-      icon: BrainCircuit,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50',
-      content: [
-        { q: '如何取得 Gemini API Key？', a: '前往 aistudio.google.com/app/apikey，用 Google 帳號登入後免費建立 API Key。每月有大量免費額度，一般使用完全夠用。' },
-        { q: 'AI 金鑰安全嗎？', a: '絕對安全。API Key 僅存在您的瀏覽器本地端 (LocalStorage) 中，所有的 AI 請求都是由您的裝置直接發送給 Google 伺服器，我們不會經過任何中間層竊取您的金鑰。' }
-      ]
-    },
-    {
       title: '🔔 通知與提醒',
       icon: Bell,
       color: 'text-orange-600',
@@ -126,23 +116,6 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
         </h2>
         <p className="text-[13px] font-bold text-slate-500 dark:text-gray-400 mt-1 ml-9">常見問題與功能完整說明</p>
       </div>
-
-      {/* Gemini API Link */}
-      <a
-        href="https://aistudio.google.com/app/apikey"
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-4 bg-gradient-to-r from-purple-600 to-indigo-600 p-5 rounded-[28px] text-white shadow-md active:scale-[0.98] transition-transform"
-      >
-        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
-          <Key size={24} className="shrink-0" />
-        </div>
-        <div>
-          <div className="font-black text-[16px]">取得 Gemini API Key</div>
-          <div className="text-[12px] font-bold opacity-80">免費取得 · 解鎖所有 AI 功能</div>
-        </div>
-        <ChevronRight size={20} className="ml-auto opacity-70 shrink-0" />
-      </a>
 
       {/* FAQ Accordion */}
       {sections.map((sec, idx) => (
