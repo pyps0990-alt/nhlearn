@@ -4,8 +4,8 @@ import {
   Settings, User, Monitor, Sun, Moon, Edit3,
   Bell, Sparkles, Cloud, BrainCircuit, RefreshCw, GraduationCap,
   CheckCircle2, X, Store, Trash2, Lock, MapPin, Globe, Plus, Link, Share, PlusSquare, Smartphone,
-  Utensils, Coffee, CupSoda, PenTool, Clock, LayoutTemplate, Eye, EyeOff, ArrowUp, ArrowDown, GripVertical, Palette
-  , BookOpen, BookText, Languages, Calculator, Zap, Beaker, Dna, History, Scale, Library, Music, Trophy, Laptop, Lightbulb
+  Utensils, Coffee, CupSoda, PenTool, Clock, LayoutTemplate, Eye, EyeOff, ArrowUp, ArrowDown, GripVertical, Palette, ChevronDown
+  , BookOpen, BookText, Languages, Calculator, Zap, Beaker, Dna, History, Scale, Library, Music, Trophy, Laptop, Lightbulb, Bus
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -17,14 +17,17 @@ const SettingsTab = ({
   isAdmin, setIsAdmin, triggerNotification, handleAuthClick,
   isGoogleConnected, handleSignoutClick, requestPushPermission,
   testPushNotification, theme, setTheme,
-  customLinks, setCustomLinks,
-  classID, setClassID, setIsEditingSchedule, navTo,
+  activeSubTab, setActiveSubTab, customLinks, setCustomLinks,
+  classID, setClassID, setIsEditingSchedule,
   handleImport206Template, customCountdowns, setCustomCountdowns,
   campusName, setCampusName, campusAddress, setCampusAddress,
   dashboardLayout, setDashboardLayout,
   campusLat, setCampusLat, campusLng, setCampusLng,
   dndEnabled, handleToggleDnd,
-  subjects, setSubjects
+  subjects, setSubjects,
+  schoolId, setSchoolId,
+  gradeId, setGradeId,
+  showTrafficTab, setShowTrafficTab
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
   const [editingCampus, setEditingCampus] = useState(false);
@@ -39,8 +42,24 @@ const SettingsTab = ({
     { id: 'system', label: '系統服務', icon: Cloud },
     { id: 'advanced', label: '進階與管理', icon: BrainCircuit }
   ];
-  const [activeSubTab, setActiveSubTab] = useState('general');
   const [draggedIdx, setDraggedIdx] = useState(null);
+  
+  // 🌟 手動拖動 (Drag to Scroll) 邏輯
+  const scrollRef = React.useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const onMouseDown = (e) => {
+    setIsDragging(true);
+    setStartX(e.pageX - scrollRef.current.offsetLeft);
+    setScrollLeft(scrollRef.current.scrollLeft);
+  };
+  const onMouseMove = (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    scrollRef.current.scrollLeft = scrollLeft - (e.pageX - scrollRef.current.offsetLeft - startX) * 2;
+  };
 
   const handleDragStart = (e, index) => { setDraggedIdx(index); e.dataTransfer.effectAllowed = 'move'; };
   const handleDragEnter = (e, index) => {
@@ -190,7 +209,7 @@ const SettingsTab = ({
 
   useEffect(() => {
     if (!isAdmin) return;
-    const unsub = onSnapshot(collection(db, 'Schools', 'khsh', 'Stores'), snapshot => {
+    const unsub = onSnapshot(collection(db, 'Schools', schoolId || 'nhsh', 'DiscountStores'), snapshot => {
       const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       setStores(data);
@@ -258,11 +277,11 @@ const SettingsTab = ({
     }
     try {
       if (editingStore) {
-        await updateDoc(doc(db, 'Schools', 'khsh', 'Stores', editingStore), { ...newStore, updatedAt: Date.now() });
+        await updateDoc(doc(db, 'Schools', schoolId || 'nhsh', 'DiscountStores', editingStore), { ...newStore, updatedAt: Date.now() });
         triggerNotification('更新成功', `${newStore.name} 已更新`);
         setEditingStore(null);
       } else {
-        await addDoc(collection(db, 'Schools', 'khsh', 'Stores'), { ...newStore, createdAt: Date.now() });
+        await addDoc(collection(db, 'Schools', schoolId || 'nhsh', 'DiscountStores'), { ...newStore, createdAt: Date.now() });
         triggerNotification('新增成功', `${newStore.name} 已加入`);
       }
       setNewStore({ name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '', operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: '' });
@@ -275,7 +294,7 @@ const SettingsTab = ({
       triggerNotification('權限不足', '訪客模式無法刪除特約商店資料喔！');
       return;
     }
-    try { await deleteDoc(doc(db, 'Schools', 'khsh', 'Stores', id)); triggerNotification('刪除成功', `${name} 已移除`); }
+    try { await deleteDoc(doc(db, 'Schools', schoolId || 'nhsh', 'DiscountStores', id)); triggerNotification('刪除成功', `${name} 已移除`); }
     catch (e) { triggerNotification('刪除失敗', '請稍後再試'); }
   };
 
@@ -298,20 +317,30 @@ const SettingsTab = ({
         )}
       </div>
 
-      {/* 分頁選單列 */}
-      <div className="px-1 mb-4">
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-2 rounded-[28px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
+      {/* 🚀 液態玻璃滑動選單 (Liquid Glass Sliding Pill) */}
+      <div className="px-1 mb-6">
+        <div 
+          ref={scrollRef}
+          onMouseDown={onMouseDown} onMouseLeave={() => setIsDragging(false)} onMouseUp={() => setIsDragging(false)} onMouseMove={onMouseMove}
+          className={`relative p-1.5 bg-slate-200/50 dark:bg-zinc-800/50 backdrop-blur-2xl rounded-[28px] flex w-full shadow-inner overflow-x-auto scrollbar-hide border border-white/40 dark:border-white/5 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        >
+          {/* 魔法滑動背景膠囊 */}
+          <div 
+            className="absolute top-1.5 bottom-1.5 bg-white dark:bg-zinc-700 rounded-[22px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
+            style={{ 
+              width: `calc((100% - 12px) / ${SETTINGS_TABS.length})`, 
+              transform: `translateX(calc(${SETTINGS_TABS.findIndex(t => t.id === activeSubTab)} * 100%))` 
+            }}
+          />
           {SETTINGS_TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-[20px] font-black text-[14px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.95] ${activeSubTab === tab.id
-                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
-                : 'bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-white'
-                }`}
+              className={`relative z-10 flex-1 min-w-[80px] sm:min-w-[100px] flex items-center justify-center gap-2 py-3.5 rounded-[22px] font-black text-[13px] sm:text-[14px] transition-colors duration-300 ${activeSubTab === tab.id ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             >
               <tab.icon size={18} className={activeSubTab === tab.id ? 'animate-bounce-soft' : ''} />
-              {tab.label}
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">{tab.label.substring(0, 2)}</span>
             </button>
           ))}
         </div>
@@ -430,11 +459,10 @@ const SettingsTab = ({
                           <button
                             key={emoji}
                             onClick={() => setNewCountdown({ ...newCountdown, icon: emoji })}
-                            className={`shrink-0 w-[52px] h-[52px] rounded-[18px] text-[22px] flex items-center justify-center transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-90 ${
-                              (newCountdown.icon || '📅') === emoji
+                            className={`shrink-0 w-[52px] h-[52px] rounded-[18px] text-[22px] flex items-center justify-center transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-90 ${(newCountdown.icon || '📅') === emoji
                                 ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-2 ring-emerald-400 scale-105'
                                 : 'bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm'
-                            }`}
+                              }`}
                           >
                             {emoji}
                           </button>
@@ -593,8 +621,8 @@ const SettingsTab = ({
                     {/* Google Maps 預覽小工具 */}
                     <div className="w-full h-32 rounded-2xl overflow-hidden border border-emerald-200 dark:border-emerald-500/30 mb-2 relative shadow-inner">
                       <div className="absolute inset-0 bg-slate-100 dark:bg-slate-800 flex items-center justify-center -z-10 text-slate-400 text-xs font-bold">載入地圖中...</div>
-                      <iframe 
-                        src={`https://maps.google.com/maps?q=${tempLat},${tempLng}&z=16&output=embed`} 
+                      <iframe
+                        src={`https://maps.google.com/maps?q=${tempLat},${tempLng}&z=16&output=embed`}
                         width="100%" height="100%" frameBorder="0" style={{ border: 0 }} allowFullScreen="" aria-hidden="false" tabIndex="0" title="Google Maps Preview"
                       />
                     </div>
@@ -619,7 +647,32 @@ const SettingsTab = ({
                 <GraduationCap size={16} className="text-emerald-600 neon-glow-emerald" />
                 <h3 className="text-sm font-black text-[var(--text-secondary)] dark:text-gray-400 uppercase tracking-wider">班級與課表管理</h3>
               </div>
-              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] space-y-4 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
+              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] space-y-5 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">選擇學校</label>
+                    <div className="relative">
+                      <select value={schoolId} onChange={e => setSchoolId(e.target.value)} className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-4 py-3.5 rounded-[16px] text-[14px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white appearance-none">
+                        <option value="nhsh">內湖高中 (NHSH)</option>
+                        <option value="cksh">建國中學 (CKSH)</option>
+                        <option value="tfgh">北一女中 (TFGH)</option>
+                        <option value="other">其他學校</option>
+                      </select>
+                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">選擇年級</label>
+                    <div className="relative">
+                      <select value={gradeId} onChange={e => setGradeId(e.target.value)} className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-4 py-3.5 rounded-[16px] text-[14px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white appearance-none">
+                        <option value="grade_1">高一</option>
+                        <option value="grade_2">高二</option>
+                        <option value="grade_3">高三</option>
+                      </select>
+                      <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">班級代碼 (輸入以同步雲端，留空為本機自訂)</label>
                   <input
@@ -640,7 +693,7 @@ const SettingsTab = ({
                   <Edit3 size={18} className="shrink-0" /> {classID ? '管理 / 編輯班級課表' : '建立 / 編輯自訂課表'}
                 </button>
                 <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
-                  💡 輸入班級代碼後，系統會自動從雲端同步該班級的課表。編輯後的課表也將同步供同學查看。
+                  💡 依序選擇學校、年級並輸入班級代碼後，系統會自動同步該班級的雲端課表。
                 </div>
               </div>
             </section>
@@ -822,6 +875,21 @@ const SettingsTab = ({
                     enabled={locPermission === 'granted'}
                     onChange={(val) => val ? handleLocationRequest() : triggerNotification('資訊', '請至瀏覽器設定關閉權限')}
                     colorClass="bg-emerald-500"
+                  />
+                </div>
+                {/* YouBike / 交通資訊開關 */}
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500 shrink-0"><Bus size={20} className="shrink-0" /></div>
+                    <div>
+                      <div className="text-sm font-black text-[var(--text-primary)]">交通與 YouBike 導覽</div>
+                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">在側邊選單啟用交通資訊功能</div>
+                    </div>
+                  </div>
+                  <Switch
+                    enabled={showTrafficTab}
+                    onChange={setShowTrafficTab}
+                    colorClass="bg-blue-500"
                   />
                 </div>
                 {/* 考試不打擾開關 */}

@@ -108,16 +108,32 @@ const StatsModal = ({ isOpen, onClose, stats }) => {
 
 // ─── 單字詳情全屏視窗 (Word Detail Overlay) ──────────────────────────────────
 const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClose, updateWord, triggerNotification, currentSet, addWords, isSaved, onSave, playVoice, accent }) => {
+  const [isClosing, setIsClosing] = useState(false);
+
+  // 🚀 核心修復：立即給予視覺回饋，並延遲 DOM 的卸載，徹底解決手機端卡頓感
+  const handleClose = useCallback((e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (isClosing) return;
+    setIsClosing(true);
+    if (window.speechSynthesis) window.speechSynthesis.cancel(); // 立即停止發音，不拖泥帶水
+    setTimeout(() => {
+      onClose();
+    }, 200); // 給予 200ms 的退場動畫時間
+  }, [isClosing, onClose]);
+
   // 防呆：鎖定背景滾動、支援 ESC 鍵關閉，避免與底層元件衝突
   useEffect(() => {
-    const handleKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+    const handleKeyDown = (e) => { if (e.key === 'Escape') handleClose(); };
     window.addEventListener('keydown', handleKeyDown);
     document.body.style.overflow = 'hidden'; // 防止底層滾動衝突
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
     };
-  }, [onClose]);
+  }, [handleClose]);
 
   if (!word) return null;
 
@@ -145,9 +161,9 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
   const cleanAnalysis = analysis && !analysis.startsWith('ERROR:') ? analysis.replace(/###\s*\[單字構造拆解\][\s\S]*?(?=###|$)/i, '').trim() : '';
 
   return createPortal(
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn" onClick={onClose}>
+    <div className={`fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-md transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'animate-fadeIn'}`} onClick={handleClose}>
       <div
-        className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl w-full h-[100dvh] md:h-[90vh] md:max-w-4xl md:rounded-[48px] shadow-2xl border border-white/20 overflow-hidden flex flex-col animate-pop-in"
+        className={`bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl w-full h-[100dvh] md:h-[90vh] md:max-w-4xl md:rounded-[48px] shadow-2xl border border-white/20 overflow-hidden flex flex-col transition-all duration-200 ${isClosing ? 'scale-[0.98] opacity-0 translate-y-4 md:translate-y-0' : 'animate-pop-in'}`}
         onClick={e => e.stopPropagation()}
       >
         <style>{`
@@ -206,7 +222,7 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
                 <Heart size={24} className={isSaved ? 'fill-current animate-heart-burst' : ''} />
               </button>
             )}
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} className="p-2.5 md:p-3 bg-slate-100 dark:bg-white/5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center touch-manipulation shrink-0" title="關閉視窗">
+            <button onClick={handleClose} className="p-2.5 md:p-3 bg-slate-100 dark:bg-white/5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center touch-manipulation shrink-0" title="關閉視窗">
               <X size={24} />
             </button>
           </div>
@@ -331,7 +347,7 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
 
           {/* 手機版底部專屬返回按鈕 (讓使用者滑到底部時可快速退出) */}
           <div className="pt-4 mt-2 border-t border-slate-100 dark:border-white/5 md:hidden flex flex-col">
-            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }} className="w-full py-4 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-[20px] font-black text-[15px] active:scale-95 transition-all shadow-sm touch-manipulation">
+            <button onClick={handleClose} className="w-full py-4 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-[20px] font-black text-[15px] active:scale-95 transition-all shadow-sm touch-manipulation">
               返回單字列表
             </button>
           </div>
@@ -345,7 +361,7 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
-export default function VocabularyTab({ user, isAdmin }) {
+export default function VocabularyTab({ user, isAdmin, schoolId = 'nhsh', gradeId = 'grade_2' }) {
   const [words, setWords] = useState([]); // 從 Firestore 動態載入
   const [subTab, setSubTab] = useState('bank');
   const [search, setSearch] = useState('');
@@ -353,7 +369,7 @@ export default function VocabularyTab({ user, isAdmin }) {
   const [filterPos, setFilterPos] = useState('all');
   const [isSyncing, setIsSyncing] = useState(false);
   const [userWords, setUserWords] = useState([]); // 個人學習進度
-  const [currentSet, setCurrentSet] = useState('6000 words'); // 目前選擇的單字庫來源
+  const [currentSet, setCurrentSet] = useState('6000_words'); // 目前選擇的單字庫來源
   const [teacherGrade, setTeacherGrade] = useState('grade_2'); // 教師推薦的年級選擇
   const [teacherStage, setTeacherStage] = useState('stage_1'); // 教師推薦的階段選擇
   const [showStatsModal, setShowStatsModal] = useState(false);
@@ -364,6 +380,19 @@ export default function VocabularyTab({ user, isAdmin }) {
   const [notification, setNotification] = useState(null);
   const [accent, setAccent] = useState('US'); // 預設口音 (US / UK)
   const [dbError, setDbError] = useState(''); // 記錄資料庫連線或權限錯誤
+
+  // 🌟 共用手動拖動 (Drag to Scroll) 邏輯
+  const scrollRefTabs = useRef(null);
+  const scrollRefSet = useRef(null);
+  const [dragState, setDragState] = useState({ isDragging: false, startX: 0, scrollLeft: 0, ref: null });
+  const onDragStart = (e, ref) => {
+    setDragState({ isDragging: true, startX: e.pageX - ref.current.offsetLeft, scrollLeft: ref.current.scrollLeft, ref });
+  };
+  const onDragMove = (e) => {
+    if (!dragState.isDragging || !dragState.ref) return;
+    e.preventDefault();
+    dragState.ref.current.scrollLeft = dragState.scrollLeft - (e.pageX - dragState.ref.current.offsetLeft - dragState.startX) * 2;
+  };
 
   // --- 防抖搜尋機制 (Debounce Search) ---
   // 等待使用者停止輸入 400 毫秒後，才真正觸發搜尋，大幅減少 Firebase 讀取次數與卡頓
@@ -493,11 +522,13 @@ export default function VocabularyTab({ user, isAdmin }) {
     if (currentSet === 'Personal') {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
     } else if (currentSet === 'Teacher Picks') {
-      // 🚀 對齊全新巢狀結構路徑： Schools/nhsh/Grades/{grade}/GradeVocab/init_{grade}_vocab/Stages/{stage}/Words
-      vocabRef = collection(db, 'Schools', 'nhsh', 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
+    } else if (currentSet === 'school_vocab') {
+      // 🏫 學校年級專屬單字庫
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab');
     } else {
-      // 6000 核心單字
-      vocabRef = collection(db, 'Schools', 'nhsh', 'SchoolVocab');
+      // 🌍 6000 核心單字庫 (獨立拆分至 Global)
+      vocabRef = collection(db, 'Global', 'Vocab', '6000Words');
     }
 
     // 🚀 Firebase 雲端原生搜尋：利用 Document ID (__name__) 達成完美的不分大小寫搜尋
@@ -543,9 +574,11 @@ export default function VocabularyTab({ user, isAdmin }) {
     if (currentSet === 'Personal') {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
     } else if (currentSet === 'Teacher Picks') {
-      vocabRef = collection(db, 'Schools', 'nhsh', 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
+    } else if (currentSet === 'school_vocab') {
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab');
     } else {
-      vocabRef = collection(db, 'Schools', 'nhsh', 'SchoolVocab');
+      vocabRef = collection(db, 'Global', 'Vocab', '6000Words');
     }
 
     const q = query(vocabRef, orderBy('__name__', 'asc'), startAfter(lastVisible), limit(30));
@@ -628,7 +661,8 @@ export default function VocabularyTab({ user, isAdmin }) {
         allData.forEach((item, i) => {
           const word = String(item['單字'] || item['word'] || '').trim();
           if (!word) return;
-          const ref = doc(db, 'Schools', 'nhsh', 'SchoolVocab', word.toLowerCase());
+          // 預設將 GAS 的 6000 單字同步至 Global 節點
+          const ref = doc(db, 'Global', 'Vocab', '6000Words', word.toLowerCase());
           batch.set(ref, {
             word: word,
             meaning: String(item['中文'] || item['chinese'] || '').trim(),
@@ -705,8 +739,10 @@ export default function VocabularyTab({ user, isAdmin }) {
         const ref = currentSet === 'Personal'
           ? doc(db, 'Users', user.uid, 'PersonalVocab', wordObj.word.toLowerCase())
           : currentSet === 'Teacher Picks'
-            ? doc(db, 'Schools', 'nhsh', 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', wordObj.word.toLowerCase())
-            : doc(db, 'Schools', 'nhsh', 'SchoolVocab', wordObj.word.toLowerCase());
+            ? doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', wordObj.word.toLowerCase())
+            : currentSet === 'school_vocab'
+              ? doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', wordObj.word.toLowerCase())
+              : doc(db, 'Global', 'Vocab', '6000Words', wordObj.word.toLowerCase());
         await deleteDoc(ref);
         logDebug('SUCCESS', '已從雲端刪除單字', { word: wordObj.word, set: currentSet });
       }
@@ -753,8 +789,10 @@ export default function VocabularyTab({ user, isAdmin }) {
       const ref = targetSet === 'Personal'
         ? doc(db, 'Users', user.uid, 'PersonalVocab', wordVal.toLowerCase())
         : targetSet === 'Teacher Picks'
-          ? doc(db, 'Schools', 'nhsh', 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', wordVal.toLowerCase())
-          : doc(db, 'Schools', 'nhsh', 'SchoolVocab', wordVal.toLowerCase());
+          ? doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', wordVal.toLowerCase())
+          : targetSet === 'school_vocab'
+            ? doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', wordVal.toLowerCase())
+            : doc(db, 'Global', 'Vocab', '6000Words', wordVal.toLowerCase());
       const sn = Date.now() + i;
 
       batch.set(ref, {
@@ -909,13 +947,25 @@ export default function VocabularyTab({ user, isAdmin }) {
 
       {/* Sub-tabs */}
       <div className="px-1 mb-2">
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-[24px] backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-inner">
+        <div 
+          ref={scrollRefTabs}
+          onMouseDown={e => onDragStart(e, scrollRefTabs)} onMouseLeave={() => setDragState({ ...dragState, isDragging: false })} onMouseUp={() => setDragState({ ...dragState, isDragging: false })} onMouseMove={onDragMove}
+          className={`relative flex gap-2 overflow-x-auto scrollbar-hide bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-[24px] backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-inner select-none ${dragState.isDragging && dragState.ref === scrollRefTabs ? 'cursor-grabbing' : 'cursor-grab'}`}
+        >
+          {/* 魔術背景膠囊 */}
+          <div 
+            className="absolute top-1.5 bottom-1.5 bg-white dark:bg-slate-700 rounded-[20px] shadow-sm border border-slate-100 dark:border-slate-600 transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
+            style={{ 
+              width: `calc((100% - 12px) / ${SUB_TABS.length})`, 
+              transform: `translateX(calc(${SUB_TABS.findIndex(t => t.id === subTab)} * 100%))` 
+            }}
+          />
           {SUB_TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setSubTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-[20px] font-black text-[13px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] ${subTab === tab.id
-                ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-100 dark:border-slate-600'
+              className={`relative z-10 flex-1 min-w-[80px] flex items-center justify-center gap-2 px-4 py-3 rounded-[20px] font-black text-[13px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] ${subTab === tab.id
+                ? 'text-emerald-600 dark:text-emerald-400'
                 : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-white/5'
                 }`}
             >
@@ -1058,6 +1108,18 @@ const WordBank = ({
   // 記錄本次 session 已經點擊加入收藏的單字 ID，用於即時顯示動畫與狀態
   const [savedWords, setSavedWords] = useState(new Set());
 
+  // 🌟 單字庫專屬的拖動 (Drag to Scroll) 邏輯
+  const scrollRefSet = useRef(null);
+  const [dragState, setDragState] = useState({ isDragging: false, startX: 0, scrollLeft: 0 });
+  const onDragStart = (e) => {
+    setDragState({ isDragging: true, startX: e.pageX - scrollRefSet.current.offsetLeft, scrollLeft: scrollRefSet.current.scrollLeft });
+  };
+  const onDragMove = (e) => {
+    if (!dragState.isDragging) return;
+    e.preventDefault();
+    scrollRefSet.current.scrollLeft = dragState.scrollLeft - (e.pageX - scrollRefSet.current.offsetLeft - dragState.startX) * 2;
+  };
+
   // 動態萃取所有不重複的標籤
   const availableTags = useMemo(() => {
     const tags = new Set();
@@ -1079,26 +1141,23 @@ const WordBank = ({
     try {
       const prompt = `你是一位專業的英文語源學老師與記憶專家。請針對單字 "${word}" 提供結構化解析。
 請務必遵守以下規範：
-1. **單字拆解**：請在開頭以 [Prefix], [Root], [Suffix] 格式拆解單字。
-2. **語源解說**：簡述每個構件的來源與意思。
+1. **單字拆解**：請在開頭以 Prefix, Root, Suffix 格式拆解單字。
+2. **一字多義與多詞性**：若該單字有多種詞性或截然不同的重要意思，請務必詳細列出。
 3. **重點標記**：在解析內容中使用 **粗體** 標註核心關鍵字。
-4. **結構化區段**：
-1. **結構化區段**：請嚴格使用以下 ### 標題。
-   ### [單字構造拆解]
-   (格式: **Prefix**: un- (不) + **Root**: break (打破) + **Suffix**: -able (能夠))
-   ### [核心記憶與語源]
-   （簡短說明單字組成邏輯）
-   ### [地道例句搭配]
-   （1 個高品質例句與常用搭配詞）
-   (格式範例: **Prefix**: un- (不) + **Root**: break (打破) + **Suffix**: -able (能夠)。若無字首字尾請寫 **Root**: word (意思))
-   ### [大腦記憶法]
-   （提供生動好記的諧音、聯想或故事記憶法，幫助學生秒記這個單字）
-   ### [語源與字根詳解]
-   （詳細解說這個單字的歷史來源與字根演變）
-   ### [實戰例句與搭配詞]
-   （提供 1 個進階難度的高品質例句與 2 個常用搭配詞）
+4. **結構化區段**：請嚴格按照順序使用以下 ### 標題。
 
-請用親切且精簡的繁體中文撰寫，字數控制在 120 字內。直接回傳 Markdown 內容，不要問候語。`;
+   ### [單字構造拆解]
+   (格式範例: **Prefix**: un- (不) + **Root**: break (打破) + **Suffix**: -able (能夠)。若無字首字尾請寫 **Root**: word (意思))
+   ### [一字多義與多詞性]
+   (條列式說明單字的不同詞性與對應意義，包含常見的衍生用法)
+   ### [大腦記憶法]
+   (提供生動好記的諧音、聯想或故事記憶法)
+   ### [語源與字根詳解]
+   (解說歷史來源與字根演變)
+   ### [實戰例句與搭配詞]
+   (針對主要詞性提供 2 個進階例句，以及必考搭配詞)
+
+請用親切的繁體中文撰寫，排版清晰條理分明，直接回傳 Markdown 內容，不要有任何問候語。`;
 
       const response = await fetchAI(prompt);
       if (!response) throw new Error('API 回傳為空');
@@ -1201,9 +1260,14 @@ const WordBank = ({
     <div className="space-y-4">
       {/* 來源選擇與搜尋 */}
       <div className="flex flex-col gap-3">
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 px-1">
+        <div 
+          ref={scrollRefSet}
+          onMouseDown={onDragStart} onMouseLeave={() => setDragState(prev => ({ ...prev, isDragging: false }))} onMouseUp={() => setDragState(prev => ({ ...prev, isDragging: false }))} onMouseMove={onDragMove}
+          className={`flex gap-2 overflow-x-auto scrollbar-hide pb-1 px-1 select-none ${dragState.isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        >
           {[
-            { id: '6000 words', label: '6000 核心單字', icon: <BookOpen size={14} /> },
+            { id: '6000_words', label: '6000 核心單字', icon: <BookOpen size={14} /> },
+            { id: 'school_vocab', label: '學校單字庫', icon: <BookOpen size={14} /> },
             { id: 'Teacher Picks', label: '教師推薦', icon: <Sparkles size={14} /> },
             { id: 'Personal', label: '個人收藏', icon: <Heart size={14} /> }
           ].map(set => (

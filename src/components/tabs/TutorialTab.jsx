@@ -1,168 +1,142 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Sparkles, LayoutDashboard, Library, Notebook, BookOpen,
-  Bike, Store, BrainCircuit, Settings, ChevronRight, MessageSquare,
-  Bell, Cloud, Globe, Navigation, Calendar, Key, LayoutTemplate
+  Sparkles, Library, Notebook, BookOpen, Bike, BrainCircuit,
+  MessageSquare, Cloud, Calendar, LayoutTemplate, Smartphone,
+  TrendingUp, GraduationCap, ArrowRight
 } from 'lucide-react';
 
 const TutorialTab = ({ onOpenFeedback, campusName }) => {
-  const [openSection, setOpenSection] = useState(null);
-
-  const sections = [
+  const guides = [
     {
-      title: '🚀 快速開始',
-      icon: Sparkles,
-      color: 'text-amber-500',
-      bg: 'bg-amber-50',
-      content: [
-        { q: '第一次啟動要做什麼？', a: '1. 允許通知 ➜ 掌握課表與重要提醒\n2. 連結 Google ➜ 啟用跨裝置雲端備份\n3. 前往「設定」自訂你的專屬首頁！' },
-        { q: '需要帳號才能使用嗎？', a: '不需要！若選擇訪客模式，所有資料（課表、聯絡簿、筆記）皆會安全地儲存於您的本機設備中。登入 Google 僅是為了讓資料能備份上雲端。' },
-        { q: '如何獲得最佳體驗？', a: '強烈建議在 iOS / Android 瀏覽器中點擊「加入主畫面」，讓 GSAT Pro 成為全螢幕且能穩定接收通知的沉浸式 App！' }
+      title: '新手入門與安裝',
+      icon: Smartphone,
+      color: 'from-blue-500 to-cyan-500',
+      shadow: 'shadow-blue-500/20',
+      items: [
+        { 
+          label: '安裝 App 取得最佳體驗', 
+          desc: '在 Safari 點擊「分享 ➜ 加入主畫面」，即可獲得全螢幕且穩定的通知體驗。',
+          media: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExODFjNWExZTBkZThkZDUxMTEyYzc3YzQ3Y2ZhYWE4Y2JmZTk4MzZlNiZlcD12MV9pbnRlcm5hbF9naWZzX2dpZklkJmN0PWc/3o7TKsQ8gqj8r3qjYc/giphy.gif' // 🌟 這裡可以隨時替換為您自己錄製的真實教學 GIF
+        },
+        { label: '訪客與雲端', desc: '訪客模式資料安全存在本機；登入 Google 帳號則可自動開啟跨裝置備份。' }
       ]
     },
     {
-      title: '🎨 首頁與排版自訂',
-      icon: LayoutTemplate,
-      color: 'text-pink-500',
-      bg: 'bg-pink-50',
-      content: [
-        { q: '如何改變首頁卡片的順序？', a: '前往「設定 ➜ 一般與外觀 ➜ 首頁排版設定」，你可以直接拖曳 (或使用上下按鈕) 來改變番茄鐘、課表、外部連結等區塊的順序，甚至能隱藏不需要的模組。' },
-        { q: '如何新增自訂倒數計時？', a: '同樣在「設定 ➜ 一般與外觀」，找到「自定義倒數設置」，即可新增你的專屬目標（如：畢業典禮、模擬考），並可自由切換卡片的漸層、極簡或霓虹風格。' }
+      title: 'AI 智慧引擎',
+      icon: BrainCircuit,
+      color: 'from-purple-500 to-indigo-500',
+      shadow: 'shadow-purple-500/20',
+      items: [
+        { label: '錯題本解析', desc: '在知識筆記上傳錯題照片，AI 將自動為您解析考點、詳細解法與常見陷阱。' },
+        { label: '智能出題', desc: '單字庫與筆記區皆支援 AI 出題，自動根據您的資料生成專屬選擇題與拼寫測驗。' }
       ]
     },
     {
-      title: '📅 課表排程',
+      title: '學習排程與課表',
       icon: Calendar,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50',
-      content: [
-        { q: '如何查看與編輯課表？', a: '首頁課表區塊提供「今日時間軸」與「一週網格」兩種檢視模式。點擊「編輯」即可自訂卡片顏色、設定外部上課連結，或標記調課狀態。' },
-        { q: 'AI 自動解析課表是什麼？', a: '進入編輯模式後，點選「上傳課表照片」，AI 就會幫你把整張圖轉成數位課表，自動填入課程名稱、時間與地點，免去手動輸入的麻煩！' },
-        { q: '個人課表與班級課表有何不同？', a: '若您在設定中「未輸入」班級代碼，課表將屬於您的「本機自訂課表」；若輸入了班級代碼，則會與班上同學同步共享雲端課表，所有調課資訊將即時推播。' }
+      color: 'from-emerald-500 to-teal-500',
+      shadow: 'shadow-emerald-500/20',
+      items: [
+        { label: '多校雲端同步', desc: '前往設定選擇學校與班級代碼，即可與全班同學共享雲端課表。' },
+        { label: '快速調課', desc: '首頁課表區塊點擊「快速調課」，可一鍵將課程標記為自習，或輸入代課老師名稱。' }
       ]
     },
     {
-      title: '📖 單字特訓',
+      title: '單字與聯絡簿',
       icon: BookOpen,
-      color: 'text-blue-500',
-      bg: 'bg-blue-50',
-      content: [
-        { q: '單字特訓有什麼功能？', a: '📚 單字庫檢視 / 🧠 記憶曲線(SRS)今日複習 / 🏆 多元測驗模式 (選擇、拼寫、AI文法) / 📸 AI 考卷掃描匯入。' },
-        { q: 'AI 自動填入如何使用？', a: '手動新增單字時，只需輸入英文，點擊旁邊的「✨ AI 填入」，系統會自動幫您補齊最精準的中文解釋與詞性。' },
-        { q: '測驗模式怎麼玩？', a: '選擇題考驗字義反應，拼寫題強化肌肉記憶。系統還能根據您的單字，即時生成帶有詳解的進階解析！' },
-        {
-          q: '有專屬的單字庫可以參考嗎？',
-          a: `當然有！系統已經將「${campusName || '校園'}專屬 6000 核心單字」以及「教師推薦」無縫同步至雲端單字庫。您不再需要複製貼上，只需在單字庫中切換分類，就能一鍵將不熟的單字加入「個人收藏」，並搭配 AI 測驗與記憶曲線進行每日特訓！`
-        }
+      color: 'from-orange-500 to-amber-500',
+      shadow: 'shadow-orange-500/20',
+      items: [
+        { label: '大腦記憶法', desc: '點擊單字庫卡片，AI 會為您生成諧音與字根字首的深度語源解析。' },
+        { label: '電子聯絡簿', desc: '支援相機掃描黑板聯絡簿，自動擷取考試與作業，並於考前一晚推播提醒。' }
       ]
     },
     {
-      title: '📓 電子聯絡簿',
-      icon: Notebook,
-      color: 'text-purple-500',
-      bg: 'bg-purple-50',
-      content: [
-        { q: '聯絡簿能與課表連動嗎？', a: '會的！只要您記錄了當日的作業與考試，除了會顯示在首頁的「明日準備事項」中，也會自動吸附在「一週網格課表」對應的日期卡片下方。' },
-        { q: '不想打字怎麼辦？', a: '聯絡簿支援「AI 圖片導入」。直接拍下黑板上的聯絡簿，AI 會自動為您萃取科目、作業及考試內容，並分門別類填入表單！' }
+      title: '數據與擴充模組',
+      icon: TrendingUp,
+      color: 'from-pink-500 to-rose-500',
+      shadow: 'shadow-pink-500/20',
+      items: [
+        { label: '成績與學分', desc: '視覺化的折線圖掌握成績趨勢，並可追蹤畢業學分達成進度。' },
+        { label: 'YouBike 導覽', desc: '可於設定中一鍵開啟交通導覽功能，隨時追蹤校園周邊單車租借動態。' }
       ]
     },
     {
-      title: '📝 知識筆記',
-      icon: Library,
-      color: 'text-indigo-500',
-      bg: 'bg-indigo-50',
-      content: [
-        { q: '筆記可以怎麼分類？', a: '您可以自由新增科目，並為每個科目挑選專屬的「Emoji 圖示」與「顏色標籤」。筆記內容支援錯題本與課堂筆記等標籤。' },
-        { q: 'AI 出題怎麼用？', a: '進入某科目後，點選右上角「✨ AI 出題」按鈕，系統會詳讀該科目下的所有筆記，為您客製化生成帶有詳解的選擇題測驗。' }
-      ]
-    },
-    {
-      title: '🏪 特約商店',
-      icon: Store,
-      color: 'text-orange-500',
-      bg: 'bg-orange-50',
-      content: [
-        { q: '特約商店是什麼？', a: '尋找校園周邊合作的優質店家。結帳時出示學生證與系統畫面，即可享有 GSAT Pro 統整的獨家折扣與外送優惠，並支援一鍵地圖導航。' }
-      ]
-    },
-    {
-      title: '🚲 YouBike',
-      icon: Bike,
-      color: 'text-emerald-500',
-      bg: 'bg-emerald-50',
-      content: [
-        { q: 'YouBike 資料會自動更新嗎？', a: '會的！資料來源為台北市政府開放資料，不僅每 30 秒自動更新，還會精準計算與您的即時距離。' },
-        { q: '如何快速找到想要的車？', a: '您可以使用上方的過濾器篩選「⚡ 電動」或「🚲 一般」車型，並利用排序按鈕依照「距離最近」、「可借最多」或「可還最多」來調整站點順序！' }
-      ]
-    },
-    {
-      title: '🔔 通知與提醒',
-      icon: Bell,
-      color: 'text-orange-600',
-      bg: 'bg-orange-50',
-      content: [
-        { q: '如何接收班級調課通知？', a: '在設定中允許通知，並綁定您的班級代碼。當班級課表發生「調課」或「重要公告」時，Firebase 會即時將通知推送至您的裝置。' },
-        { q: 'iOS 為什麼收不到通知？', a: 'iOS 系統限制較嚴格，必須先將網頁「加入主畫面」（Safari ➜ 分享 ➜ 加入主畫面），並從主畫面啟動 App 後，才能順利授權並接收推播。' }
+      title: '首頁排版自訂',
+      icon: LayoutTemplate,
+      color: 'from-slate-600 to-slate-800',
+      shadow: 'shadow-slate-500/20',
+      items: [
+        { label: '拖曳排版', desc: '前往設定的「首頁排版設定」，可自由隱藏或上下拖曳番茄鐘、熱力圖等模組。' },
+        { label: '自訂倒數', desc: '新增畢業典禮或大考倒數，並支援極簡、霓虹、櫻花等多種卡片主題。' }
       ]
     }
   ];
 
   return (
-    <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade pb-12">
-      {/* Header */}
-      <div className="px-1 mb-2">
-        <h2 className="text-2xl font-black text-amber-500 flex items-center gap-3">
-          <Sparkles size={28} className="shrink-0 neon-glow-amber" /> 使用指南
-        </h2>
-        <p className="text-[13px] font-bold text-slate-500 dark:text-gray-400 mt-1 ml-9">常見問題與功能完整說明</p>
+    <div className="space-y-8 flex flex-col w-full text-left animate-slide-up-fade pb-12">
+      {/* 🚀 Hero Section */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[40px] p-8 md:p-10 text-white shadow-lg shadow-emerald-500/20 border border-white/20">
+        <div className="relative z-10">
+          <h2 className="text-[28px] md:text-[36px] font-black tracking-tight leading-tight mb-2">
+            歡迎來到 GSAT Pro
+          </h2>
+          <p className="text-emerald-100 font-bold text-[14px] md:text-[16px] max-w-lg leading-relaxed">
+            全台灣高中生專屬的新世代學習引擎。整合了雲端課表、AI 錯題解析與記憶單字庫，幫助您精準掌握學習節奏。
+          </p>
+        </div>
+        <Sparkles className="absolute -right-6 -bottom-6 w-40 h-40 text-white opacity-10 rotate-12" />
       </div>
 
-      {/* FAQ Accordion */}
-      {sections.map((sec, idx) => (
-        <div key={idx} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 rounded-[28px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] overflow-hidden">
-          <button
-            onClick={() => setOpenSection(openSection === idx ? null : idx)}
-            className="w-full flex justify-between items-center p-5 active:bg-slate-50 dark:active:bg-white/5 transition-colors group"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className={`w-10 h-10 ${sec.bg} dark:bg-opacity-10 rounded-2xl flex items-center justify-center shrink-0 border border-transparent dark:border-[var(--border-color)]`}>
-                <sec.icon size={20} className={`${sec.color} shrink-0`} />
+      {/* 🧩 Grid Layout for Features */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 px-1">
+        {guides.map((guide, idx) => (
+          <div key={idx} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:-translate-y-1 transition-transform duration-500 flex flex-col h-full group">
+            <div className="flex items-center gap-3 mb-5">
+              <div className={`w-12 h-12 rounded-[20px] bg-gradient-to-br ${guide.color} shadow-lg ${guide.shadow} flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform duration-500`}>
+                <guide.icon size={22} />
               </div>
-              <span className="font-black text-[var(--text-primary)] text-[15px] group-hover:translate-x-1 transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">{sec.title.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/g, '')}</span>
+              <h3 className="text-[17px] font-black text-slate-800 dark:text-white">{guide.title}</h3>
             </div>
-            <ChevronRight size={18} className={`text-slate-300 transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 ${openSection === idx ? 'rotate-90 text-emerald-500' : 'group-hover:translate-x-1'}`} />
-          </button>
-          {openSection === idx && (
-            <div className="px-5 pb-5 space-y-4 border-t border-[var(--border-color)] pt-4 animate-fadeIn bg-slate-50/5">
-              {sec.content.map((item, i) => (
-                <div key={i} className="space-y-1.5">
-                  <div className="text-[13px] font-black text-slate-500 flex items-start gap-2">
-                    <span className="text-emerald-500 mt-0.5 shrink-0">Q</span>
-                    {item.q}
+            <div className="flex-1 space-y-4">
+              {guide.items.map((item, i) => (
+                <div key={i} className="bg-white/60 dark:bg-black/20 p-4 rounded-[20px] border border-slate-100/50 dark:border-white/5">
+                  <div className="text-[13px] font-black text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {item.label}
                   </div>
-                  <div className="text-[14px] font-bold text-slate-700 dark:text-gray-300 whitespace-pre-line bg-white/50 dark:bg-black/20 p-3.5 rounded-2xl leading-relaxed border border-slate-100 dark:border-white/5">
-                    {item.a}
-                  </div>
+                  <p className="text-[12px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed pl-3 border-l-2 border-slate-200 dark:border-slate-700 ml-0.5">
+                    {item.desc}
+                  </p>
+                  {item.media && (
+                    <div className="mt-4 ml-3 rounded-[16px] overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm relative group/media">
+                      <img src={item.media} alt={item.label} className="w-full h-auto object-cover max-h-[160px] sm:max-h-[200px] group-hover/media:scale-105 transition-transform duration-700 ease-out" />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      ))}
+          </div>
+        ))}
+      </div>
 
       {/* Feedback */}
-      <div className="bg-emerald-600 p-6 rounded-[28px] text-white shadow-lg shadow-emerald-500/20 relative overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-[1000ms] ease-[cubic-bezier(0.23,1,0.32,1)]"></div>
-        <h3 className="font-black text-[16px] flex items-center gap-2 mb-2 relative z-10">
-          <MessageSquare size={18} className="shrink-0" /> 還有問題？
-        </h3>
-        <p className="text-[13px] font-bold opacity-90 mb-4 relative z-10">歡迎填寫回饋表單，幫助我們改進 GSAT Pro！</p>
-        <button
-          onClick={onOpenFeedback}
-          className="w-full py-3.5 bg-white text-emerald-600 rounded-2xl font-black text-[14px] active:scale-95 transition-all shadow-sm hover:shadow-float relative z-10"
-        >
-          回饋問題 / 功能請求
-        </button>
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 dark:from-black dark:to-zinc-900 p-8 rounded-[36px] text-white shadow-2xl relative overflow-hidden group mx-1">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-[1500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"></div>
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div>
+            <h3 className="font-black text-[20px] flex items-center gap-2 mb-2">
+              <MessageSquare size={20} className="text-emerald-400" /> 還有未解的疑惑？
+            </h3>
+            <p className="text-[13px] font-bold text-slate-300">無論是遇到 Bug、想許願新功能，或單純想給開發團隊鼓勵，都歡迎告訴我們！</p>
+          </div>
+          <button
+            onClick={onOpenFeedback}
+            className="w-full md:w-auto shrink-0 px-8 py-4 bg-emerald-500 text-white rounded-[20px] font-black text-[14px] active:scale-95 transition-transform shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
+          >
+            回饋問題 / 功能請求
+            <ArrowRight size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );

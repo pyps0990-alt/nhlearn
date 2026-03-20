@@ -16,11 +16,11 @@ import { timeToMins } from './utils/helpers';
 export const DEFAULT_DASHBOARD_LAYOUT = [
   { id: 'countdowns', visible: true, label: '自訂倒數計時' },
   { id: 'greeting', visible: true, label: '歡迎卡片與進度' },
-  { id: 'heatmap', visible: true, label: '學習熱力圖' },
-  { id: 'pomodoro', visible: true, label: '專注模式 (番茄鐘)' },
+  { id: 'heatmap', visible: false, label: '學習熱力圖' },
+  { id: 'pomodoro', visible: false, label: '專注模式 (番茄鐘)' },
   { id: 'schedule', visible: true, label: '今日課表與時間軸' },
-  { id: 'links', visible: true, label: '自訂外部連結' },
-  { id: 'news', visible: true, label: '校園最新公告' },
+  { id: 'links', visible: false, label: '自訂外部連結' },
+  { id: 'news', visible: false, label: '校園最新公告' },
   { id: 'prep', visible: true, label: '明日準備事項' }
 ];
 import { db, auth, messaging, firebaseError, VAPID_KEY, functions } from './config/firebase';
@@ -106,6 +106,13 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     if (contentRef.current) contentRef.current.scrollTo({ top: 0, behavior: 'auto' });
   };
 
+  // 🚀 專屬跳轉：前往設定並展開指定子分頁
+  const [settingsSubTab, setSettingsSubTab] = useState('general');
+  const navToSettings = (subTab = 'general') => {
+    setSettingsSubTab(subTab);
+    navTo('settings');
+  };
+
   // ─── 預載入邏輯 ─────────────────────────────────────────────────────────
   useEffect(() => {
     // 進入首頁 2 秒後，背景預載入最常用的分頁
@@ -130,6 +137,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   const [aiTestStatus, setAiTestStatus] = useState('idle');
   const [classID, setClassID] = useState(() => localStorage.getItem('gsat_class_id') || '');
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+  const [schoolId, setSchoolId] = useState(() => localStorage.getItem('gsat_school_id') || 'nhsh');
+  const [gradeId, setGradeId] = useState(() => localStorage.getItem('gsat_grade_id') || 'grade_2');
   const [notices, setNotices] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0); // 紀錄未讀通知數量 (用於 iOS 紅點)
   const lastNoticeTimestamp = useRef(Date.now() - 60000); // 🔴 容忍 1 分鐘的時鐘誤差，確保不漏接任何剛發送的推播
@@ -137,8 +146,13 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   const [campusAddress, setCampusAddress] = useState(() => localStorage.getItem('gsat_campus_address') || '台北市內湖區文德路218號');
   const [campusLat, setCampusLat] = useState(() => localStorage.getItem('gsat_campus_lat') || '25.078410');
   const [campusLng, setCampusLng] = useState(() => localStorage.getItem('gsat_campus_lng') || '121.587152');
+  // 🚀 新增：儲存目前學校的動態配置
+  const [schoolConfig, setSchoolConfig] = useState(null);
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [showPushPrompt, setShowPushPrompt] = useState(false);
+
+  const [showTrafficTab, setShowTrafficTab] = useState(() => localStorage.getItem('gsat_show_traffic') === 'true');
+  useEffect(() => { localStorage.setItem('gsat_show_traffic', String(showTrafficTab)); }, [showTrafficTab]);
 
   // 考試不打擾模式狀態與切換邏輯
   const [dndEnabled, setDndEnabled] = useState(() => localStorage.getItem('gsat_dnd_enabled') === 'true');
@@ -249,6 +263,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   useEffect(() => { localStorage.setItem('gsat_dashboard_layout', JSON.stringify(dashboardLayout)); }, [dashboardLayout]);
   useEffect(() => { localStorage.setItem('gsat_campus_lat', campusLat); }, [campusLat]);
   useEffect(() => { localStorage.setItem('gsat_campus_lng', campusLng); }, [campusLng]);
+  useEffect(() => { localStorage.setItem('gsat_school_id', schoolId); }, [schoolId]);
+  useEffect(() => { localStorage.setItem('gsat_grade_id', gradeId); }, [gradeId]);
 
   // ─── 清除 iOS App 圖示紅點 (當使用者開啟/回到 App 時) ─────────────────────
   useEffect(() => {
@@ -285,70 +301,88 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   // Firestore Sync (New Schema Structure)
   useEffect(() => {
     if (!db) return;
-    
-    // 預設環境變數 (目前寫死做測試)
-    const schoolId = "nhsh";
-    const gradeId = "grade_2";
 
+    // 🚀 1. 讀取並監聽目前學校的全域配置 (動態切換 Tab 與校園資訊)
+    const schoolRef = doc(db, 'Schools', schoolId);
+    const unsubSchool = onSnapshot(schoolRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setSchoolConfig(data);
+        // 自動覆蓋本地的校園基礎資訊
+        if (data.name) setCampusName(data.name);
+        if (data.address) setCampusAddress(data.address);
+        if (data.location?.lat) setCampusLat(data.location.lat);
+        if (data.location?.lng) setCampusLng(data.location.lng);
+      } else {
+        // 若資料庫尚未建立該校設定，給予預設值
+        setSchoolConfig({ 
+          features: { 
+            hasDiscountStores: false,
+            english: true,
+            contactBook: true,
+            notes: false,
+            grades: false,
+            credits: false
+          } 
+        });
+      }
+    }, (err) => console.error("School config sync error:", err));
+    
     let unsubSchedule = () => {};
 
     if (classID) {
       // 1. Sync ClassSchedule (班級共用課表)
       const scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
       unsubSchedule = onSnapshot(scheduleRef, (snapshot) => {
-        if (!snapshot.empty) {
-          const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-          snapshot.docs.forEach((docSnap) => {
-            const item = docSnap.data();
-            if (item.day !== undefined && transformed[item.day]) {
-              transformed[item.day].push({
-                id: docSnap.id,
-                subject: item.courseName || item.subject || '未命名課程',
-                teacher: item.teacher || '',
-                startTime: item.startTime || '08:00',
-                endTime: item.endTime || '09:00',
-                location: item.location || '',
-                rescheduled: item.rescheduled || false,
-                link: item.link || '',
-                color: item.color || '',
-                icon: item.icon || ''
-              });
-            }
-          });
-          Object.keys(transformed).forEach(day => {
-             transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
-          });
-          setWeeklySchedule(transformed);
-        }
+        const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+        snapshot.docs.forEach((docSnap) => {
+          const item = docSnap.data();
+          if (item.day !== undefined && transformed[item.day]) {
+            transformed[item.day].push({
+              id: docSnap.id,
+              subject: item.courseName || item.subject || '未命名課程',
+              teacher: item.teacher || '',
+              startTime: item.startTime || '08:00',
+              endTime: item.endTime || '09:00',
+              location: item.location || '',
+              rescheduled: item.rescheduled || false,
+              link: item.link || '',
+              color: item.color || '',
+              icon: item.icon || ''
+            });
+          }
+        });
+        Object.keys(transformed).forEach(day => {
+           transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
+        });
+        setWeeklySchedule(transformed);
       }, (err) => console.error("Schedule sync error:", err));
     } else if (user) {
       // Sync PersonalSchedule (個人自訂課表)
       const personalScheduleRef = collection(db, 'Users', user.uid, 'PersonalSchedule');
       unsubSchedule = onSnapshot(personalScheduleRef, (snapshot) => {
-        if (!snapshot.empty) {
-          const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-          snapshot.docs.forEach((docSnap) => {
-            const item = docSnap.data();
-            if (item.day !== undefined && transformed[item.day]) {
-              transformed[item.day].push({
-                id: docSnap.id,
-                subject: item.courseName || item.subject || '未命名課程',
-                teacher: item.teacher || '',
-                startTime: item.startTime || '08:00',
-                endTime: item.endTime || '09:00',
-                location: item.location || '',
-                rescheduled: item.rescheduled || false,
-                link: item.link || '',
-                color: item.color || '',
-                icon: item.icon || ''
-              });
-            }
-          });
-          Object.keys(transformed).forEach(day => {
-             transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
-          });
-          setWeeklySchedule(transformed);
-        }
+        const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+        snapshot.docs.forEach((docSnap) => {
+          const item = docSnap.data();
+          if (item.day !== undefined && transformed[item.day]) {
+            transformed[item.day].push({
+              id: docSnap.id,
+              subject: item.courseName || item.subject || '未命名課程',
+              teacher: item.teacher || '',
+              startTime: item.startTime || '08:00',
+              endTime: item.endTime || '09:00',
+              location: item.location || '',
+              rescheduled: item.rescheduled || false,
+              link: item.link || '',
+              color: item.color || '',
+              icon: item.icon || ''
+            });
+          }
+        });
+        Object.keys(transformed).forEach(day => {
+           transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
+        });
+        setWeeklySchedule(transformed);
       }, (err) => console.error("Personal schedule sync error:", err));
     }
 
@@ -370,8 +404,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       }, (err) => console.error("Assignments sync error:", err));
     }
 
-    return () => { unsubSchedule(); unsubAssignments(); };
-  }, [db, classID, user]);
+    return () => { unsubSchedule(); unsubAssignments(); unsubSchool(); };
+  }, [db, classID, user, schoolId, gradeId]);
 
   // Notice System Sync (全站系統公告)
   useEffect(() => {
@@ -444,9 +478,6 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     if (!user && !classID) return;
 
     try {
-      const schoolId = "nhsh";
-      const gradeId = "grade_2";
-      
       let scheduleRef;
       if (classID) {
         scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
@@ -500,9 +531,6 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       throw new Error('GUEST_MODE');
     }
     try {
-      const schoolId = "nhsh";
-      const gradeId = "grade_2";
-      
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
       const snap = await getDocs(assignmentsRef);
       
@@ -553,13 +581,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     });
     setWeeklySchedule(transformed);
 
-    const schoolId = "nhsh";
-    const gradeId = "grade_2";
     const batch = writeBatch(db);
     
     SCHEDULE_206_TEMPLATE.forEach((item, idx) => {
       const docId = `${item.day}_${idx}`;
-      const docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', '206', 'ClassSchedule', docId);
+      const docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule', docId);
       batch.set(docRef, {
         day: item.day, courseName: item.course, teacher: item.teacher,
         startTime: item.startTime, endTime: item.endTime, location: '',
@@ -613,7 +639,6 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       const profile = { name: res.names?.[0]?.displayName, email: res.emailAddresses?.[0]?.value, photo: res.photos?.[0]?.url };
       setUserProfile(profile);
       localStorage.setItem('gsat_user_profile', JSON.stringify(profile));
-      if (profile.email?.endsWith('@nhsh.tp.edu.tw')) { setIsAdmin(true); triggerNotification('歡迎老師', '已自動開啟管理員權限！'); }
     } catch (e) {
       if (e.status === 401) {
         localStorage.removeItem('gsat_google_token');
@@ -717,11 +742,6 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
             setUserProfile(profile);
             localStorage.setItem('gsat_user_profile', JSON.stringify(profile));
 
-            if (result.user.email?.endsWith('@nhsh.tp.edu.tw')) {
-              setIsAdmin(true);
-              triggerNotification('歡迎老師', '已自動正式開啟管理員權限！');
-            }
-
             triggerNotification('Google 登入成功', '安全性流程驗證通過！');
             setAppPhase('welcome');
 
@@ -757,11 +777,6 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
             const profile = { name: result.user.displayName, email: result.user.email, photo: result.user.photoURL };
             setUserProfile(profile);
             localStorage.setItem('gsat_user_profile', JSON.stringify(profile));
-
-            if (result.user.email?.endsWith('@nhsh.tp.edu.tw')) {
-              setIsAdmin(true);
-              triggerNotification('歡迎老師', '已自動開啟管理員權限！');
-            }
 
             triggerNotification('Google 登入成功', '已啟用雲端備份！');
             setAppPhase('app'); // 🚀 直接進入 App
@@ -814,7 +829,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   };
 
   // ─── Nav ─────────────────────────────────────────────────────────────────
-  const navItems = [
+  const allNavItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: '日常課表' },
     { id: 'english', icon: BookOpen, label: '單字特訓' },
     { id: 'contactBook', icon: Notebook, label: '電子聯絡簿' },
@@ -827,6 +842,34 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     { id: 'help', icon: HelpCircle, label: '如何使用' },
     { id: 'legal', icon: ShieldCheck, label: '隱私與條款' },
   ];
+
+  // 🚀 動態過濾：只顯示「核心功能(必定顯示)」以及「學校有開啟的選配功能」
+  const navItems = allNavItems.filter(item => {
+    // 這些是系統預設的核心頁面，無條件必定顯示
+    if (['dashboard', 'english', 'contactBook', 'settings', 'feedback', 'help', 'legal'].includes(item.id)) return true;
+    
+    // YouBike 交通資訊由使用者自定義開關
+    if (item.id === 'traffic') {
+      return showTrafficTab;
+    }
+
+    // 如果學校有配置 features，只顯示配置裡有的功能
+    if (schoolConfig && schoolConfig.features) {
+      // 兼容舊版陣列格式
+      if (Array.isArray(schoolConfig.features)) {
+        return schoolConfig.features.includes(item.id);
+      }
+      // 相容新版 Object 格式 (例如 features.hasDiscountStores)
+      if (typeof schoolConfig.features === 'object') {
+        if (item.id === 'stores' && schoolConfig.features.hasDiscountStores !== undefined) {
+          return schoolConfig.features.hasDiscountStores;
+        }
+        // 預設為 false，只有後台明確設為 true 才顯示
+        return schoolConfig.features[item.id] === true;
+      }
+    }
+    return false;
+  });
 
   const getTabName = id => navItems.find(n => n.id === id)?.label || 'GSAT Pro';
 
@@ -996,7 +1039,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
               triggerNotification={triggerNotification}
               requestPushPermission={testPushNotification}
               testPushNotification={sendTestNotice}
-              setSettingsOpen={() => navTo('settings')}
+              navToSettings={navToSettings}
               isGoogleConnected={isGoogleConnected}
               contactBook={contactBook}
               setContactBook={setContactBook}
@@ -1034,7 +1077,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
           )}
           {activeTab === 'credits' && <CreditsTab user={user} triggerNotification={triggerNotification} />}
           {activeTab === 'grades' && <GradesTab user={user} triggerNotification={triggerNotification} />}
-          {activeTab === 'stores' && <StoresTab isAdmin={isAdmin} campusName={campusName} />}
+          {activeTab === 'stores' && <StoresTab isAdmin={isAdmin} campusName={campusName} schoolId={schoolId} />}
           {activeTab === 'traffic' && <TrafficTab campusName={campusName} campusAddress={campusAddress} campusLat={campusLat} campusLng={campusLng} />}
           {activeTab === 'feedback' && <FeedbackTab userProfile={userProfile} triggerNotification={triggerNotification} onBack={() => navTo(previousTab)} onSuccess={() => navTo('dashboard')} />}
           {activeTab === 'help' && <TutorialTab onOpenFeedback={() => navTo('feedback')} campusName={campusName} />}
@@ -1050,8 +1093,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
               testPushNotification={sendTestNotice}
               theme={theme}
               setTheme={setTheme}
-              navTo={navTo}
-              previousTab={previousTab}
+              activeSubTab={settingsSubTab}
+              setActiveSubTab={setSettingsSubTab}
               customLinks={customLinks}
               setCustomLinks={setCustomLinks}
               classID={classID}
@@ -1074,6 +1117,12 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
               handleToggleDnd={handleToggleDnd}
               subjects={subjects}
               setSubjects={setSubjects}
+              schoolId={schoolId}
+              setSchoolId={setSchoolId}
+              gradeId={gradeId}
+              setGradeId={setGradeId}
+              showTrafficTab={showTrafficTab}
+              setShowTrafficTab={setShowTrafficTab}
             />
           )}
           {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
@@ -1108,7 +1157,8 @@ export default function App() {
         if (!currentClass) currentClass = '';
 
         // 🚀 配合安全規則：寫入 role 欄位以供後端判定身分
-        const role = currentUser.email?.endsWith('@nhsh.tp.edu.tw') ? 'admin' : 'student';
+        // 目前預設所有新登入者皆為 student，後續可透過後台介面或 Firebase 控制台手動升級
+        const role = 'student';
 
         await setDoc(userRef, {
           fcmToken: token, lastActive: serverTimestamp(),
@@ -1156,7 +1206,6 @@ export default function App() {
     return onAuthStateChanged(auth, async (authUser) => {
       setUser(authUser);
       if (authUser) {
-        if (authUser.email?.endsWith('@nhsh.tp.edu.tw')) setIsAdmin(true);
         await requestPushPermission(authUser);
       } else {
         setIsAdmin(false);

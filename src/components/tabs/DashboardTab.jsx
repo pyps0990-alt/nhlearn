@@ -43,7 +43,7 @@ const LiveClock = React.memo(() => {
     };
   }, []);
   return (
-    <span className="text-white text-[24px] font-black font-mono">
+    <span className="text-slate-800 dark:text-white text-[24px] font-black font-mono tracking-tight">
       {time.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
     </span>
   );
@@ -727,8 +727,8 @@ const LearningHeatmapWidget = React.memo(({ streak }) => {
 // === 儀表板主元件 ===
 const DashboardTab = ({
   isAdmin, weeklySchedule, setWeeklySchedule, subjects, triggerNotification,
-  customLinks, contactBook, isEditingSchedule, setIsEditingSchedule, classID,
-  saveToFirestore, setSettingsOpen, customCountdowns, dashboardLayout,
+  customLinks, contactBook, isEditingSchedule, setIsEditingSchedule, classID, navToSettings,
+  saveToFirestore, customCountdowns, dashboardLayout,
   setContactBook, saveContactBookToFirestore, user
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -814,9 +814,11 @@ const DashboardTab = ({
     const hasSat = weeklySchedule && weeklySchedule[6] && weeklySchedule[6].length > 0;
     const hasSun = weeklySchedule && weeklySchedule[0] && weeklySchedule[0].length > 0;
 
+    const hasSchedule = Object.values(weeklySchedule || {}).some(dayArr => dayArr && dayArr.length > 0);
+
     let weekendRest = false;
-    // 只有在今天沒有任何課程時，才判斷是否為休息日
-    if (todayClasses.length === 0) {
+    // 只有在今天沒有任何課程，且「有設定任何課表」時，才判斷是否為休息日
+    if (hasSchedule && todayClasses.length === 0) {
       if (day === 6 && !hasSat) weekendRest = true;
       if (day === 0 && !hasSun && hours < 20) weekendRest = true;
       if (day === 5 && !hasSat && !hasSun) weekendRest = true; // 週五沒課，且六日也沒課
@@ -1035,24 +1037,25 @@ const DashboardTab = ({
       reader.readAsDataURL(file);
       const base64Data = await base64Promise;
 
-      const prompt = `請分析這張課表照片。請嚴格以 JSON 格式回傳（不可有任何其他 markdown 符號或文字）。格式必須為一個包含 7 個陣列的物件，代表星期一到星期日（1~6, 0代表星期日）：
-      {
-        "1": [{"startTime": "08:00", "endTime": "09:00", "subject": "國文", "location": "教室", "teacher": ""}],
-        "2": [], "3": [], "4": [], "5": [], "6": [], "0": []
-      }`;
+      const prompt = `請分析這張課表照片。請嚴格以 JSON 格式回傳（不可有任何其他 markdown 符號或文字）。格式必須為一個包含 7 個陣列的物件，代表星期一到星期日（1~6, 0代表星期日）：\n{\n  "1": [{"startTime": "08:00", "endTime": "09:00", "subject": "國文", "location": "教室", "teacher": ""}],\n  "2": [], "3": [], "4": [], "5": [], "6": [], "0": []\n}`;
 
       const summary = await fetchAI(prompt, {
         temperature: 0.1,
         responseJson: true,
-        image: { mimeType: 'image/jpeg', data: base64Data }
+        image: { mimeType: file.type || 'image/jpeg', data: base64Data }
       });
 
       if (!summary) throw new Error('AI 未回傳資料');
 
-      const jsonMatch = summary.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('無法解析 JSON 格式');
-
-      const parsedData = JSON.parse(jsonMatch[0].trim());
+      let parsedData;
+      if (typeof summary === 'object') {
+        parsedData = summary;
+      } else {
+        const jsonMatch = summary.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('無法解析 JSON 格式');
+        parsedData = JSON.parse(jsonMatch[0].trim());
+      }
+      
       const newSchedule = { ...INITIAL_WEEKLY_SCHEDULE };
 
       Object.keys(parsedData).forEach(dayKey => {
@@ -1077,6 +1080,7 @@ const DashboardTab = ({
       setIsEditingSchedule(true);
       triggerNotification('解析完成 ✨', '請檢查結果後再點擊儲存！');
     } catch (error) {
+      console.error("AI Parse Error:", error);
       triggerNotification('處理失敗', '請確認照片清晰');
     } finally {
       setUploadLoading(false);
@@ -1328,7 +1332,7 @@ const DashboardTab = ({
             <span>{greeting.text}</span>
           </h2>
           <div className="flex flex-col items-end">
-            <span className="text-emerald-800 dark:text-emerald-100/80 text-[11px] font-black opacity-80 uppercase tracking-widest">Current Time</span>
+            <span className="text-slate-500 dark:text-emerald-100/80 text-[11px] font-black uppercase tracking-widest">Current Time</span>
             <LiveClock />
           </div>
         </div>
@@ -1336,16 +1340,16 @@ const DashboardTab = ({
         <div className="flex flex-col gap-3">
           <div className="flex justify-between items-end flex-wrap gap-x-4">
             <div className="flex items-center gap-3 mb-1">
-              <span className="text-emerald-800 dark:text-emerald-100/80 text-[13px] font-black opacity-90 tracking-widest uppercase">
+              <span className="text-slate-700 dark:text-emerald-100/80 text-[13px] font-black tracking-widest uppercase">
                 {hasClassesToday ? '今日課程進度' : '今日無課程安排'}
               </span>
               {streak > 0 && (
-                <span className="flex items-center gap-1 text-[11px] font-black bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2.5 py-0.5 rounded-full border border-orange-500/30">
+                <span className="flex items-center gap-1 text-[11px] font-black bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 px-2.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-500/30">
                   <Flame size={12} className="shrink-0" /> 連續學習 {streak} 天
                 </span>
               )}
             </div>
-            <span className="text-emerald-900 dark:text-white text-[20px] font-black">{Math.round(currentProgress)}%</span>
+            <span className="text-slate-800 dark:text-white text-[20px] font-black">{Math.round(currentProgress)}%</span>
           </div>
           <div className="h-3 bg-emerald-200/50 dark:bg-black/20 rounded-full overflow-hidden backdrop-blur-sm border border-emerald-100/50 dark:border-white/5 relative">
             <div
@@ -1417,7 +1421,7 @@ const DashboardTab = ({
   const widgetSchedule = (
     <div id="schedule-section" className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] relative overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
       {/* 全局頭部：提供快速調課與編輯按鈕 */}
-      {hasScheduleData && !isEditingSchedule && (
+      {hasScheduleData && (
         <div className="flex justify-between items-center mb-6 relative z-10 border-b border-slate-200/50 dark:border-white/10 pb-5">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl text-emerald-600 dark:text-emerald-400 shadow-sm">
@@ -1428,9 +1432,6 @@ const DashboardTab = ({
           <div className="flex items-center gap-2">
             <button onClick={() => { setIsSwapMode(!isSwapMode); setEditDayTab(currentTime.getDay()); setSelectedForSwap([]); }} className={`px-3 sm:px-4 py-2 rounded-[14px] text-[12px] sm:text-[13px] font-black transition-all shadow-sm ${isSwapMode ? 'bg-orange-500 text-white' : 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20'}`}>
               <ArrowUpDown size={14} className="inline mr-1.5 mb-0.5" />{isSwapMode ? '退出調課' : '快速調課'}
-            </button>
-            <button onClick={() => setIsEditingSchedule(true)} className="px-3 sm:px-4 py-2 rounded-[14px] text-[12px] sm:text-[13px] font-black bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/20 transition-all shadow-sm">
-              編輯課表
             </button>
           </div>
         </div>
@@ -1508,13 +1509,22 @@ const DashboardTab = ({
           {previewSchedule && (
             <div className="flex gap-3">
               <button onClick={() => setPreviewSchedule(null)} className="flex-1 py-4 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-2xl font-black active:scale-95 transition-all">放棄重測</button>
-              <button onClick={() => { 
+              <button onClick={async () => { 
                 const cleanSchedule = JSON.parse(JSON.stringify(previewSchedule || {}));
                 setWeeklySchedule(previewSchedule); 
                 setPreviewSchedule(null); 
-                if (classID || user) saveToFirestore(cleanSchedule);
+                if (classID || user) {
+                  triggerNotification('連線中', '正在將課表上傳至雲端...');
+                  try {
+                    await saveToFirestore(cleanSchedule);
+                    triggerNotification('同步成功 🎉', classID ? '課表已安全備份至班級雲端！' : '個人自訂課表已備份至雲端！');
+                  } catch (err) {
+                    triggerNotification('同步失敗 ❌', '請檢查網路或系統權限');
+                  }
+                } else {
+                  triggerNotification('儲存成功', '已儲存課表結果！');
+                }
                 setIsEditingSchedule(false); 
-                triggerNotification('儲存成功', '已儲存課表結果！');
               }} 
               className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">儲存結果</button>
             </div>
@@ -1678,14 +1688,9 @@ const DashboardTab = ({
                 <p className="text-[14px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed mb-8">
                   您可以直接建立個人的自訂課表，<br />或前往設定綁定班級代碼以同步全班進度。
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                  <button onClick={() => setIsEditingSchedule(true)} className="flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[14px] shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all">
-                    <Plus size={18} /> 建立自訂課表
-                  </button>
-                  <button onClick={() => setSettingsOpen()} className="flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-[20px] font-black text-[14px] active:scale-[0.98] transition-all hover:bg-slate-200 dark:hover:bg-white/10">
-                    前往綁定班級
-                  </button>
-                </div>
+                <button onClick={() => navToSettings('academic')} className="flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[15px] shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all">
+                  前往設定課表與班級
+                </button>
               </div>
             ) : (
               <>

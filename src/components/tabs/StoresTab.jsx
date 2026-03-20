@@ -5,17 +5,52 @@ import { db } from '../../config/firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
 
-const StoresTab = ({ isAdmin, campusName }) => {
+const StoresTab = ({ isAdmin, campusName, schoolId = 'nhsh' }) => {
   const [stores, setStores] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
+  const [hasFeature, setHasFeature] = useState(null); // 紀錄特約商店功能是否開啟
+
   const [newStore, setNewStore] = useState({
     name: '', discount: '', type: '餐飲', icon: '🏪', distance: '特約商店', address: '',
     operatingHours: '', deliveryStatus: '僅限自取', estimatedTime: '', deliveryUrl: ''
   });
 
+  // 1. 監聽學校根目錄文件，檢查功能開關 (Feature Flag)
   useEffect(() => {
+    const schoolRef = doc(db, 'Schools', schoolId);
+    const unsubSchool = onSnapshot(
+      schoolRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const features = docSnap.data().features;
+          if (Array.isArray(features)) {
+            setHasFeature(features.includes('stores'));
+          } else if (features && typeof features === 'object') {
+            setHasFeature(features.hasDiscountStores !== false);
+          } else {
+            setHasFeature(true);
+          }
+        } else {
+          setHasFeature(true);
+        }
+      },
+      (error) => {
+        console.error("Firestore 監聽錯誤 (school info):", error);
+        setErrorMsg('無法讀取學校設定');
+      }
+    );
+    return () => unsubSchool();
+  }, [schoolId]);
+
+  // 2. 監聽特約商店資料 (更新為新路徑 DiscountStores)
+  useEffect(() => {
+    // 若功能未開啟，則不抓取資料以節省流量
+    if (hasFeature !== true) {
+      setStores([]);
+      return;
+    }
     const unsub = onSnapshot(
-      collection(db, 'Schools', 'khsh', 'Stores'),
+      collection(db, 'Schools', schoolId, 'DiscountStores'),
       (snapshot) => {
         const storesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         storesData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -33,7 +68,7 @@ const StoresTab = ({ isAdmin, campusName }) => {
       }
     );
     return () => unsub();
-  }, []);
+  }, [hasFeature, schoolId]);
 
   const getStoreCategoryIcon = (type) => {
     switch (type) {
@@ -60,6 +95,29 @@ const StoresTab = ({ isAdmin, campusName }) => {
       window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
     }
   };
+
+  // 3. UI 狀態處理：若功能未開放，顯示 Empty State
+  if (hasFeature === false) {
+    return (
+      <div className="space-y-8 flex flex-col w-full text-left animate-slide-up-fade mb-12">
+        <div className="flex flex-col gap-2 px-2">
+          <h2 className="text-3xl font-black text-emerald-600 flex items-center gap-3 tracking-tight">
+            <Store size={28} className="shrink-0 neon-glow-emerald" />
+            校園特約商店
+          </h2>
+        </div>
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl rounded-[40px] border border-white/60 dark:border-white/10 shadow-sm mx-2 animate-pop-in">
+          <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-5">
+            <Store size={40} className="text-slate-400" />
+          </div>
+          <h3 className="text-xl font-black text-slate-700 dark:text-slate-200 mb-2">本校目前未開放特約商店</h3>
+          <p className="text-sm font-bold text-slate-500 dark:text-slate-400 max-w-xs">
+            {campusName || '本校'}的特約商店功能尚未啟用，請關注後續公告或聯繫學生會！
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 flex flex-col w-full text-left animate-slide-up-fade mb-12">
