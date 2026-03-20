@@ -479,18 +479,26 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
     try {
       let scheduleRef;
-      // 🌟 1. 加入防呆機制：如果找不到 schoolId，強制給預設值 'nhsh' (內湖高中) 與 'grade_2'
-      // 假設你的全域變數或 state 叫做 schoolId，如果它不存在，就給預設值
-      const currentSchoolId = (typeof schoolId !== 'undefined' && schoolId) ? schoolId : (user.schoolId || 'nhsh');
-      const currentGradeId = (typeof gradeId !== 'undefined' && gradeId) ? gradeId : (user.gradeId || 'grade_2');
+      // 確保即使沒綁定，也有預設值
+      const currentSchoolId = user?.schoolId || 'nhsh';
+      const currentGradeId = user?.gradeId || 'grade_2';
 
       if (classID) {
         scheduleRef = collection(db, 'Schools', currentSchoolId, 'Grades', currentGradeId, 'Classes', classID, 'ClassSchedule');
       } else {
+        // ⚠️ 注意這裡：如果你的 user 物件沒有 uid，路徑就會壞掉！
         scheduleRef = collection(db, 'Users', user.uid, 'PersonalSchedule');
       }
 
-      const snap = await getDocs(scheduleRef);
+      // 🚨 終極抓漏雷達 (請按 F12 打開 Console 看這裡印出什麼)
+      console.log("=== 🚨 寫入前安全檢查 🚨 ===");
+      console.log("1. 當前登入的 User 物件:", user);
+      console.log("2. 你的 UID 是:", user.uid);
+      console.log("3. 是否有綁定 classID:", classID);
+      console.log("4. 🌟 最終 Firebase 準備前往的真實路徑:", scheduleRef.path);
+      console.log("============================");
+
+      const snap = await getDocs(scheduleRef); // 👈 報錯通常發生在這一行
 
       const batch = writeBatch(db);
       const currentIds = new Set();
