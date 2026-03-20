@@ -1606,6 +1606,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
   const playDing = useCallback(() => {
     try {
       const ctx = audioCtx.current || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
       audioCtx.current = ctx;
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
@@ -1619,6 +1620,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
   const playBuzzer = useCallback(() => {
     try {
       const ctx = audioCtx.current || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
       audioCtx.current = ctx;
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
@@ -1871,6 +1873,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
   const playDing = useCallback(() => {
     try {
       const ctx = audioCtx.current || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
       audioCtx.current = ctx;
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
@@ -1884,6 +1887,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
   const playBuzzer = useCallback(() => {
     try {
       const ctx = audioCtx.current || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
       audioCtx.current = ctx;
       const t = ctx.currentTime;
       // 🚀 優化：使用低頻鋸齒波模擬更自然的震動提示感，而非刺耳電子音
@@ -1901,6 +1905,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
   const playVictory = useCallback(() => {
     try {
       const ctx = audioCtx.current || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
       audioCtx.current = ctx;
       const t = ctx.currentTime;
       const playNote = (freq, start, dur) => {

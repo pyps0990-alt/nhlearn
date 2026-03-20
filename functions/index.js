@@ -255,10 +255,20 @@ exports.callBuiltInAI = onCall({ region: "us-central1", secrets: [geminiApiKey] 
     if (!prompt) throw new HttpsError("invalid-argument", "Prompt cannot be empty");
 
     try {
+        const parts = [{ text: prompt }];
+        if (options.image && options.image.data) {
+            parts.push({
+                inlineData: {
+                    data: options.image.data,
+                    mimeType: options.image.mimeType || "image/jpeg"
+                }
+            });
+        }
+
         const ai = new GoogleGenAI({ apiKey });
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: prompt,
+            contents: parts,
             config: {
                 temperature: parseFloat(options.temperature) || 0.7,
                 responseMimeType: options.responseJson ? "application/json" : "text/plain"

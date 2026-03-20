@@ -25,7 +25,7 @@ const SettingsTab = ({
   campusLat, setCampusLat, campusLng, setCampusLng,
   dndEnabled, handleToggleDnd,
   subjects, setSubjects,
-  schoolId, setSchoolId,
+  schoolId, setSchoolId, navTo,
   gradeId, setGradeId,
   showTrafficTab, setShowTrafficTab
 }) => {
@@ -43,7 +43,7 @@ const SettingsTab = ({
     { id: 'advanced', label: '進階與管理', icon: BrainCircuit }
   ];
   const [draggedIdx, setDraggedIdx] = useState(null);
-  
+
   // 🌟 手動拖動 (Drag to Scroll) 邏輯
   const scrollRef = React.useRef(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -319,17 +319,17 @@ const SettingsTab = ({
 
       {/* 🚀 液態玻璃滑動選單 (Liquid Glass Sliding Pill) */}
       <div className="px-1 mb-6">
-        <div 
+        <div
           ref={scrollRef}
           onMouseDown={onMouseDown} onMouseLeave={() => setIsDragging(false)} onMouseUp={() => setIsDragging(false)} onMouseMove={onMouseMove}
           className={`relative p-1.5 bg-slate-200/50 dark:bg-zinc-800/50 backdrop-blur-2xl rounded-[28px] flex w-full shadow-inner overflow-x-auto scrollbar-hide border border-white/40 dark:border-white/5 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
           {/* 魔法滑動背景膠囊 */}
-          <div 
+          <div
             className="absolute top-1.5 bottom-1.5 bg-white dark:bg-zinc-700 rounded-[22px] shadow-[0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
-            style={{ 
-              width: `calc((100% - 12px) / ${SETTINGS_TABS.length})`, 
-              transform: `translateX(calc(${SETTINGS_TABS.findIndex(t => t.id === activeSubTab)} * 100%))` 
+            style={{
+              width: `calc((100% - 12px) / ${SETTINGS_TABS.length})`,
+              transform: `translateX(calc(${SETTINGS_TABS.findIndex(t => t.id === activeSubTab)} * 100%))`
             }}
           />
           {SETTINGS_TABS.map(tab => (
@@ -460,8 +460,8 @@ const SettingsTab = ({
                             key={emoji}
                             onClick={() => setNewCountdown({ ...newCountdown, icon: emoji })}
                             className={`shrink-0 w-[52px] h-[52px] rounded-[18px] text-[22px] flex items-center justify-center transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-90 ${(newCountdown.icon || '📅') === emoji
-                                ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-2 ring-emerald-400 scale-105'
-                                : 'bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm'
+                              ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-2 ring-emerald-400 scale-105'
+                              : 'bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/10 shadow-sm'
                               }`}
                           >
                             {emoji}

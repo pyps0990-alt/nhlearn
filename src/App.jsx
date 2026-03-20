@@ -156,15 +156,15 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   // 考試不打擾模式狀態與切換邏輯
   const [dndEnabled, setDndEnabled] = useState(() => localStorage.getItem('gsat_dnd_enabled') === 'true');
-  
+
   const handleToggleDnd = async (newVal) => {
     setDndEnabled(newVal);
     localStorage.setItem('gsat_dnd_enabled', String(newVal));
-    
+
     if (user) {
       await setDoc(doc(db, 'Users', user.uid), { dndEnabled: newVal }, { merge: true });
     }
-    
+
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
     try {
@@ -172,11 +172,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       if (token && classID && functions) {
         if (newVal) {
           const unsubscribe = httpsCallable(functions, 'unsubscribeFromTopic');
-          await unsubscribe({ token, topic: `class_${classID}_alerts` }).catch(e=>console.warn(e));
+          await unsubscribe({ token, topic: `class_${classID}_alerts` }).catch(e => console.warn(e));
           triggerNotification('已開啟不打擾', '考試/上課期間將不再收到即時推播');
         } else {
           const subscribe = httpsCallable(functions, 'subscribeToTopic');
-          await subscribe({ token, topic: `class_${classID}_alerts` }).catch(e=>console.warn(e));
+          await subscribe({ token, topic: `class_${classID}_alerts` }).catch(e => console.warn(e));
           triggerNotification('已關閉不打擾', '已恢復即時上課與調課提醒');
         }
       }
@@ -315,20 +315,20 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
         if (data.location?.lng) setCampusLng(data.location.lng);
       } else {
         // 若資料庫尚未建立該校設定，給予預設值
-        setSchoolConfig({ 
-          features: { 
+        setSchoolConfig({
+          features: {
             hasDiscountStores: false,
             english: true,
             contactBook: true,
             notes: false,
             grades: false,
             credits: false
-          } 
+          }
         });
       }
     }, (err) => console.error("School config sync error:", err));
-    
-    let unsubSchedule = () => {};
+
+    let unsubSchedule = () => { };
 
     if (classID) {
       // 1. Sync ClassSchedule (班級共用課表)
@@ -353,7 +353,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
           }
         });
         Object.keys(transformed).forEach(day => {
-           transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
+          transformed[day].sort((a, b) => a.startTime.localeCompare(b.startTime));
         });
         setWeeklySchedule(transformed);
       }, (err) => console.error("Schedule sync error:", err));
@@ -380,21 +380,21 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
           }
         });
         Object.keys(transformed).forEach(day => {
-           transformed[day].sort((a,b) => a.startTime.localeCompare(b.startTime));
+          transformed[day].sort((a, b) => a.startTime.localeCompare(b.startTime));
         });
         setWeeklySchedule(transformed);
       }, (err) => console.error("Personal schedule sync error:", err));
     }
 
     // 2. Sync Assignments (電子聯絡簿/作業)
-    let unsubAssignments = () => {};
+    let unsubAssignments = () => { };
     if (classID) {
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
       unsubAssignments = onSnapshot(assignmentsRef, (snapshot) => {
         const cb = {};
         snapshot.docs.forEach(docSnap => {
           const data = docSnap.data();
-          const dateStr = data.dueDate || data.date; 
+          const dateStr = data.dueDate || data.date;
           if (dateStr) {
             if (!cb[dateStr]) cb[dateStr] = [];
             cb[dateStr].push({ id: docSnap.id, ...data });
@@ -475,18 +475,23 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   const saveToFirestore = async (newSchedule) => {
     if (!db) return;
-    if (!user && !classID) return;
+    if (!user) throw new Error("PERMISSION_DENIED");
 
     try {
       let scheduleRef;
+      // 🌟 1. 加入防呆機制：如果找不到 schoolId，強制給預設值 'nhsh' (內湖高中) 與 'grade_2'
+      // 假設你的全域變數或 state 叫做 schoolId，如果它不存在，就給預設值
+      const currentSchoolId = (typeof schoolId !== 'undefined' && schoolId) ? schoolId : (user.schoolId || 'nhsh');
+      const currentGradeId = (typeof gradeId !== 'undefined' && gradeId) ? gradeId : (user.gradeId || 'grade_2');
+
       if (classID) {
-        scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
+        scheduleRef = collection(db, 'Schools', currentSchoolId, 'Grades', currentGradeId, 'Classes', classID, 'ClassSchedule');
       } else {
         scheduleRef = collection(db, 'Users', user.uid, 'PersonalSchedule');
       }
 
       const snap = await getDocs(scheduleRef);
-      
+
       const batch = writeBatch(db);
       const currentIds = new Set();
 
@@ -496,18 +501,24 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
           (newSchedule[dayKey] || []).forEach((item, idx) => {
             const docId = item.id ? String(item.id) : `${day}_${idx}`;
             currentIds.add(docId);
-            
+
             let docRef;
             if (classID) {
-               docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule', docId);
+              docRef = doc(db, 'Schools', currentSchoolId, 'Grades', currentGradeId, 'Classes', classID, 'ClassSchedule', docId);
             } else {
-               docRef = doc(db, 'Users', user.uid, 'PersonalSchedule', docId);
+              docRef = doc(db, 'Users', user.uid, 'PersonalSchedule', docId);
             }
 
             batch.set(docRef, {
-              day: day, courseName: item.subject || '未命名課程', teacher: item.teacher || '',
-              startTime: item.startTime || '08:00', endTime: item.endTime || '09:00', location: item.location || '',
-              rescheduled: item.rescheduled || false, link: item.link || '', color: item.color || '',
+              dayOfWeek: day, // 💡 改成 dayOfWeek，確保與 AI 排程和結構一致
+              courseName: item.subject || item.courseName || '未命名課程', // 雙重保險
+              teacher: item.teacher || '',
+              startTime: item.startTime || '08:10',
+              endTime: item.endTime || '09:00',
+              location: item.location || '',
+              rescheduled: item.rescheduled || false,
+              link: item.link || '',
+              color: item.color || '',
               icon: item.icon || ''
             }, { merge: true });
           });
@@ -522,7 +533,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       });
 
       await batch.commit();
-    } catch (e) { console.error("Firestore save error:", e); throw e; }
+      console.log("✅ 課表成功同步至資料庫！");
+    } catch (e) {
+      console.error("Firestore save error:", e);
+      throw e;
+    }
   };
 
   const saveContactBookToFirestore = async (newContactBook) => {
@@ -533,13 +548,13 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     try {
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
       const snap = await getDocs(assignmentsRef);
-      
+
       const batch = writeBatch(db);
       const currentIds = new Set();
 
       Object.keys(newContactBook).forEach(dateStr => {
         newContactBook[dateStr].forEach(item => {
-          const docId = item.id ? String(item.id) : Date.now().toString() + Math.floor(Math.random()*1000);
+          const docId = item.id ? String(item.id) : Date.now().toString() + Math.floor(Math.random() * 1000);
           currentIds.add(docId);
           const docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments', docId);
           batch.set(docRef, {
@@ -558,9 +573,9 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       });
 
       await batch.commit();
-    } catch (e) { 
-      console.error("Firestore contact book save error:", e); 
-      throw e; 
+    } catch (e) {
+      console.error("Firestore contact book save error:", e);
+      throw e;
     }
   };
 
@@ -582,7 +597,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     setWeeklySchedule(transformed);
 
     const batch = writeBatch(db);
-    
+
     SCHEDULE_206_TEMPLATE.forEach((item, idx) => {
       const docId = `${item.day}_${idx}`;
       const docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule', docId);
@@ -847,7 +862,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   const navItems = allNavItems.filter(item => {
     // 這些是系統預設的核心頁面，無條件必定顯示
     if (['dashboard', 'english', 'contactBook', 'settings', 'feedback', 'help', 'legal'].includes(item.id)) return true;
-    
+
     // YouBike 交通資訊由使用者自定義開關
     if (item.id === 'traffic') {
       return showTrafficTab;
@@ -1030,103 +1045,104 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
       >
         <Suspense fallback={<TabSkeleton />}>
           <div key={activeTab} className="animate-tab-enter">
-          {activeTab === 'dashboard' && (
-            <DashboardTab
-              isAdmin={isAdmin}
-              weeklySchedule={weeklySchedule}
-              setWeeklySchedule={setWeeklySchedule}
-              subjects={subjects}
-              triggerNotification={triggerNotification}
-              requestPushPermission={testPushNotification}
-              testPushNotification={sendTestNotice}
-              navToSettings={navToSettings}
-              isGoogleConnected={isGoogleConnected}
-              contactBook={contactBook}
-              setContactBook={setContactBook}
-              saveContactBookToFirestore={saveContactBookToFirestore}
-              user={user}
-              customLinks={customLinks}
-              isEditingSchedule={isEditingSchedule}
-              setIsEditingSchedule={setIsEditingSchedule}
-              classID={classID}
-              saveToFirestore={saveToFirestore}
-              customCountdowns={customCountdowns}
-              dashboardLayout={dashboardLayout}
-            />
-          )}
-          {activeTab === 'english' && <VocabularyTab user={user} isAdmin={isAdmin} />}
-          {activeTab === 'contactBook' && (
-            <ContactBookTab
-              contactBook={contactBook}
-              setContactBook={setContactBook}
-              subjects={subjects}
-              isAdmin={isAdmin}
-              saveContactBookToFirestore={saveContactBookToFirestore}
-              classID={classID}
-              user={user}
-            />
-          )}
-          {activeTab === 'notes' && (
-            <NotesTab
-              notes={notes} setNotes={setNotes}
-              subjects={subjects} setSubjects={setSubjects}
-              selectedSubject={selectedSubject} setSelectedSubject={setSelectedSubject}
-              triggerNotification={triggerNotification}
-              isGoogleConnected={isGoogleConnected}
-            />
-          )}
-          {activeTab === 'credits' && <CreditsTab user={user} triggerNotification={triggerNotification} />}
-          {activeTab === 'grades' && <GradesTab user={user} triggerNotification={triggerNotification} />}
-          {activeTab === 'stores' && <StoresTab isAdmin={isAdmin} campusName={campusName} schoolId={schoolId} />}
-          {activeTab === 'traffic' && <TrafficTab campusName={campusName} campusAddress={campusAddress} campusLat={campusLat} campusLng={campusLng} />}
-          {activeTab === 'feedback' && <FeedbackTab userProfile={userProfile} triggerNotification={triggerNotification} onBack={() => navTo(previousTab)} onSuccess={() => navTo('dashboard')} />}
-          {activeTab === 'help' && <TutorialTab onOpenFeedback={() => navTo('feedback')} campusName={campusName} />}
-          {activeTab === 'settings' && (
-            <SettingsTab
-              isAdmin={isAdmin}
-              setIsAdmin={setIsAdmin}
-              triggerNotification={triggerNotification}
-              handleAuthClick={handleAuthClick}
-              isGoogleConnected={isGoogleConnected}
-              handleSignoutClick={handleSignoutClick}
-              requestPushPermission={testPushNotification}
-              testPushNotification={sendTestNotice}
-              theme={theme}
-              setTheme={setTheme}
-              activeSubTab={settingsSubTab}
-              setActiveSubTab={setSettingsSubTab}
-              customLinks={customLinks}
-              setCustomLinks={setCustomLinks}
-              classID={classID}
-              setClassID={setClassID}
-              setIsEditingSchedule={setIsEditingSchedule}
-              handleImport206Template={handleImport206Template}
-              customCountdowns={customCountdowns}
-              setCustomCountdowns={setCustomCountdowns}
-              campusName={campusName}
-              setCampusName={setCampusName}
-              campusAddress={campusAddress}
-              setCampusAddress={setCampusAddress}
-              campusLat={campusLat}
-              setCampusLat={setCampusLat}
-              campusLng={campusLng}
-              setCampusLng={setCampusLng}
-              dashboardLayout={dashboardLayout}
-              setDashboardLayout={setDashboardLayout}
-              dndEnabled={dndEnabled}
-              handleToggleDnd={handleToggleDnd}
-              subjects={subjects}
-              setSubjects={setSubjects}
-              schoolId={schoolId}
-              setSchoolId={setSchoolId}
-              gradeId={gradeId}
-              setGradeId={setGradeId}
-              showTrafficTab={showTrafficTab}
-              setShowTrafficTab={setShowTrafficTab}
-            />
-          )}
-          {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
-        </div>
+            {activeTab === 'dashboard' && (
+              <DashboardTab
+                isAdmin={isAdmin}
+                weeklySchedule={weeklySchedule}
+                setWeeklySchedule={setWeeklySchedule}
+                subjects={subjects}
+                triggerNotification={triggerNotification}
+                requestPushPermission={testPushNotification}
+                testPushNotification={sendTestNotice}
+                navToSettings={navToSettings}
+                isGoogleConnected={isGoogleConnected}
+                contactBook={contactBook}
+                setContactBook={setContactBook}
+                saveContactBookToFirestore={saveContactBookToFirestore}
+                user={user}
+                customLinks={customLinks}
+                isEditingSchedule={isEditingSchedule}
+                setIsEditingSchedule={setIsEditingSchedule}
+                classID={classID}
+                saveToFirestore={saveToFirestore}
+                customCountdowns={customCountdowns}
+                dashboardLayout={dashboardLayout}
+              />
+            )}
+            {activeTab === 'english' && <VocabularyTab user={user} isAdmin={isAdmin} />}
+            {activeTab === 'contactBook' && (
+              <ContactBookTab
+                contactBook={contactBook}
+                setContactBook={setContactBook}
+                subjects={subjects}
+                isAdmin={isAdmin}
+                saveContactBookToFirestore={saveContactBookToFirestore}
+                classID={classID}
+                user={user}
+              />
+            )}
+            {activeTab === 'notes' && (
+              <NotesTab
+                notes={notes} setNotes={setNotes}
+                subjects={subjects} setSubjects={setSubjects}
+                selectedSubject={selectedSubject} setSelectedSubject={setSelectedSubject}
+                triggerNotification={triggerNotification}
+                isGoogleConnected={isGoogleConnected}
+              />
+            )}
+            {activeTab === 'credits' && <CreditsTab user={user} triggerNotification={triggerNotification} />}
+            {activeTab === 'grades' && <GradesTab user={user} triggerNotification={triggerNotification} />}
+            {activeTab === 'stores' && <StoresTab isAdmin={isAdmin} campusName={campusName} schoolId={schoolId} />}
+            {activeTab === 'traffic' && <TrafficTab campusName={campusName} campusAddress={campusAddress} campusLat={campusLat} campusLng={campusLng} />}
+            {activeTab === 'feedback' && <FeedbackTab userProfile={userProfile} triggerNotification={triggerNotification} onBack={() => navTo(previousTab)} onSuccess={() => navTo('dashboard')} />}
+            {activeTab === 'help' && <TutorialTab onOpenFeedback={() => navTo('feedback')} campusName={campusName} />}
+            {activeTab === 'settings' && (
+              <SettingsTab
+                isAdmin={isAdmin}
+                setIsAdmin={setIsAdmin}
+                triggerNotification={triggerNotification}
+                handleAuthClick={handleAuthClick}
+                isGoogleConnected={isGoogleConnected}
+                handleSignoutClick={handleSignoutClick}
+                requestPushPermission={testPushNotification}
+                testPushNotification={sendTestNotice}
+                theme={theme}
+                setTheme={setTheme}
+                activeSubTab={settingsSubTab}
+                setActiveSubTab={setSettingsSubTab}
+                customLinks={customLinks}
+                setCustomLinks={setCustomLinks}
+                classID={classID}
+                setClassID={setClassID}
+                setIsEditingSchedule={setIsEditingSchedule}
+                handleImport206Template={handleImport206Template}
+                customCountdowns={customCountdowns}
+                setCustomCountdowns={setCustomCountdowns}
+                campusName={campusName}
+                setCampusName={setCampusName}
+                campusAddress={campusAddress}
+                setCampusAddress={setCampusAddress}
+                campusLat={campusLat}
+                setCampusLat={setCampusLat}
+                campusLng={campusLng}
+                setCampusLng={setCampusLng}
+                dashboardLayout={dashboardLayout}
+                setDashboardLayout={setDashboardLayout}
+                dndEnabled={dndEnabled}
+                handleToggleDnd={handleToggleDnd}
+                subjects={subjects}
+                setSubjects={setSubjects}
+                schoolId={schoolId}
+                setSchoolId={setSchoolId}
+                gradeId={gradeId}
+                setGradeId={setGradeId}
+                showTrafficTab={showTrafficTab}
+                setShowTrafficTab={setShowTrafficTab}
+                navTo={navTo}
+              />
+            )}
+            {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}
+          </div>
         </Suspense>
       </div>
     </>
@@ -1135,7 +1151,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('gsat_theme') || 'system');
-  const [user, setUser] = useState(null); 
+  const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const requestPushPermission = async (currentUser) => {
@@ -1147,7 +1163,7 @@ export default function App() {
         // 1. 從新的資料庫結構 Users/{userId} 讀取使用者的 classId
         const userRef = doc(db, 'Users', currentUser.uid);
         const userSnap = await getDoc(userRef);
-        
+
         const oldClass = userSnap.exists() ? userSnap.data().classId : null;
         let currentClass = localStorage.getItem('gsat_class_id');
         if (userSnap.exists() && userSnap.data().classId !== undefined && currentClass === null) {
@@ -1177,24 +1193,24 @@ export default function App() {
 
           // 2. 僅當有設定班級時，才執行訂閱 (避免本機模式收到預設 206 的通知)
           if (currentClass) {
-          const subscribe = httpsCallable(functions, 'subscribeToTopic');
-          await subscribe({ token, topic: `class_${currentClass}` }).catch(e => console.warn("主題訂閱失敗:", e));
-          
-          // 依據不打擾模式決定是否訂閱即時推播 (alerts)
-          let dnd = false;
-          if (userSnap.exists() && userSnap.data().dndEnabled !== undefined) {
-            dnd = userSnap.data().dndEnabled;
-            localStorage.setItem('gsat_dnd_enabled', String(dnd));
-          } else {
-            dnd = localStorage.getItem('gsat_dnd_enabled') === 'true';
-          }
-          
-          if (!dnd) {
-            await subscribe({ token, topic: `class_${currentClass}_alerts` }).catch(e => console.warn(e));
-          } else {
-            const unsubscribe = httpsCallable(functions, 'unsubscribeFromTopic');
-            await unsubscribe({ token, topic: `class_${currentClass}_alerts` }).catch(e => console.warn(e));
-          }
+            const subscribe = httpsCallable(functions, 'subscribeToTopic');
+            await subscribe({ token, topic: `class_${currentClass}` }).catch(e => console.warn("主題訂閱失敗:", e));
+
+            // 依據不打擾模式決定是否訂閱即時推播 (alerts)
+            let dnd = false;
+            if (userSnap.exists() && userSnap.data().dndEnabled !== undefined) {
+              dnd = userSnap.data().dndEnabled;
+              localStorage.setItem('gsat_dnd_enabled', String(dnd));
+            } else {
+              dnd = localStorage.getItem('gsat_dnd_enabled') === 'true';
+            }
+
+            if (!dnd) {
+              await subscribe({ token, topic: `class_${currentClass}_alerts` }).catch(e => console.warn(e));
+            } else {
+              const unsubscribe = httpsCallable(functions, 'unsubscribeFromTopic');
+              await unsubscribe({ token, topic: `class_${currentClass}_alerts` }).catch(e => console.warn(e));
+            }
           }
         }
       }

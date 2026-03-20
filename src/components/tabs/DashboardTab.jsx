@@ -164,15 +164,16 @@ const FocusTimerWidget = ({ triggerNotification }) => {
   const [sessions, setSessions] = useState(() => Number(localStorage.getItem('gsat_pomo_sessions') || '0'));
   const [expanded, setExpanded] = useState(false);
   const intervalRef = useRef(null);
-  
+
   // 白噪音狀態與音軌控制
-  const [noiseType, setNoiseType] = useState('none'); 
+  const [noiseType, setNoiseType] = useState('none');
   const noiseNodeRef = useRef(null);
   const audioCtx = useRef(null);
 
   const playDing = useCallback(() => {
     try {
       const ctx = audioCtx.current || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
       audioCtx.current = ctx;
       const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
@@ -185,7 +186,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
 
   const stopNoise = useCallback(() => {
     if (noiseNodeRef.current) {
-      try { noiseNodeRef.current.stop(); } catch(e) {}
+      try { noiseNodeRef.current.stop(); } catch (e) { }
       noiseNodeRef.current.disconnect();
       noiseNodeRef.current = null;
     }
@@ -197,6 +198,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
     if (type === 'none') return;
     try {
       const ctx = audioCtx.current || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
       audioCtx.current = ctx;
       const bufferSize = ctx.sampleRate * 2;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -207,7 +209,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
         // Brownian noise 演算法，聽起來極度類似下雨聲/海浪聲
         output[i] = (lastOut + (0.02 * white)) / 1.02;
         lastOut = output[i];
-        output[i] *= 3.5; 
+        output[i] *= 3.5;
       }
       const node = ctx.createBufferSource();
       node.buffer = buffer;
@@ -218,7 +220,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
       gain.connect(ctx.destination);
       node.start(0);
       noiseNodeRef.current = node;
-    } catch(e) { console.error("Audio error", e); }
+    } catch (e) { console.error("Audio error", e); }
   }, [stopNoise]);
 
   const expectedEndTimeRef = useRef(null);
@@ -227,14 +229,14 @@ const FocusTimerWidget = ({ triggerNotification }) => {
     if (isRunning) {
       // 🚀 核心修復：儲存絕對結束時間，抵禦 iOS 背景凍結
       expectedEndTimeRef.current = Date.now() + timeLeft * 1000;
-      
+
       const tick = () => {
         const remaining = Math.round((expectedEndTimeRef.current - Date.now()) / 1000);
         setTimeLeft(Math.max(0, remaining));
       };
 
       intervalRef.current = setInterval(tick, 1000);
-      
+
       // 當手機解鎖或 App 從背景喚醒時，立刻校正一次時間
       const handleVisibility = () => {
         if (document.visibilityState === 'visible') tick();
@@ -357,20 +359,19 @@ const FocusTimerWidget = ({ triggerNotification }) => {
           </div>
         </div>
 
-      {/* 白噪音選擇器 */}
-      <div className="flex gap-2 mb-6 bg-white/40 dark:bg-black/20 p-1.5 rounded-[20px] backdrop-blur-md">
-        {[{id:'none', icon:'🔇 無', label: '關閉'}, {id:'rain', icon:'🌧️ 雨聲', label: '下雨'}, {id:'wave', icon:'🌊 海浪', label: '海浪'}].map(n => (
-          <button
-            key={n.id}
-            onClick={() => setNoiseType(n.id)}
-            className={`px-4 py-2.5 rounded-[16px] text-[12px] font-black transition-all duration-300 ease-spring-smooth ${
-              noiseType === n.id 
-              ? (mode === 'focus' ? 'bg-rose-500 text-white shadow-md' : 'bg-emerald-500 text-white shadow-md')
-              : 'text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
-            }`}
-          >{n.icon}</button>
-        ))}
-      </div>
+        {/* 白噪音選擇器 */}
+        <div className="flex gap-2 mb-6 bg-white/40 dark:bg-black/20 p-1.5 rounded-[20px] backdrop-blur-md">
+          {[{ id: 'none', icon: '🔇 無', label: '關閉' }, { id: 'rain', icon: '🌧️ 雨聲', label: '下雨' }, { id: 'wave', icon: '🌊 海浪', label: '海浪' }].map(n => (
+            <button
+              key={n.id}
+              onClick={() => setNoiseType(n.id)}
+              className={`px-4 py-2.5 rounded-[16px] text-[12px] font-black transition-all duration-300 ease-spring-smooth ${noiseType === n.id
+                ? (mode === 'focus' ? 'bg-rose-500 text-white shadow-md' : 'bg-emerald-500 text-white shadow-md')
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/10'
+                }`}
+            >{n.icon}</button>
+          ))}
+        </div>
 
         {/* Controls */}
         <div className="flex items-center gap-4">
@@ -619,7 +620,7 @@ const LearningHeatmapWidget = React.memo(({ streak }) => {
     const currentDayOfWeek = today.getDay(); // 0(Sun) - 6(Sat)
     const weeksToShow = 14;
     const totalDays = weeksToShow * 7;
-    
+
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - (weeksToShow - 1) * 7 - currentDayOfWeek);
 
@@ -642,10 +643,10 @@ const LearningHeatmapWidget = React.memo(({ streak }) => {
       const dateStr = formatDate(d);
       const isFuture = d > today;
       const dayStats = stats[dateStr] || { words: 0, time: 0 };
-      
+
       const totalMins = Math.floor((dayStats.time || 0) / 60);
       const words = dayStats.words || 0;
-      
+
       // 計算活躍等級 0~4
       let level = 0;
       if (totalMins >= 90 || words >= 100) level = 4;
@@ -664,12 +665,12 @@ const LearningHeatmapWidget = React.memo(({ streak }) => {
       }
 
       daysArr.push({ date: dateStr, level, colorClass, isFuture, stats: dayStats, isToday: dateStr === todayStr });
-      
+
       if (d.getDay() === 0) {
-         if (d.getMonth() !== lastMonth) {
-           mLabels.push({ colIndex: i / 7, label: d.toLocaleString('zh-TW', { month: 'short' }) });
-           lastMonth = d.getMonth();
-         }
+        if (d.getMonth() !== lastMonth) {
+          mLabels.push({ colIndex: i / 7, label: d.toLocaleString('zh-TW', { month: 'short' }) });
+          lastMonth = d.getMonth();
+        }
       }
     }
     return { days: daysArr, monthLabels: mLabels };
@@ -678,39 +679,39 @@ const LearningHeatmapWidget = React.memo(({ streak }) => {
   return (
     <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[36px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-[600ms] hover:-translate-y-1 animate-slide-up-fade">
       <div className="flex items-center justify-between mb-4">
-         <h3 className="text-[16px] font-black text-slate-800 dark:text-white flex items-center gap-2 tracking-tight">
-           <TrendingUp className="text-emerald-500" size={20} /> 學習熱力圖
-         </h3>
-         {streak > 0 && (
-           <div className="flex items-center gap-1.5 text-[11px] font-black text-orange-600 bg-orange-50 dark:bg-orange-500/20 dark:text-orange-400 px-3 py-1.5 rounded-xl border border-orange-100 dark:border-orange-500/30 shadow-sm animate-pulse-slow">
-             <Flame size={14} /> 連續打卡 {streak} 天
-           </div>
-         )}
+        <h3 className="text-[16px] font-black text-slate-800 dark:text-white flex items-center gap-2 tracking-tight">
+          <TrendingUp className="text-emerald-500" size={20} /> 學習熱力圖
+        </h3>
+        {streak > 0 && (
+          <div className="flex items-center gap-1.5 text-[11px] font-black text-orange-600 bg-orange-50 dark:bg-orange-500/20 dark:text-orange-400 px-3 py-1.5 rounded-xl border border-orange-100 dark:border-orange-500/30 shadow-sm animate-pulse-slow">
+            <Flame size={14} /> 連續打卡 {streak} 天
+          </div>
+        )}
       </div>
-      
+
       <div className="overflow-x-auto scrollbar-hide -mx-2 px-2 pb-2">
-         <div className="relative h-4 mb-1 text-[10px] font-bold text-slate-400" style={{ width: `${14 * 20}px` }}>
-            {monthLabels.map((m, idx) => (
-              <span key={idx} className="absolute top-0" style={{ left: `${m.colIndex * 20}px` }}>{m.label}</span>
+        <div className="relative h-4 mb-1 text-[10px] font-bold text-slate-400" style={{ width: `${14 * 20}px` }}>
+          {monthLabels.map((m, idx) => (
+            <span key={idx} className="absolute top-0" style={{ left: `${m.colIndex * 20}px` }}>{m.label}</span>
+          ))}
+        </div>
+        <div className="flex gap-2 min-w-max">
+          <div className="flex flex-col gap-[5px] text-[9px] font-bold text-slate-400 justify-between mt-1">
+            <span>日</span><span className="opacity-0">一</span><span>二</span>
+            <span className="opacity-0">三</span><span>四</span><span className="opacity-0">五</span><span>六</span>
+          </div>
+          <div className="grid grid-flow-col gap-[5px]" style={{ gridTemplateRows: 'repeat(7, 1fr)' }}>
+            {days.map((d, i) => (
+              <div
+                key={i}
+                title={d.isFuture ? '未來' : `${d.date}\n專注: ${Math.floor((d.stats.time || 0) / 60)} 分鐘\n單字: ${d.stats.words || 0} 個`}
+                className={`relative w-[15px] h-[15px] rounded-[4px] ${d.colorClass} transition-all duration-300 hover:scale-125 cursor-pointer ${d.isToday ? 'ring-2 ring-emerald-500/50 ring-offset-1 dark:ring-offset-slate-900' : ''}`}
+              />
             ))}
-         </div>
-         <div className="flex gap-2 min-w-max">
-           <div className="flex flex-col gap-[5px] text-[9px] font-bold text-slate-400 justify-between mt-1">
-             <span>日</span><span className="opacity-0">一</span><span>二</span>
-             <span className="opacity-0">三</span><span>四</span><span className="opacity-0">五</span><span>六</span>
-           </div>
-           <div className="grid grid-flow-col gap-[5px]" style={{ gridTemplateRows: 'repeat(7, 1fr)' }}>
-             {days.map((d, i) => (
-               <div
-                 key={i}
-                 title={d.isFuture ? '未來' : `${d.date}\n專注: ${Math.floor((d.stats.time || 0)/60)} 分鐘\n單字: ${d.stats.words || 0} 個`}
-                 className={`relative w-[15px] h-[15px] rounded-[4px] ${d.colorClass} transition-all duration-300 hover:scale-125 cursor-pointer ${d.isToday ? 'ring-2 ring-emerald-500/50 ring-offset-1 dark:ring-offset-slate-900' : ''}`}
-               />
-             ))}
-           </div>
-         </div>
+          </div>
+        </div>
       </div>
-      
+
       <div className="flex justify-end items-center gap-1.5 mt-4 text-[10px] font-bold text-slate-400">
         <span className="mr-1">Less</span>
         <div className="w-3 h-3 rounded-[3px] bg-slate-100 dark:bg-white/5" />
@@ -744,7 +745,7 @@ const DashboardTab = ({
   const [isSwapMode, setIsSwapMode] = useState(false);
   const [selectedForSwap, setSelectedForSwap] = useState([]); // Array of 2 IDs
   const [streak, setStreak] = useState(0);
-  
+
   // --- 課表拖曳狀態 ---
   const [draggedScheduleIdx, setDraggedScheduleIdx] = useState(null);
 
@@ -978,7 +979,7 @@ const DashboardTab = ({
     const newItem = {
       id: Date.now(),
       subject: '新課程',
-      startTime: '08:00',
+      startTime: '08:10',
       endTime: '09:00',
       location: '',
       teacher: '',
@@ -1036,8 +1037,17 @@ const DashboardTab = ({
       });
       reader.readAsDataURL(file);
       const base64Data = await base64Promise;
+      const prompt = `請將照片中的課表轉換為 JSON 格式。
+【重要】只能輸出 JSON 陣列，不准有任何其他文字、Markdown 符號（如 \`\`\`json）。
 
-      const prompt = `請分析這張課表照片。請嚴格以 JSON 格式回傳（不可有任何其他 markdown 符號或文字）。格式必須為一個包含 7 個陣列的物件，代表星期一到星期日（1~6, 0代表星期日）：\n{\n  "1": [{"startTime": "08:00", "endTime": "09:00", "subject": "國文", "location": "教室", "teacher": ""}],\n  "2": [], "3": [], "4": [], "5": [], "6": [], "0": []\n}`;
+JSON 結構必須是這樣：
+[
+  {"dayOfWeek": 1, "subject": "國文", "startTime": "08:10", "endTime": "09:00", "teacher": "", "location": ""}
+]
+- "dayOfWeek" 為 1 到 6 代表星期一到六，0 代表星期日。
+- 忽略「午休」、「打掃」或「空白」的節次。必須包含「第八節」、「第九節」或「輔導課」。
+- 如果照片有明確時間，請優先使用照片的時間。
+- 如果照片「只有寫第幾節」而沒有寫時間，請一律使用台灣高中標準時間填入（例如第1節 08:10-09:00, 第2節 09:10-10:00, 第8節 16:10-17:00）。`;
 
       const summary = await fetchAI(prompt, {
         temperature: 0.1,
@@ -1051,37 +1061,83 @@ const DashboardTab = ({
       if (typeof summary === 'object') {
         parsedData = summary;
       } else {
-        const jsonMatch = summary.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error('無法解析 JSON 格式');
-        parsedData = JSON.parse(jsonMatch[0].trim());
+        let cleanSummary = summary.replace(/```json/gi, '').replace(/```/g, '').trim();
+        if (cleanSummary.startsWith('[')) {
+          const firstBracket = cleanSummary.indexOf('[');
+          const lastBracket = cleanSummary.lastIndexOf(']');
+          if (firstBracket !== -1 && lastBracket !== -1) {
+            cleanSummary = cleanSummary.slice(firstBracket, lastBracket + 1);
+          }
+        } else {
+          const firstBrace = cleanSummary.indexOf('{');
+          const lastBrace = cleanSummary.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1) {
+            cleanSummary = cleanSummary.slice(firstBrace, lastBrace + 1);
+          }
+        }
+        try {
+          parsedData = JSON.parse(cleanSummary.trim());
+        } catch (parseErr) {
+          console.error("JSON 解析失敗的字串：", cleanSummary);
+          throw new Error('AI 回傳的格式不正確，請再試一次');
+        }
       }
-      
+
       const newSchedule = { ...INITIAL_WEEKLY_SCHEDULE };
 
-      Object.keys(parsedData).forEach(dayKey => {
-        const dayIndex = dayKey === '0' || dayKey === '7' ? 0 : parseInt(dayKey);
-        if (!isNaN(dayIndex) && dayIndex >= 0 && dayIndex <= 6) {
-          newSchedule[dayIndex] = (parsedData[dayKey] || []).map((item, index) => ({
-            id: Date.now() + dayIndex * 1000 + index,
-            subject: item.subject || '未命名課程',
-            startTime: item.startTime || '08:00',
-            endTime: item.endTime || '09:00',
-            location: item.location || '',
-            teacher: item.teacher || '',
-            rescheduled: false, // 預設沒有被調課
-            link: item.link || '',
-            color: item.color || '',
-            icon: item.icon || ''
-          }));
-        }
-      });
+      // 🌟 核心修復：判斷 AI 傳來的是不是陣列 (Array)
+      if (Array.isArray(parsedData)) {
+        // AI 吐出的是乾淨的陣列格式 (V3 終極版 Prompt)
+        parsedData.forEach((item, index) => {
+          // 從 item 中抓出星期幾 (dayOfWeek)
+          let dayIndex = parseInt(item.dayOfWeek);
+          // 防呆：如果 AI 吐出 7 (星期日)，轉換為 0
+          if (dayIndex === 7) dayIndex = 0;
+
+          if (!isNaN(dayIndex) && dayIndex >= 0 && dayIndex <= 6) {
+            newSchedule[dayIndex].push({
+              id: Date.now() + index,
+              subject: item.courseName || item.subject || '未命名課程',
+              startTime: item.startTime || '08:00',
+              endTime: item.endTime || '09:00',
+              location: item.location || '',
+              teacher: item.teacher || '',
+              rescheduled: false,
+              link: item.link || '',
+              color: item.color || '',
+              icon: item.icon || ''
+            });
+          }
+        });
+      } else {
+        // 備用方案：萬一 AI 還是吐出舊的物件分類格式
+        Object.keys(parsedData).forEach(dayKey => {
+          const dayIndex = dayKey === '0' || dayKey === '7' ? 0 : parseInt(dayKey);
+          if (!isNaN(dayIndex) && dayIndex >= 0 && dayIndex <= 6) {
+            if (Array.isArray(parsedData[dayKey])) {
+              const mappedItems = parsedData[dayKey].map((item, index) => ({
+                id: Date.now() + dayIndex * 1000 + index,
+                subject: item.courseName || item.subject || '未命名課程',
+                startTime: item.startTime || '08:00',
+                endTime: item.endTime || '09:00',
+                location: item.location || '',
+                teacher: item.teacher || '',
+                rescheduled: false,
+                link: item.link || '',
+                color: item.color || '',
+                icon: item.icon || ''
+              }));
+              newSchedule[dayIndex] = [...newSchedule[dayIndex], ...mappedItems];
+            }
+          }
+        });
+      }
 
       setPreviewSchedule(newSchedule);
       setIsEditingSchedule(true);
-      triggerNotification('解析完成 ✨', '請檢查結果後再點擊儲存！');
-    } catch (error) {
-      console.error("AI Parse Error:", error);
-      triggerNotification('處理失敗', '請確認照片清晰');
+    } catch (err) {
+      console.error("AI Schedule Parsing Error:", err);
+      triggerNotification('解析失敗 ❌', '課表影像辨識中斷，請稍後再試或手動調整。');
     } finally {
       setUploadLoading(false);
     }
@@ -1152,9 +1208,16 @@ const DashboardTab = ({
     if (classID || user) {
       // Sync to Firebase directly
       const cleanSchedule = JSON.parse(JSON.stringify(newWeekly));
-      await saveToFirestore(cleanSchedule);
-
-      triggerNotification('調課成功 ⚡', `已對調並同步至雲端`);
+      try {
+        await saveToFirestore(cleanSchedule);
+        triggerNotification('調課成功 ⚡', `已對調並同步至雲端`);
+      } catch (err) {
+        if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
+          triggerNotification('同步失敗 ❌', '權限不足：請先登入帳號，或檢查 Firebase 安全規則');
+        } else {
+          triggerNotification('同步失敗 ❌', '請檢查網路或系統狀態');
+        }
+      }
     } else {
       triggerNotification('調課成功 ⚡', `已對調並儲存至本機`);
     }
@@ -1192,8 +1255,16 @@ const DashboardTab = ({
 
     if (classID || user) {
       const cleanSchedule = JSON.parse(JSON.stringify(newWeekly));
-      await saveToFirestore(cleanSchedule);
-      triggerNotification('調課成功 ⚡', `已變更並同步至雲端`);
+      try {
+        await saveToFirestore(cleanSchedule);
+        triggerNotification('調課成功 ⚡', `已變更並同步至雲端`);
+      } catch (err) {
+        if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
+          triggerNotification('同步失敗 ❌', '權限不足：請先登入帳號，或檢查 Firebase 安全規則');
+        } else {
+          triggerNotification('同步失敗 ❌', '請檢查網路或系統狀態');
+        }
+      }
     } else {
       triggerNotification('調課成功 ⚡', `已變更並儲存至本機`);
     }
@@ -1507,26 +1578,36 @@ const DashboardTab = ({
             </label>
           )}
           {previewSchedule && (
-            <div className="flex gap-3">
-              <button onClick={() => setPreviewSchedule(null)} className="flex-1 py-4 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-2xl font-black active:scale-95 transition-all">放棄重測</button>
-              <button onClick={async () => { 
-                const cleanSchedule = JSON.parse(JSON.stringify(previewSchedule || {}));
-                setWeeklySchedule(previewSchedule); 
-                setPreviewSchedule(null); 
-                if (classID || user) {
-                  triggerNotification('連線中', '正在將課表上傳至雲端...');
-                  try {
-                    await saveToFirestore(cleanSchedule);
-                    triggerNotification('同步成功 🎉', classID ? '課表已安全備份至班級雲端！' : '個人自訂課表已備份至雲端！');
-                  } catch (err) {
-                    triggerNotification('同步失敗 ❌', '請檢查網路或系統權限');
+            <div className="flex flex-col gap-3">
+              <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 p-4 rounded-[24px] text-sm font-bold flex items-center gap-3">
+                <PenTool size={20} className="shrink-0" />
+                <p>AI 解析完成！您可以直接<strong>點擊下方的「時間」或「科目」欄位進行手動微調</strong>，確認無誤後再點擊儲存。</p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setPreviewSchedule(null)} className="flex-1 py-4 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-2xl font-black active:scale-95 transition-all">放棄重測</button>
+                <button onClick={async () => {
+                  const cleanSchedule = JSON.parse(JSON.stringify(previewSchedule || {}));
+                  setWeeklySchedule(previewSchedule);
+                  setPreviewSchedule(null);
+                  if (classID || user) {
+                    triggerNotification('連線中', '正在將課表上傳至雲端...');
+                    try {
+                      await saveToFirestore(cleanSchedule);
+                      triggerNotification('同步成功 🎉', classID ? '課表已安全備份至班級雲端！' : '個人自訂課表已備份至雲端！');
+                    } catch (err) {
+          if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
+            triggerNotification('同步失敗 ❌', '權限不足：請先登入帳號，或檢查 Firebase 安全規則');
+          } else {
+            triggerNotification('同步失敗 ❌', '請檢查網路或系統狀態');
+          }
+                    }
+                  } else {
+                    triggerNotification('儲存成功', '已儲存課表結果！');
                   }
-                } else {
-                  triggerNotification('儲存成功', '已儲存課表結果！');
-                }
-                setIsEditingSchedule(false); 
-              }} 
-              className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">儲存結果</button>
+                  setIsEditingSchedule(false);
+                }}
+                  className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">儲存結果</button>
+              </div>
             </div>
           )}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -1564,8 +1645,8 @@ const DashboardTab = ({
 
           <div className="space-y-4">
             {(displaySchedule[editDayTab] || []).map((item, index) => (
-              <div 
-                key={item.id} 
+              <div
+                key={item.id}
                 draggable
                 onDragStart={(e) => handleScheduleDragStart(e, index)}
                 onDragEnter={(e) => handleScheduleDragEnter(e, index)}
@@ -1621,7 +1702,7 @@ const DashboardTab = ({
                                   <button key={iconName} onClick={() => updateSchedule(item.id, 'icon', iconName)} className={`shrink-0 p-1.5 rounded-lg transition-all active:scale-90 ${item.icon === iconName ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-1 ring-emerald-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}><IconComp size={16} /></button>
                                 );
                               })}
-                            <button onClick={() => updateSchedule(item.id, 'icon', '')} className={`shrink-0 px-2 py-1.5 rounded-lg transition-all text-[10px] font-black active:scale-90 ${!item.icon ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-1 ring-emerald-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}>預設</button>
+                            <button onClick={() => updateSchedule(item.id, 'icon', '')} className={`shrink-0 px-2 py-1.5 rounded-lg transition-all text-[10px] font-black active:scale-90 ${!item.icon ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-slate-600 scale-110' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}>預設</button>
                           </div>
                         </div>
                       </div>
@@ -1766,10 +1847,10 @@ const DashboardTab = ({
                         return elements.map((el) => {
                           if (el.type === 'now') {
                             return (
-                          <div key={el.id} className="relative flex items-center gap-4 py-3 my-1">
-                            <div className="absolute left-[-32px] w-4 h-4 bg-rose-500 rounded-full border-[3px] border-white dark:border-slate-900 shadow-[0_0_15px_rgba(244,63,94,0.8)] z-20 animate-pulse" />
+                              <div key={el.id} className="relative flex items-center gap-4 py-3 my-1">
+                                <div className="absolute left-[-32px] w-4 h-4 bg-rose-500 rounded-full border-[3px] border-white dark:border-slate-900 shadow-[0_0_15px_rgba(244,63,94,0.8)] z-20 animate-pulse" />
                                 <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-500/60 to-transparent relative">
-                              <span className="absolute -top-5 left-0 text-[10px] font-black text-rose-500 bg-rose-50/90 dark:bg-rose-950/80 px-2 py-1 rounded-lg backdrop-blur-md border border-rose-200/50 dark:border-rose-500/30 tracking-widest shadow-sm">現在時間 NOW</span>
+                                  <span className="absolute -top-5 left-0 text-[10px] font-black text-rose-500 bg-rose-50/90 dark:bg-rose-950/80 px-2 py-1 rounded-lg backdrop-blur-md border border-rose-200/50 dark:border-rose-500/30 tracking-widest shadow-sm">現在時間 NOW</span>
                                 </div>
                               </div>
                             );
@@ -1783,7 +1864,7 @@ const DashboardTab = ({
                             return (
                               <div key={el.id} className={`relative group/break py-3 pr-2 transition-all duration-500 ${isCurrentBreak ? 'scale-[1.02] opacity-100' : 'opacity-60 hover:opacity-100'}`}>
                                 {/* Break Indicator on Timeline */}
-                              <div className={`absolute left-[-26px] top-0 bottom-0 w-[4px] rounded-full transition-colors ${isCurrentBreak ? 'bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.5)]' : 'bg-gray-200 dark:bg-white/10'}`} />
+                                <div className={`absolute left-[-26px] top-0 bottom-0 w-[4px] rounded-full transition-colors ${isCurrentBreak ? 'bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.5)]' : 'bg-gray-200 dark:bg-white/10'}`} />
 
                                 <div className={`ml-4 flex items-center gap-3 p-3 rounded-2xl border transition-all ${isCurrentBreak ? 'bg-orange-50/40 dark:bg-orange-950/20 border-orange-200/50 dark:border-orange-500/20' : 'bg-transparent border-transparent'}`}>
                                   <div className={`h-[1px] w-6 border-t border-dashed transition-colors ${isCurrentBreak ? 'border-orange-400' : 'border-gray-300 dark:border-gray-600'}`} />
@@ -1803,7 +1884,7 @@ const DashboardTab = ({
                           return (
                             <div key={item.id} className="relative group">
                               {/* Timeline Node */}
-                          <div className={`absolute left-[-31px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-[3px] transition-all duration-500 z-10 ${isActive ? 'bg-emerald-500 border-emerald-200 dark:border-emerald-800 scale-125 neon-glow-emerald shadow-[0_0_15px_#10b981]' : 'bg-gray-300 dark:bg-slate-700 border-white dark:border-slate-900 group-hover:border-emerald-500/50'}`} />
+                              <div className={`absolute left-[-31px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-[3px] transition-all duration-500 z-10 ${isActive ? 'bg-emerald-500 border-emerald-200 dark:border-emerald-800 scale-125 neon-glow-emerald shadow-[0_0_15px_#10b981]' : 'bg-gray-300 dark:bg-slate-700 border-white dark:border-slate-900 group-hover:border-emerald-500/50'}`} />
 
                               {/* Pill Card */}
                               <div
@@ -1815,12 +1896,12 @@ const DashboardTab = ({
                                 style={item.rescheduled && !isActive ? { border: '2px solid #ff9800', boxShadow: '0 0 15px rgba(255, 152, 0, 0.3)' } : {}}
                               >
                                 {isActive && (
-                              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/10 dark:bg-white/10">
-                                <div
-                                  className="bg-white/90 h-full transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(255,255,255,0.8)]"
-                                  style={{ width: `${currentClassProgress}%` }}
-                                ></div>
-                              </div>
+                                  <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/10 dark:bg-white/10">
+                                    <div
+                                      className="bg-white/90 h-full transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                                      style={{ width: `${currentClassProgress}%` }}
+                                    ></div>
+                                  </div>
                                 )}
                                 {selectedForSwap.length === 1 && selectedForSwap[0] === item.id && (
                                   <div className="flex gap-1 absolute -top-3 left-1/2 -translate-x-1/2 z-[20]">
@@ -1991,7 +2072,7 @@ const DashboardTab = ({
   const layout = dashboardLayout || [
     { id: 'countdowns', visible: true }, { id: 'greeting', visible: true }, { id: 'pomodoro', visible: true },
     { id: 'heatmap', visible: true }, { id: 'schedule', visible: true }, { id: 'links', visible: true }, { id: 'news', visible: true }, { id: 'prep', visible: true }
-  ];
+  ]
 
   return (
     <div className="space-y-6 flex flex-col w-full text-left animate-slide-up-fade px-1 relative">
@@ -2041,5 +2122,4 @@ const DashboardTab = ({
     </div>
   );
 };
-
 export default DashboardTab;
