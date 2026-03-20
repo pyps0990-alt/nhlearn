@@ -91,35 +91,44 @@ exports.dailyExamReminder = onSchedule({ schedule: "0 20 * * *", timeZone: "Asia
     for (const classDoc of classesSnap.docs) {
         // 分別拉取該班級明天的「作業」與「課表」
         const assignmentsSnap = await classDoc.ref.collection("Assignments").where("dueDate", "==", tomorrowStr).get();
-        const scheduleSnap = await classDoc.ref.collection("ClassSchedule").where("day", "==", jsDay).get();
+        // 💡 修改：為了同時支援新舊版欄位 (day 與 dayOfWeek)，我們直接撈取班級課表在記憶體過濾
+        const scheduleSnap = await classDoc.ref.collection("ClassSchedule").get();
 
         const tomorrowsEntries = assignmentsSnap.docs.map(d => d.data());
-        const tomorrowSchedule = scheduleSnap.docs.map(d => d.data());
+        const tomorrowSchedule = scheduleSnap.docs.map(d => d.data()).filter(c => c.day === jsDay || c.dayOfWeek === jsDay);
 
         // 如果明天放假且沒作業/考試，就略過不打擾
         if (tomorrowsEntries.length === 0 && tomorrowSchedule.length === 0) continue;
 
-        // 準備餵給 AI 的資料陣列
-        const contentArray = [];
-        tomorrowSchedule.forEach(c => contentArray.push(`課程: ${c.courseName} (${c.startTime})`));
-        tomorrowsEntries.forEach(e => {
-            if (e.content) contentArray.push(`作業 / 聯絡簿: ${e.content} `);
-        });
+        const classesList = tomorrowSchedule.map(c => c.courseName || c.subject).join(', ') || '無';
+        const tasksList = tomorrowsEntries.map(e => (e.homework ? `作業:${e.homework}` : `考試:${e.exam}`)).join('; ') || '無';
 
         let summary = `明天有 ${tomorrowsEntries.length} 項待辦與考試，請記得準備！`;
 
-        // 呼叫 Gemini 生成精要提醒
-        if (apiKey && contentArray.length > 0) {
-            const aiResult = await generateGeminiSummary(contentArray, apiKey);
-            if (aiResult && !aiResult.includes("產生失敗")) {
-                summary = aiResult;
+        if (apiKey) {
+            try {
+                const ai = new GoogleGenAI({ apiKey });
+                const prompt = `你是一位親切、幽默的學習小助手。請根據以下資訊，為學生寫一段大約 80 字的明日準備摘要，作為推播通知。
+- 明日課程：${classesList}
+- 重點任務：${tasksList}
+請用輕鬆幽默的語氣，最後加一句鼓勵的話。絕對不要使用 Markdown 符號（如 **），請輸出純文字。`;
+
+                const response = await ai.models.generateContent({
+                    model: "gemini-2.5-flash",
+                    contents: prompt
+                });
+                if (response.text) {
+                    summary = response.text.trim();
+                }
+            } catch (err) {
+                console.error("AI 摘要生成失敗:", err);
             }
         }
 
         // 🚀 直接發送 FCM 主題推播，不寫入 notices，避免髒資料與觸發其他迴圈
         const message = {
             notification: {
-                title: "明日準備事項 🎒",
+                title: "✨ 明日準備摘要",
                 body: summary
             },
             data: { type: "prep", classId: classDoc.id },
