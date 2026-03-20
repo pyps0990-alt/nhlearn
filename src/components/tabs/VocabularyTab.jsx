@@ -17,7 +17,7 @@ import {
 
 import { fetchAI } from '../../utils/helpers';
 
-const GAS_URL = import.meta.env.VITE_GAS_VOCAB_URL || 'https://script.google.com/macros/s/AKfycbwjcbklWLkoeC-q_dCiiu0fNSbk7ePDt0bVUQh11O_EuR1_uAAahPClKxHI90eAqgUc/exec';
+const GAS_URL = import.meta.env.VITE_GAS_VOCAB_URL;
 
 // ─── SRS Algorithm (SM-2 simplified) ────────────────────────────────────────
 const calculateNextReview = (word, quality) => {
