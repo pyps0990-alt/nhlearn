@@ -533,12 +533,17 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
         }
       });
 
-      // 將舊課表中被刪除的課程一併移除
-      snap.docs.forEach(docSnap => {
-        if (!currentIds.has(docSnap.id)) {
-          batch.delete(docSnap.ref);
-        }
-      });
+      // 🚀 修復：就算權限不允許讀取舊資料，也不要阻止新資料寫入
+      try {
+        const snap = await getDocs(scheduleRef);
+        snap.docs.forEach(docSnap => {
+          if (!currentIds.has(docSnap.id)) {
+            batch.delete(docSnap.ref);
+          }
+        });
+      } catch (readErr) {
+        console.warn("讀取舊課表失敗，將直接覆蓋新課表:", readErr.message);
+      }
 
       await batch.commit();
       console.log("✅ 課表成功同步至資料庫！");
@@ -555,8 +560,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     }
     try {
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
-      const snap = await getDocs(assignmentsRef);
-
+      // 算一下你到底準備存入幾堂課
+      const totalClasses = Object.values(newSchedule).flat().length;
+      console.log("📦 準備寫入 Firebase 的總課程數量:", totalClasses);
+      console.log("📝 實際的 newSchedule 資料:", newSchedule);
       const batch = writeBatch(db);
       const currentIds = new Set();
 
@@ -573,12 +580,17 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
         });
       });
 
-      // 將畫面上被刪除的作業從 Firestore 移除
-      snap.docs.forEach(docSnap => {
-        if (!currentIds.has(docSnap.id)) {
-          batch.delete(docSnap.ref);
-        }
-      });
+      // 🚀 修復：就算權限不允許讀取舊資料，也不要阻止新資料寫入
+      try {
+        const snap = await getDocs(assignmentsRef);
+        snap.docs.forEach(docSnap => {
+          if (!currentIds.has(docSnap.id)) {
+            batch.delete(docSnap.ref);
+          }
+        });
+      } catch (readErr) {
+        console.warn("讀取舊聯絡簿失敗，將直接寫入新資料:", readErr.message);
+      }
 
       await batch.commit();
     } catch (e) {

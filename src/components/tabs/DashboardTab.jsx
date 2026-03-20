@@ -539,7 +539,7 @@ const AiBriefing = React.memo(({ weeklySchedule, contactBook, user }) => {
     } finally {
       setLoading(false);
     }
-  }, [weeklySchedule, contactBook, lastGenerated, briefing, loading]);
+  }, [weeklySchedule, contactBook]);
 
   useEffect(() => {
     generateBriefing(false);
@@ -1595,11 +1595,11 @@ JSON 結構必須是這樣：
                       await saveToFirestore(cleanSchedule);
                       triggerNotification('同步成功 🎉', classID ? '課表已安全備份至班級雲端！' : '個人自訂課表已備份至雲端！');
                     } catch (err) {
-          if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
-            triggerNotification('同步失敗 ❌', '權限不足：請先登入帳號，或檢查 Firebase 安全規則');
-          } else {
-            triggerNotification('同步失敗 ❌', '請檢查網路或系統狀態');
-          }
+                      if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
+                        triggerNotification('同步失敗 ❌', '權限不足：請先登入帳號，或檢查 Firebase 安全規則');
+                      } else {
+                        triggerNotification('同步失敗 ❌', '請檢查網路或系統狀態');
+                      }
                     }
                   } else {
                     triggerNotification('儲存成功', '已儲存課表結果！');
