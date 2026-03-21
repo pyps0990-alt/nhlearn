@@ -6,26 +6,38 @@
 export default async function handler(req, res) {
   const { code, error } = req.query;
 
+  const performRedirect = (path) => {
+    try {
+      if (res.redirect) {
+        res.redirect(path);
+      } else {
+        res.writeHead(302, { Location: path });
+        res.end();
+      }
+    } catch (e) {
+      console.error("Redirect format error:", e);
+      res.status(500).send(`Failed to redirect to ${path}`);
+    }
+  };
+
   if (error) {
-    return res.redirect(`/?auth_error=${encodeURIComponent(error)}`);
+    return performRedirect(`/?auth_error=${encodeURIComponent(error)}`);
   }
 
   if (!code) {
-    return res.redirect('/');
+    return performRedirect('/');
   }
 
   try {
     const clientID = process.env.VITE_GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    // NOTE: redirect_uri must EXACTLY match the one configured in Google Console
     const redirectURI = process.env.VITE_REDIRECT_URI || 'https://nhlearn.vercel.app/api/auth/callback';
 
     if (!clientSecret) {
       console.error("Missing GOOGLE_CLIENT_SECRET environment variable");
-      return res.redirect('/?auth_error=configuration_error');
+      return performRedirect('/?auth_error=configuration_error');
     }
 
-    // Exchange the code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -42,20 +54,18 @@ export default async function handler(req, res) {
 
     if (tokens.error) {
       console.error("Token exchange error:", tokens.error_description || tokens.error);
-      return res.redirect(`/?auth_error=${encodeURIComponent(tokens.error)}`);
+      return performRedirect(`/?auth_error=${encodeURIComponent(tokens.error)}`);
     }
 
-    // We pass the access_token and id_token back to the SPA via query params
-    // The SPA will use id_token to authenticate with Firebase
     const params = new URLSearchParams({
       access_token: tokens.access_token,
       id_token: tokens.id_token || '',
       expires_in: tokens.expires_in
     });
 
-    return res.redirect(`/?${params.toString()}`);
+    return performRedirect(`/?${params.toString()}`);
   } catch (err) {
     console.error("Callback handler internal error:", err);
-    return res.redirect('/?auth_error=internal_server_error');
+    return performRedirect('/?auth_error=internal_server_error');
   }
 }
