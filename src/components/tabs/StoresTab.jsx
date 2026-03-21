@@ -5,7 +5,7 @@ import { db } from '../../config/firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 
 
-const StoresTab = ({ isAdmin, campusName, schoolId = 'nhsh' }) => {
+const StoresTab = ({ isAdmin, campusName, schoolId }) => {
   const [stores, setStores] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [hasFeature, setHasFeature] = useState(null); // 紀錄特約商店功能是否開啟
@@ -17,6 +17,7 @@ const StoresTab = ({ isAdmin, campusName, schoolId = 'nhsh' }) => {
 
   // 1. 監聽學校根目錄文件，檢查功能開關 (Feature Flag)
   useEffect(() => {
+    if (!schoolId) return;
     const schoolRef = doc(db, 'Schools', schoolId);
     const unsubSchool = onSnapshot(
       schoolRef,
@@ -45,7 +46,7 @@ const StoresTab = ({ isAdmin, campusName, schoolId = 'nhsh' }) => {
   // 2. 監聽特約商店資料 (更新為新路徑 DiscountStores)
   useEffect(() => {
     // 若功能未開啟，則不抓取資料以節省流量
-    if (hasFeature !== true) {
+    if (hasFeature !== true || !schoolId) {
       setStores([]);
       return;
     }
@@ -97,6 +98,28 @@ const StoresTab = ({ isAdmin, campusName, schoolId = 'nhsh' }) => {
   };
 
   // 3. UI 狀態處理：若功能未開放，顯示 Empty State
+  if (!schoolId) {
+    return (
+      <div className="space-y-8 flex flex-col w-full text-left animate-slide-up-fade mb-12">
+        <div className="flex flex-col gap-2 px-2">
+          <h2 className="text-3xl font-black text-emerald-600 flex items-center gap-3 tracking-tight">
+            <Store size={28} className="shrink-0 neon-glow-emerald" />
+            校園特約商店
+          </h2>
+        </div>
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl rounded-[40px] border border-white/60 dark:border-white/10 shadow-sm mx-2 animate-pop-in">
+          <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-5">
+            <Store size={40} className="text-slate-400" />
+          </div>
+          <h3 className="text-xl font-black text-slate-700 dark:text-slate-200 mb-2">尚未設定學校</h3>
+          <p className="text-sm font-bold text-slate-500 dark:text-slate-400 max-w-xs">
+            請先至設定頁面選擇您的學校，以查看專屬特約商店！
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (hasFeature === false) {
     return (
       <div className="space-y-8 flex flex-col w-full text-left animate-slide-up-fade mb-12">

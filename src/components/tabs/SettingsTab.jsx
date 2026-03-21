@@ -652,7 +652,8 @@ const SettingsTab = ({
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">選擇學校</label>
                     <div className="relative">
-                      <select value={schoolId} onChange={e => setSchoolId(e.target.value)} className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-4 py-3.5 rounded-[16px] text-[14px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white appearance-none">
+                      <select value={schoolId || ''} onChange={e => setSchoolId(e.target.value)} className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-4 py-3.5 rounded-[16px] text-[14px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white appearance-none">
+                        <option value="" disabled>請選擇學校...</option>
                         <option value="nhsh">內湖高中 (NHSH)</option>
                         <option value="cksh">建國中學 (CKSH)</option>
                         <option value="tfgh">北一女中 (TFGH)</option>
@@ -664,7 +665,8 @@ const SettingsTab = ({
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">選擇年級</label>
                     <div className="relative">
-                      <select value={gradeId} onChange={e => setGradeId(e.target.value)} className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-4 py-3.5 rounded-[16px] text-[14px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white appearance-none">
+                      <select value={gradeId || ''} onChange={e => setGradeId(e.target.value)} className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-4 py-3.5 rounded-[16px] text-[14px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white appearance-none">
+                        <option value="" disabled>請選擇年級...</option>
                         <option value="grade_1">高一</option>
                         <option value="grade_2">高二</option>
                         <option value="grade_3">高三</option>

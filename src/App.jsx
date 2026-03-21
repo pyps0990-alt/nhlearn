@@ -26,7 +26,7 @@ export const DEFAULT_DASHBOARD_LAYOUT = [
 import { db, auth, messaging, firebaseError, VAPID_KEY, functions } from './config/firebase';
 import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, getDoc, serverTimestamp, collection, query, orderBy, limit, getDocs, addDoc, writeBatch } from 'firebase/firestore';
-import { getToken } from 'firebase/messaging';
+import { getToken, onMessage } from 'firebase/messaging';
 import { httpsCallable } from 'firebase/functions';
 const DashboardTab = lazy(() => import('./components/tabs/DashboardTab'));
 const VocabularyTab = lazy(() => import('./components/tabs/VocabularyTab'));
@@ -137,8 +137,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   const [aiTestStatus, setAiTestStatus] = useState('idle');
   const [classID, setClassID] = useState(() => localStorage.getItem('gsat_class_id') || '');
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
-  const [schoolId, setSchoolId] = useState(() => localStorage.getItem('gsat_school_id') || 'nhsh');
-  const [gradeId, setGradeId] = useState(() => localStorage.getItem('gsat_grade_id') || 'grade_2');
+  const [schoolId, setSchoolId] = useState(() => localStorage.getItem('gsat_school_id') || '');
+  const [gradeId, setGradeId] = useState(() => localStorage.getItem('gsat_grade_id') || '');
   const [notices, setNotices] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0); // 紀錄未讀通知數量 (用於 iOS 紅點)
   const lastNoticeTimestamp = useRef(Date.now() - 60000); // 🔴 容忍 1 分鐘的時鐘誤差，確保不漏接任何剛發送的推播
@@ -266,6 +266,29 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
   useEffect(() => { localStorage.setItem('gsat_school_id', schoolId); }, [schoolId]);
   useEffect(() => { localStorage.setItem('gsat_grade_id', gradeId); }, [gradeId]);
 
+  // 🚀 自動同步使用者的班級與學校設定 (解決無痕模式或新裝置登入時，抓不到綁定班級的問題)
+  useEffect(() => {
+    if (!db || !user) return;
+    const userRef = doc(db, 'Users', user.uid);
+    getDoc(userRef).then((docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.classId !== undefined && data.classId !== classID) {
+          setClassID(data.classId);
+          localStorage.setItem('gsat_class_id', data.classId);
+        }
+        if (data.schoolId !== undefined && data.schoolId !== schoolId) {
+          setSchoolId(data.schoolId);
+          localStorage.setItem('gsat_school_id', data.schoolId);
+        }
+        if (data.gradeId !== undefined && data.gradeId !== gradeId) {
+          setGradeId(data.gradeId);
+          localStorage.setItem('gsat_grade_id', data.gradeId);
+        }
+      }
+    }).catch(e => console.error("Sync user profile error:", e));
+  }, [user]); // 僅在使用者狀態變更(登入)時執行
+
   // ─── 清除 iOS App 圖示紅點 (當使用者開啟/回到 App 時) ─────────────────────
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -303,42 +326,48 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     if (!db) return;
 
     // 🚀 1. 讀取並監聽目前學校的全域配置 (動態切換 Tab 與校園資訊)
-    const schoolRef = doc(db, 'Schools', schoolId);
-    const unsubSchool = onSnapshot(schoolRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setSchoolConfig(data);
-        // 自動覆蓋本地的校園基礎資訊
-        if (data.name) setCampusName(data.name);
-        if (data.address) setCampusAddress(data.address);
-        if (data.location?.lat) setCampusLat(data.location.lat);
-        if (data.location?.lng) setCampusLng(data.location.lng);
-      } else {
-        // 若資料庫尚未建立該校設定，給予預設值
-        setSchoolConfig({
-          features: {
-            hasDiscountStores: false,
-            english: true,
-            contactBook: true,
-            notes: false,
-            grades: false,
-            credits: false
-          }
-        });
-      }
-    }, (err) => console.error("School config sync error:", err));
+    let unsubSchool = () => {};
+    if (schoolId) {
+      const schoolRef = doc(db, 'Schools', schoolId);
+      unsubSchool = onSnapshot(schoolRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setSchoolConfig(data);
+          // 自動覆蓋本地的校園基礎資訊
+          if (data.name) setCampusName(data.name);
+          if (data.address) setCampusAddress(data.address);
+          if (data.location?.lat) setCampusLat(data.location.lat);
+          if (data.location?.lng) setCampusLng(data.location.lng);
+        } else {
+          // 若資料庫尚未建立該校設定，給予預設值
+          setSchoolConfig({
+            features: {
+              hasDiscountStores: false,
+              english: true,
+              contactBook: true,
+              notes: false,
+              grades: false,
+              credits: false
+            }
+          });
+        }
+      }, (err) => console.error("School config sync error:", err));
+    }
 
     let unsubSchedule = () => { };
 
     if (classID) {
+      if (!schoolId || !gradeId) return; // 未設定學校或年級時不抓取
       // 1. Sync ClassSchedule (班級共用課表)
       const scheduleRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule');
       unsubSchedule = onSnapshot(scheduleRef, (snapshot) => {
         const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
         snapshot.docs.forEach((docSnap) => {
           const item = docSnap.data();
-          if (item.day !== undefined && transformed[item.day]) {
-            transformed[item.day].push({
+          // 支援新版 dayOfWeek 以及舊版 day
+          const dayIndex = item.dayOfWeek !== undefined ? item.dayOfWeek : item.day;
+          if (dayIndex !== undefined && transformed[dayIndex]) {
+            transformed[dayIndex].push({
               id: docSnap.id,
               subject: item.courseName || item.subject || '未命名課程',
               teacher: item.teacher || '',
@@ -364,8 +393,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
         const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
         snapshot.docs.forEach((docSnap) => {
           const item = docSnap.data();
-          if (item.day !== undefined && transformed[item.day]) {
-            transformed[item.day].push({
+          // 支援新版 dayOfWeek 以及舊版 day
+          const dayIndex = item.dayOfWeek !== undefined ? item.dayOfWeek : item.day;
+          if (dayIndex !== undefined && transformed[dayIndex]) {
+            transformed[dayIndex].push({
               id: docSnap.id,
               subject: item.courseName || item.subject || '未命名課程',
               teacher: item.teacher || '',
@@ -388,7 +419,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
     // 2. Sync Assignments (電子聯絡簿/作業)
     let unsubAssignments = () => { };
-    if (classID) {
+    if (classID && schoolId && gradeId) {
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
       unsubAssignments = onSnapshot(assignmentsRef, (snapshot) => {
         const cb = {};
@@ -477,13 +508,19 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     if (!db) return;
     if (!user) throw new Error("PERMISSION_DENIED");
 
+    // 🚨 安全防護：如果綁定班級且非管理員，不允許編輯寫入雲端課表
+    if (classID && !isAdmin) {
+      console.error("權限不足：一般使用者無法修改班級課表");
+      throw new Error("PERMISSION_DENIED_NOT_ADMIN");
+    }
+
     try {
       let scheduleRef;
-      // 確保即使沒綁定，也有預設值
-      const currentSchoolId = user?.schoolId || 'nhsh';
-      const currentGradeId = user?.gradeId || 'grade_2';
+      const currentSchoolId = schoolId;
+      const currentGradeId = gradeId;
 
       if (classID) {
+        if (!currentSchoolId || !currentGradeId) throw new Error("MISSING_SCHOOL_OR_GRADE");
         scheduleRef = collection(db, 'Schools', currentSchoolId, 'Grades', currentGradeId, 'Classes', classID, 'ClassSchedule');
       } else {
         // ⚠️ 注意這裡：如果你的 user 物件沒有 uid，路徑就會壞掉！
@@ -519,6 +556,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
             batch.set(docRef, {
               dayOfWeek: day, // 💡 改成 dayOfWeek，確保與 AI 排程和結構一致
+              day: day, // 👈 補回 day 欄位，確保上課前 5 分鐘推播的查詢不會失效
               courseName: item.subject || item.courseName || '未命名課程', // 雙重保險
               teacher: item.teacher || '',
               startTime: item.startTime || '08:10',
@@ -555,15 +593,16 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   const saveContactBookToFirestore = async (newContactBook) => {
     if (!db || !classID) return;
+    if (!schoolId || !gradeId) throw new Error("MISSING_SCHOOL_OR_GRADE");
     if (!user) {
       throw new Error('GUEST_MODE');
     }
     try {
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
-      // 算一下你到底準備存入幾堂課
-      const totalClasses = Object.values(newSchedule).flat().length;
-      console.log("📦 準備寫入 Firebase 的總課程數量:", totalClasses);
-      console.log("📝 實際的 newSchedule 資料:", newSchedule);
+      // 算一下你到底準備存入幾項作業
+      const totalAssignments = Object.values(newContactBook).flat().length;
+      console.log("📦 準備寫入 Firebase 的總作業數量:", totalAssignments);
+      console.log("📝 實際的 newContactBook 資料:", newContactBook);
       const batch = writeBatch(db);
       const currentIds = new Set();
 
@@ -616,21 +655,18 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     });
     setWeeklySchedule(transformed);
 
-    const batch = writeBatch(db);
-
-    SCHEDULE_206_TEMPLATE.forEach((item, idx) => {
-      const docId = `${item.day}_${idx}`;
-      const docRef = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ClassSchedule', docId);
-      batch.set(docRef, {
-        day: item.day, courseName: item.course, teacher: item.teacher,
-        startTime: item.startTime, endTime: item.endTime, location: '',
-        rescheduled: false, link: '', color: ''
-      }, { merge: true });
-    });
-
-    await batch.commit();
-
-    triggerNotification('導入成功', '內中 206 班課表已導入並同步至雲端！');
+      try {
+        await saveToFirestore(transformed);
+        triggerNotification('導入成功', '內中 206 班課表已導入並同步至雲端！');
+      } catch (err) {
+        if (err.message === 'PERMISSION_DENIED_NOT_ADMIN') {
+          triggerNotification('權限不足 ❌', '只有管理員可以修改班級雲端課表！');
+        } else if (err.message === 'MISSING_SCHOOL_OR_GRADE') {
+          triggerNotification('導入失敗 ❌', '請先至設定選擇學校與年級！');
+        } else {
+          triggerNotification('導入失敗 ❌', '請檢查網路或系統狀態');
+        }
+      }
   };
 
   // ─── Notifications (改為純 UI 提示) ──────────────────────────────────────────
@@ -639,6 +675,26 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 4000); // 縮短駐留時間
     // 真正的系統通知已全部移交給 Firebase Cloud Functions (FCM) 派發
   }, []);
+
+  // ─── 監聽前景推播 (當使用者停留在頁面上時) ─────────────────────────────
+  useEffect(() => {
+    if (!messaging) return;
+    const unsub = onMessage(messaging, (payload) => {
+      console.log("📥 收到前景推播:", payload);
+      if (payload.notification) {
+        // 在畫面上方彈出內建的優雅提示橫幅
+        triggerNotification(payload.notification.title, payload.notification.body);
+        
+        // 同步更新未讀紅點
+        setUnreadCount(prev => {
+          const nextCount = prev + 1;
+          if ('setAppBadge' in navigator) navigator.setAppBadge(nextCount).catch(e => console.error(e));
+          return nextCount;
+        });
+      }
+    });
+    return () => unsub();
+  }, [triggerNotification]);
 
   // ─── 網頁端本地定時提醒 (晚上 20:00) ──────────────────────────────────────
   // 🚀 防呆機制已移除：已全面交由 Firebase Cloud Functions (dailyExamReminder) 雲端發送推播
@@ -1190,6 +1246,12 @@ export default function App() {
           currentClass = userSnap.data().classId;
           localStorage.setItem('gsat_class_id', currentClass); // 確保本地端狀態同步
         }
+        
+        // 🚀 讓前端 UI 知道他是幹部或管理員，從而解鎖「編輯課表」按鈕
+        if (userSnap.exists() && (userSnap.data().role === 'admin' || userSnap.data().role === 'officer')) {
+          setIsAdmin(true); 
+        }
+        
         if (!currentClass) currentClass = '';
 
         // 🚀 配合安全規則：寫入 role 欄位以供後端判定身分

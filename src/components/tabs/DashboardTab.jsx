@@ -754,6 +754,9 @@ const DashboardTab = ({
   const [subModalData, setSubModalData] = useState(null);
   const [subInputVal, setSubInputVal] = useState('');
 
+  // 💡 安全權限：判斷使用者是否有資格編輯當前的課表 (個人課表可編，班級課表限管理員)
+  const canEditSchedule = !classID || isAdmin;
+
   useEffect(() => {
     try {
       const stats = JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {};
@@ -1083,7 +1086,8 @@ JSON 結構必須是這樣：
         }
       }
 
-      const newSchedule = { ...INITIAL_WEEKLY_SCHEDULE };
+      // 🌟 核心修復：以現有課表為基底進行合併深拷貝，而不是覆蓋清空整週課表
+      const newSchedule = JSON.parse(JSON.stringify(weeklySchedule || INITIAL_WEEKLY_SCHEDULE));
 
       // 🌟 核心修復：判斷 AI 傳來的是不是陣列 (Array)
       if (Array.isArray(parsedData)) {
@@ -1127,7 +1131,7 @@ JSON 結構必須是這樣：
                 color: item.color || '',
                 icon: item.icon || ''
               }));
-              newSchedule[dayIndex] = [...newSchedule[dayIndex], ...mappedItems];
+              newSchedule[dayIndex] = [...(newSchedule[dayIndex] || []), ...mappedItems];
             }
           }
         });
@@ -1144,6 +1148,11 @@ JSON 結構必須是這樣：
   };
 
   const handleSwap = async (id1, id2) => {
+    if (!canEditSchedule) {
+      triggerNotification('權限不足 ❌', '僅管理員可修改班級課表');
+      return;
+    }
+
     let day1 = -1, day2 = -1, idx1 = -1, idx2 = -1;
     const newWeekly = JSON.parse(JSON.stringify(weeklySchedule)); // 深拷貝防止直接修改狀態
 
@@ -1212,7 +1221,11 @@ JSON 結構必須是這樣：
         await saveToFirestore(cleanSchedule);
         triggerNotification('調課成功 ⚡', `已對調並同步至雲端`);
       } catch (err) {
-        if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
+        if (err.message === 'PERMISSION_DENIED_NOT_ADMIN') {
+          triggerNotification('權限不足 ❌', '只有管理員可以修改班級雲端課表！');
+        } else if (err.message === 'MISSING_SCHOOL_OR_GRADE') {
+          triggerNotification('同步失敗 ❌', '請先至設定選擇學校與年級！');
+        } else if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
           triggerNotification('同步失敗 ❌', '權限不足：請先登入帳號，或檢查 Firebase 安全規則');
         } else {
           triggerNotification('同步失敗 ❌', '請檢查網路或系統狀態');
@@ -1225,6 +1238,11 @@ JSON 結構必須是這樣：
 
   // --- 處理彈窗的代課確認事件 ---
   const confirmSubstitute = async () => {
+    if (!canEditSchedule) {
+      triggerNotification('權限不足 ❌', '僅管理員可修改班級課表');
+      return;
+    }
+
     if (!subInputVal || !subModalData) return;
 
     const { id1, originalSubj } = subModalData;
@@ -1259,7 +1277,11 @@ JSON 結構必須是這樣：
         await saveToFirestore(cleanSchedule);
         triggerNotification('調課成功 ⚡', `已變更並同步至雲端`);
       } catch (err) {
-        if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
+        if (err.message === 'PERMISSION_DENIED_NOT_ADMIN') {
+          triggerNotification('權限不足 ❌', '只有管理員可以修改班級雲端課表！');
+        } else if (err.message === 'MISSING_SCHOOL_OR_GRADE') {
+          triggerNotification('同步失敗 ❌', '請先至設定選擇學校與年級！');
+        } else if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
           triggerNotification('同步失敗 ❌', '權限不足：請先登入帳號，或檢查 Firebase 安全規則');
         } else {
           triggerNotification('同步失敗 ❌', '請檢查網路或系統狀態');
@@ -1348,7 +1370,13 @@ JSON 結構必須是這樣：
 
         triggerNotification('同步成功 🎉', classID ? '課表已安全備份至班級雲端！' : '個人自訂課表已備份至雲端！');
       } catch (err) {
-        triggerNotification('同步失敗 ❌', '請檢查網路或系統權限');
+        if (err.message === 'PERMISSION_DENIED_NOT_ADMIN') {
+          triggerNotification('權限不足 ❌', '只有管理員可以修改班級雲端課表！');
+        } else if (err.message === 'MISSING_SCHOOL_OR_GRADE') {
+          triggerNotification('同步失敗 ❌', '請先至設定選擇學校與年級！');
+        } else {
+          triggerNotification('同步失敗 ❌', '請檢查網路或系統權限');
+        }
       }
     } else {
       triggerNotification('儲存成功', '個人自訂課表已儲存至本機（未登入無法雲端備份）！');
@@ -1501,9 +1529,11 @@ JSON 結構必須是這樣：
             <h3 className="text-lg font-black text-slate-800 dark:text-white">學習排程</h3>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => { setIsSwapMode(!isSwapMode); setEditDayTab(currentTime.getDay()); setSelectedForSwap([]); }} className={`px-3 sm:px-4 py-2 rounded-[14px] text-[12px] sm:text-[13px] font-black transition-all shadow-sm ${isSwapMode ? 'bg-orange-500 text-white' : 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20'}`}>
-              <ArrowUpDown size={14} className="inline mr-1.5 mb-0.5" />{isSwapMode ? '退出調課' : '快速調課'}
-            </button>
+            {canEditSchedule && (
+              <button onClick={() => { setIsSwapMode(!isSwapMode); setEditDayTab(currentTime.getDay()); setSelectedForSwap([]); }} className={`px-3 sm:px-4 py-2 rounded-[14px] text-[12px] sm:text-[13px] font-black transition-all shadow-sm ${isSwapMode ? 'bg-orange-500 text-white' : 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20'}`}>
+                <ArrowUpDown size={14} className="inline mr-1.5 mb-0.5" />{isSwapMode ? '退出調課' : '快速調課'}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1566,6 +1596,20 @@ JSON 結構必須是這樣：
           </p>
         </div>
       ) : isEditingSchedule ? (
+        !canEditSchedule ? (
+          <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-pop-in bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl rounded-[32px] border border-white/60 dark:border-white/10 shadow-sm">
+            <div className="w-16 h-16 bg-rose-50 dark:bg-rose-500/10 rounded-full flex items-center justify-center mb-4">
+              <AlertCircle size={32} className="text-rose-500" />
+            </div>
+            <h4 className="text-[18px] font-black text-slate-800 dark:text-white mb-2">權限不足</h4>
+            <p className="text-[14px] font-bold text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+              班級雲端課表僅限管理員編輯。<br />一般使用者會自動同步最新課表。如需建立個人課表，請先至設定解除綁定班級。
+            </p>
+            <button onClick={() => setIsEditingSchedule(false)} className="px-8 py-3 bg-slate-800 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black active:scale-95 transition-all shadow-sm">
+              返回課表
+            </button>
+          </div>
+        ) : (
         <div className="flex flex-col gap-4">
           {!previewSchedule && (
             <label className="border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 rounded-3xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-500/5 transition-all group">
@@ -1595,7 +1639,11 @@ JSON 結構必須是這樣：
                       await saveToFirestore(cleanSchedule);
                       triggerNotification('同步成功 🎉', classID ? '課表已安全備份至班級雲端！' : '個人自訂課表已備份至雲端！');
                     } catch (err) {
-                      if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
+                      if (err.message === 'PERMISSION_DENIED_NOT_ADMIN') {
+                        triggerNotification('權限不足 ❌', '只有管理員可以修改班級雲端課表！');
+                      } else if (err.message === 'MISSING_SCHOOL_OR_GRADE') {
+                        triggerNotification('同步失敗 ❌', '請先至設定選擇學校與年級！');
+                      } else if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
                         triggerNotification('同步失敗 ❌', '權限不足：請先登入帳號，或檢查 Firebase 安全規則');
                       } else {
                         triggerNotification('同步失敗 ❌', '請檢查網路或系統狀態');
@@ -1754,6 +1802,7 @@ JSON 結構必須是這樣：
             </button>
           </div>
         </div>
+        )
       ) : (
         <div className="relative pl-[40px]">
           {/* Timeline Vertical Line */}

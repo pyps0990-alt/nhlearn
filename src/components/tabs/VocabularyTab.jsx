@@ -107,8 +107,11 @@ const StatsModal = ({ isOpen, onClose, stats }) => {
 };
 
 // ─── 單字詳情全屏視窗 (Word Detail Overlay) ──────────────────────────────────
-const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClose, updateWord, triggerNotification, currentSet, addWords, isSaved, onSave, playVoice, accent }) => {
+const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClose, updateWord, triggerNotification, currentSet, addWords, isSaved, onSave, playVoice, accent, isAdmin }) => {
   const [isClosing, setIsClosing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({ meaning: word?.meaning || word?.chinese || '', pos: word?.partOfSpeech || word?.pos || 'n.' });
+  const canEdit = currentSet === 'Personal' || isAdmin;
 
   // 🚀 核心修復：立即給予視覺回饋，並延遲 DOM 的卸載，徹底解決手機端卡頓感
   const handleClose = useCallback((e) => {
@@ -198,14 +201,38 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
         <div className="px-6 md:px-8 pt-[calc(1.5rem+env(safe-area-inset-top))] md:pt-8 pb-4 flex justify-between items-start shrink-0 w-full">
           <div className="space-y-1 min-w-0 flex-1 pr-4">
             <h2 className="text-[36px] md:text-[44px] font-black text-slate-900 dark:text-white tracking-tighter leading-none break-words whitespace-normal">{word.word}</h2>
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[12px] font-black text-slate-500 uppercase">{word.partOfSpeech || word.pos}</span>
-              <span className="text-slate-400 text-[12px] font-bold">Level {word.level || '1'}</span>
-              <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'US'); }} className="ml-2 px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg text-[11px] font-black hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇺🇸 US</button>
-              <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'UK'); }} className="px-2.5 py-1 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-black hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇬🇧 UK</button>
-              <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, accent || 'US', 0.4); }} className="px-2.5 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg text-[11px] font-black hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95" title="慢速發音">🐢 慢速</button>
-            </div>
-            <p className="text-[20px] font-bold text-slate-600 dark:text-slate-300 mt-2">{word.meaning || word.chinese}</p>
+            {isEditing ? (
+              <div className="flex flex-col gap-2 mt-3 animate-fadeIn">
+                <div className="flex gap-2">
+                  <input className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 px-3 py-2 rounded-xl text-sm font-bold w-24 outline-none focus:border-emerald-400 text-[var(--text-primary)] transition-colors" value={editData.pos} onChange={e => setEditData({...editData, pos: e.target.value})} placeholder="詞性" />
+                  <input className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 px-3 py-2 rounded-xl text-sm font-bold flex-1 outline-none focus:border-emerald-400 text-[var(--text-primary)] transition-colors" value={editData.meaning} onChange={e => setEditData({...editData, meaning: e.target.value})} placeholder="中文解釋" />
+                </div>
+                <div className="flex gap-2 mt-1">
+                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black transition-colors active:scale-95">取消</button>
+                  <button onClick={() => {
+                    updateWord(word.id, { meaning: editData.meaning, partOfSpeech: editData.pos, pos: editData.pos });
+                    triggerNotification('修改成功', '單字資訊已更新');
+                    setIsEditing(false);
+                  }} className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md active:scale-95 transition-all">儲存變更</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[12px] font-black text-slate-500 uppercase">{word.partOfSpeech || word.pos}</span>
+                  <span className="text-slate-400 text-[12px] font-bold">Level {word.level || '1'}</span>
+                  <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'US'); }} className="ml-2 px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg text-[11px] font-black hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇺🇸 US</button>
+                  <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'UK'); }} className="px-2.5 py-1 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-black hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇬🇧 UK</button>
+                  <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, accent || 'US', 0.4); }} className="px-2.5 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg text-[11px] font-black hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95" title="慢速發音">🐢 慢速</button>
+                  {canEdit && (
+                    <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditData({ meaning: word?.meaning || word?.chinese || '', pos: word?.partOfSpeech || word?.pos || 'n.' }); }} className="ml-1 p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-all active:scale-90" title="編輯單字">
+                      <PenTool size={14} />
+                    </button>
+                  )}
+                </div>
+                <p className="text-[20px] font-bold text-slate-600 dark:text-slate-300 mt-2">{word.meaning || word.chinese}</p>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2 md:gap-3 shrink-0">
             {currentSet !== 'Personal' && (
@@ -261,8 +288,13 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
           {/* 2. AI 詳細解析 */}
           <div className="grid md:grid-cols-[1fr_280px] gap-8">
             <div className="space-y-6">
-              <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2">
-                <Sparkles size={20} className="text-yellow-500" /> 深度語源解析
+              <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2"><Sparkles size={20} className="text-yellow-500" /> 深度語源解析</span>
+                {analysis && !analysis.startsWith('ERROR:') && (
+                  <button onClick={() => handleAiAnalyze(word.id, word.word)} disabled={isAnalyzing} className="px-2.5 py-1.5 bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-emerald-500 rounded-xl transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 text-[11px] font-black shadow-sm">
+                    <RefreshCw size={14} className={isAnalyzing ? 'animate-spin' : ''} /> 重新生成
+                  </button>
+                )}
               </h3>
               {analysis && !analysis.startsWith('ERROR:') ? (
                 <div className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300 highlighter">
@@ -361,7 +393,7 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
-export default function VocabularyTab({ user, isAdmin, schoolId = 'nhsh', gradeId = 'grade_2' }) {
+export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
   const [words, setWords] = useState([]); // 從 Firestore 動態載入
   const [subTab, setSubTab] = useState('bank');
   const [search, setSearch] = useState('');
@@ -522,9 +554,19 @@ export default function VocabularyTab({ user, isAdmin, schoolId = 'nhsh', gradeI
     if (currentSet === 'Personal') {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
     } else if (currentSet === 'Teacher Picks') {
+      if (!schoolId) {
+        setDbError('請先至設定頁面選擇您的學校');
+        setWords([]);
+        return;
+      }
       vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
     } else if (currentSet === 'school_vocab') {
       // 🏫 學校年級專屬單字庫
+      if (!schoolId || !gradeId) {
+        setDbError('請先至設定頁面選擇您的學校與年級');
+        setWords([]);
+        return;
+      }
       vocabRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab');
     } else {
       // 🌍 6000 核心單字庫 (獨立拆分至 Global)
@@ -574,8 +616,10 @@ export default function VocabularyTab({ user, isAdmin, schoolId = 'nhsh', gradeI
     if (currentSet === 'Personal') {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
     } else if (currentSet === 'Teacher Picks') {
+      if (!schoolId) return;
       vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
     } else if (currentSet === 'school_vocab') {
+      if (!schoolId || !gradeId) return;
       vocabRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab');
     } else {
       vocabRef = collection(db, 'Global', 'Vocab', '6000Words');
@@ -736,6 +780,9 @@ export default function VocabularyTab({ user, isAdmin, schoolId = 'nhsh', gradeI
           alert("您只能刪除「個人收藏」中的單字喔！");
           return;
         }
+    
+    if ((currentSet === 'Teacher Picks' || currentSet === 'school_vocab') && !schoolId) return;
+
         const ref = currentSet === 'Personal'
           ? doc(db, 'Users', user.uid, 'PersonalVocab', wordObj.word.toLowerCase())
           : currentSet === 'Teacher Picks'
@@ -780,6 +827,9 @@ export default function VocabularyTab({ user, isAdmin, schoolId = 'nhsh', gradeI
       alert("訪客模式無法修改公共單字庫，請先登入喔！");
       return;
     }
+
+    if (targetSet === 'Teacher Picks' && !schoolId) { triggerNotification('錯誤', '請先設定學校', 'error'); return; }
+    if (targetSet === 'school_vocab' && (!schoolId || !gradeId)) { triggerNotification('錯誤', '請先設定學校與年級', 'error'); return; }
 
     const batch = writeBatch(db);
     newWords.forEach((w, i) => {
@@ -1018,7 +1068,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId = 'nhsh', gradeI
           />
         )}
         {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
-        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
+        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} addWords={addWords} triggerNotification={triggerNotification} />}
         {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} />}
       </div>
 
@@ -1557,6 +1607,7 @@ const WordBank = ({
           triggerNotification={triggerNotification}
           playVoice={playVoice}
           accent={accent}
+          isAdmin={isAdmin}
         />
       )}
     </div>
@@ -1854,7 +1905,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
 // ═══════════════════════════════════════════════════════════════════════════════
 // QUIZ MODE (Multiple Choice + Spelling + Grammar)
 // ═══════════════════════════════════════════════════════════════════════════════
-const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, accent }) => {
+const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, accent, addWords, triggerNotification }) => {
   const [quizType, setQuizType] = useState(null); // null | 'choice' | 'spell'
   const [questions, setQuestions] = useState([]);
   const [qIdx, setQIdx] = useState(0);
@@ -1869,6 +1920,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
   const spellRef = useRef(null);
   const audioCtx = useRef(null);
   const [quizCount, setQuizCount] = useState(10); // 題數設定狀態
+  const [wrongWords, setWrongWords] = useState([]); // 追蹤答錯的單字
 
   const playDing = useCallback(() => {
     try {
@@ -1924,13 +1976,31 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
     } catch { }
   }, []);
 
+  // 🌟 純前端手搓：加權隨機演算法 (Weighted Random Selection)
+  // 完全本地運算，0 延遲，依據 SRS 熟練度動態調整抽題率
+  const getWeightedShuffledWords = useCallback((wordsList) => {
+    return [...wordsList].sort((a, b) => {
+      const getWeight = (w) => {
+        let weight = 10; // 基礎機率權重
+        if (w.lastResult === 'wrong') weight += 50; // 剛答錯過的單字，抽中率暴增
+        if (w.repetitions === 0 || w.repetitions === undefined) weight += 20; // 尚未熟練的新單字
+        if (w.interval && w.interval > 3) weight = Math.max(1, weight - Math.min(w.interval, 9)); // 已經很熟的單字，大幅降低出現機率
+        return weight;
+      };
+      // 數學原理：Math.random() ** (1 / weight)，權重越大，算出來的隨機分數越接近 1
+      const scoreA = Math.pow(Math.random(), 1 / getWeight(a));
+      const scoreB = Math.pow(Math.random(), 1 / getWeight(b));
+      return scoreB - scoreA; // 降冪排列，分數高的排前面 (優先被抽中)
+    });
+  }, []);
+
   useEffect(() => {
     if (quizDone) playVictory();
   }, [quizDone, playVictory]);
 
   const generateChoiceQuiz = useCallback(() => {
     if (words.length < 4) return;
-    const shuffled = [...words].sort(() => Math.random() - 0.5);
+    const shuffled = getWeightedShuffledWords(words);
     const qs = shuffled.slice(0, Math.min(quizCount, words.length)).map(w => {
       const wrongOptions = words.filter(o => o.id !== w.id).sort(() => Math.random() - 0.5).slice(0, 3);
       const options = [...wrongOptions.map(o => o.meaning), w.meaning].sort(() => Math.random() - 0.5);
@@ -1938,19 +2008,21 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
     });
     setQuestions(qs);
     setQIdx(0); setScore(0); setSelected(null); setShowResult(false); setQuizDone(false);
+    setWrongWords([]);
     setQuizType('choice');
-  }, [words, quizCount]);
+  }, [words, quizCount, getWeightedShuffledWords]);
 
   const generateSpellQuiz = useCallback(() => {
     if (words.length < 1) return;
-    const shuffled = [...words].sort(() => Math.random() - 0.5);
+    const shuffled = getWeightedShuffledWords(words);
     const qs = shuffled.slice(0, Math.min(quizCount, words.length)).map(w => ({
       word: w, answer: w.word.toLowerCase()
     }));
     setQuestions(qs);
     setQIdx(0); setScore(0); setSpellInput(''); setShowResult(false); setQuizDone(false); setSpellFailed(false);
+    setWrongWords([]);
     setQuizType('spell');
-  }, [words, quizCount]);
+  }, [words, quizCount, getWeightedShuffledWords]);
 
   const handleChoiceAnswer = (opt) => {
     if (showResult) return;
@@ -1963,6 +2035,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
       playDing();
     } else {
       playBuzzer();
+      setWrongWords(prev => prev.some(w => w.id === questions[qIdx].word.id) ? prev : [...prev, questions[qIdx].word]);
     }
     // Update SRS
     if (questions[qIdx].word) {
@@ -1995,6 +2068,9 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
       }, 1500);
     } else {
       playBuzzer();
+      if (!spellFailed) {
+        setWrongWords(prev => prev.some(w => w.id === questions[qIdx].word.id) ? prev : [...prev, questions[qIdx].word]);
+      }
       setSpellFailed(true);
       setSpellInput(''); // 清空輸入框強制重打
       if (!spellFailed && questions[qIdx].word) {
@@ -2057,9 +2133,19 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
         <p className="text-[14px] font-bold text-slate-400 mb-8">
           {pct >= 80 ? '太強了！繼續保持！' : pct >= 50 ? '還不錯，再接再厲！' : '多練習幾次就會進步的！'}
         </p>
+        
+        {wrongWords.length > 0 && (
+          <button onClick={() => {
+            addWords(wrongWords, 'Personal', false);
+            triggerNotification('收藏成功 🎉', `已將 ${wrongWords.length} 個答錯單字加入個人收藏！`);
+            setWrongWords([]); // 避免重複點擊
+          }} className="mb-4 w-full max-w-xs px-6 py-4 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 rounded-2xl font-black border border-orange-200 dark:border-orange-500/30 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-sm">
+            <Heart size={18} /> 將 {wrongWords.length} 個錯題加入收藏
+          </button>
+        )}
         <div className="flex gap-3">
           <button onClick={() => setQuizType(null)} className="px-6 py-3 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-2xl font-black active:scale-95 transition-all">返回</button>
-          <button onClick={() => { setQIdx(0); setScore(0); setSelected(null); setShowResult(false); setQuizDone(false); }}
+          <button onClick={() => { setQIdx(0); setScore(0); setSelected(null); setShowResult(false); setQuizDone(false); setWrongWords([]); }}
             className="px-6 py-3 bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">再測一次</button>
         </div>
       </div>
