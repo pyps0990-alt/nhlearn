@@ -14,12 +14,13 @@ const SUBJECT_ICONS = { BookText, Languages, Calculator, Zap, Beaker, Dna, Histo
 const COLOR_CLASSES = [{ key: 'emerald', hex: 'bg-emerald-500' }, { key: 'blue', hex: 'bg-blue-500' }, { key: 'rose', hex: 'bg-rose-500' }, { key: 'amber', hex: 'bg-amber-500' }, { key: 'purple', hex: 'bg-purple-500' }, { key: 'indigo', hex: 'bg-indigo-500' }, { key: 'slate', hex: 'bg-slate-500' }];
 
 const SettingsTab = ({
+  user,
   isAdmin, setIsAdmin, triggerNotification, handleAuthClick,
   isGoogleConnected, handleSignoutClick, requestPushPermission,
   testPushNotification, theme, setTheme,
   activeSubTab, setActiveSubTab, customLinks, setCustomLinks,
   classID, setClassID, setIsEditingSchedule,
-  handleImport206Template, customCountdowns, setCustomCountdowns,
+  handleImportTemplate, customCountdowns, setCustomCountdowns,
   campusName, setCampusName, campusAddress, setCampusAddress,
   dashboardLayout, setDashboardLayout,
   campusLat, setCampusLat, campusLng, setCampusLng,
@@ -657,6 +658,7 @@ const SettingsTab = ({
                         <option value="nhsh">內湖高中 (NHSH)</option>
                         <option value="cksh">建國中學 (CKSH)</option>
                         <option value="tfgh">北一女中 (TFGH)</option>
+                        <option value="taiwan">全台高中通用 (Taiwan)</option>
                         <option value="other">其他學校</option>
                       </select>
                       <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -685,15 +687,47 @@ const SettingsTab = ({
                     className="w-full bg-slate-50 border border-slate-100 dark:bg-white/5 dark:border-white/10 px-5 py-4 rounded-[20px] text-[16px] font-black focus:border-emerald-400 outline-none transition-all text-slate-900 dark:text-white"
                   />
                 </div>
-                <button
-                  onClick={() => {
-                    setIsEditingSchedule(true);
-                    navTo('dashboard');
-                  }}
-                  className="w-full bg-emerald-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all hover:bg-emerald-500 flex items-center justify-center gap-2"
-                >
-                  <Edit3 size={18} className="shrink-0" /> {classID ? '管理 / 編輯班級課表' : '建立 / 編輯自訂課表'}
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={async () => {
+                      if (user) {
+                        try {
+                          await updateDoc(doc(db, 'Users', user.uid), {
+                            schoolId: schoolId || '',
+                            gradeId: gradeId || '',
+                            classId: classID || ''
+                          });
+                          triggerNotification('儲存成功', '學籍與班級設定已同步至雲端！');
+                        } catch (err) {
+                          console.error('Update profile error:', err);
+                          triggerNotification('儲存失敗', '無法同步設定，請檢查網路連線。');
+                        }
+                      } else {
+                        triggerNotification('已儲存', '學籍設定已儲存在本機！');
+                      }
+                    }}
+                    className="w-full bg-blue-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-blue-600/20 active:scale-[0.98] transition-all hover:bg-blue-500 flex items-center justify-center gap-2"
+                  >
+                    <Cloud size={18} className="shrink-0" /> 確認並同步學籍設定
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditingSchedule(true);
+                      navTo('dashboard');
+                    }}
+                    className="w-full bg-emerald-600 text-white font-black py-4 rounded-[20px] shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all hover:bg-emerald-500 flex items-center justify-center gap-2"
+                  >
+                    <Edit3 size={18} className="shrink-0" /> {classID ? '管理 / 編輯班級課表' : '建立 / 編輯自訂課表'}
+                  </button>
+                  {schoolId === 'taiwan' && !classID && (
+                    <button
+                      onClick={() => handleImportTemplate('taiwan')}
+                      className="w-full bg-indigo-500 text-white font-black py-4 rounded-[20px] shadow-lg shadow-indigo-500/20 active:scale-[0.98] transition-all hover:bg-indigo-400 flex items-center justify-center gap-2"
+                    >
+                      <Sparkles size={18} className="shrink-0" /> 導入全台通用課表範本
+                    </button>
+                  )}
+                </div>
                 <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/20 text-[11px] font-bold text-slate-500 dark:text-gray-400 leading-relaxed">
                   💡 依序選擇學校、年級並輸入班級代碼後，系統會自動同步該班級的雲端課表。
                 </div>

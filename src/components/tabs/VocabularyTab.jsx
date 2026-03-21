@@ -4,7 +4,7 @@ import {
   BookOpen, Plus, Upload, Brain, Trophy, Search, Trash2, Check, X,
   RefreshCw, Sparkles, Shuffle, PenTool, CheckCircle2, XCircle, Heart,
   FileSpreadsheet, Bug, Terminal, ChevronDown, ChevronUp, ChevronRight, Wand2, Volume2,
-  FileText, BarChart2, Flame, Clock, TrendingUp, Share2, Book, Zap, AlertCircle, Tag
+  FileText, BarChart2, Flame, Clock, TrendingUp, Share2, Book, Zap, AlertCircle, Tag, Frown, Meh, Smile, Award
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ReactMarkdown from 'react-markdown';
@@ -18,6 +18,14 @@ import {
 import { fetchAI } from '../../utils/helpers';
 
 const GAS_URL = import.meta.env.VITE_GAS_VOCAB_URL;
+
+// ─── Schema Helpers (相容新舊資料結構) ──────────────────────────────────────
+export const getMeanings = (w) => {
+  if (!w) return [];
+  if (w.meanings && Array.isArray(w.meanings) && w.meanings.length > 0) return w.meanings;
+  return [{ pos: w.partOfSpeech || w.pos || 'n.', meaning: w.meaning || w.chinese || '' }];
+};
+export const getPrimaryMeaning = (w) => getMeanings(w).map(m => m.meaning).join(' / ');
 
 // ─── SRS Algorithm (SM-2 simplified) ────────────────────────────────────────
 const calculateNextReview = (word, quality) => {
@@ -107,11 +115,19 @@ const StatsModal = ({ isOpen, onClose, stats }) => {
 };
 
 // ─── 單字詳情全屏視窗 (Word Detail Overlay) ──────────────────────────────────
-const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClose, updateWord, triggerNotification, currentSet, addWords, isSaved, onSave, playVoice, accent, isAdmin }) => {
+const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClose, updateWord, triggerNotification, currentSet, addWords, isSaved, onSave, playVoice, accent, isAdmin, user }) => {
   const [isClosing, setIsClosing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({ meaning: word?.meaning || word?.chinese || '', pos: word?.partOfSpeech || word?.pos || 'n.' });
-  const canEdit = currentSet === 'Personal' || isAdmin;
+  const [editMeanings, setEditMeanings] = useState(() => getMeanings(word));
+  const [generatingExampleIdx, setGeneratingExampleIdx] = useState(null);
+  const generatedRef = useRef(new Set()); // 紀錄已觸發生成的 idx
+
+  useEffect(() => {
+    setEditMeanings(getMeanings(word));
+  }, [word]);
+
+  // 🚀 維基共編模式：開放所有使用者 (包含訪客) 編輯與貢獻單字內容
+  const canEdit = true; 
 
   // 🚀 核心修復：立即給予視覺回饋，並延遲 DOM 的卸載，徹底解決手機端卡頓感
   const handleClose = useCallback((e) => {
@@ -137,6 +153,69 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
       document.body.style.overflow = '';
     };
   }, [handleClose]);
+
+  // 🚀 學習狀態切換邏輯 (已學 / 未學)
+  const handleToggleLearned = (status) => {
+    // 狀態會自動觸發 updateWord 存入個人雲端資料庫
+    updateWord(word.id, { learned: status });
+    triggerNotification('狀態已更新', status ? '已標記為已學' : '已標記為未學', 'success');
+    // 移除 handleClose()，讓使用者可以繼續閱讀或聽發音
+  };
+
+  // 🚀 AI 專屬例句生成邏輯
+  const handleGenerateExample = useCallback(async (idx, m) => {
+    // 1. 每日次數限制檢查
+    const today = new Date().toISOString().split('T')[0];
+    const usageStr = localStorage.getItem('gsat_ai_example_usage');
+    let usage = { date: today, count: 0 };
+    if (usageStr) {
+      try {
+        const parsed = JSON.parse(usageStr);
+        if (parsed.date === today) usage = parsed;
+      } catch (e) {}
+    }
+    
+    if (usage.count >= 50) {
+      triggerNotification('次數已達上限', '每日最多自動生成 50 次例句，請明天再來喔！', 'error');
+      return;
+    }
+
+    setGeneratingExampleIdx(idx);
+    try {
+      const prompt = `你是一個專業的高中英文老師。請為單字 "${word.word}" (詞性：${m.pos}, 意思：${m.meaning}) 寫一句符合台灣高中生(學測)程度的英文例句，並附上繁體中文翻譯。
+【重要標記要求】：
+請在 "example" 欄位中，使用 <mark> 標籤將該單字（含時態或單複數變化）標示出來。
+請在 "exampleChinese" 欄位中，使用 <mark> 標籤將對應的中文意思標示出來。
+請嚴格以 JSON 格式回傳，不要有任何 Markdown 或其他文字：
+{"example": "I bought a <mark>book</mark>.", "exampleChinese": "我買了一本<mark>書</mark>。"}`;
+      const res = await fetchAI(prompt, { temperature: 0.7 });
+      if (res) {
+        const match = res.match(/\{[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          const newMeanings = [...getMeanings(word)];
+          newMeanings[idx] = { 
+            ...newMeanings[idx], example: parsed.example, exampleChinese: parsed.exampleChinese,
+            exampleAuthor: user?.displayName || '熱心同學', exampleAuthorId: user?.uid || 'guest'
+          };
+          updateWord(word.id, { meanings: newMeanings });
+          
+          // 2. 扣除次數
+          usage.count += 1;
+          localStorage.setItem('gsat_ai_example_usage', JSON.stringify(usage));
+          
+          triggerNotification('生成成功', `已為您加入專屬例句 (今日剩餘 ${50 - usage.count} 次)`);
+        } else {
+          throw new Error('無法解析 AI 回應');
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      triggerNotification('生成失敗', 'AI 伺服器連線異常', 'error');
+    } finally {
+      setGeneratingExampleIdx(null);
+    }
+  }, [word, updateWord, triggerNotification]);
 
   if (!word) return null;
 
@@ -164,7 +243,7 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
   const cleanAnalysis = analysis && !analysis.startsWith('ERROR:') ? analysis.replace(/###\s*\[單字構造拆解\][\s\S]*?(?=###|$)/i, '').trim() : '';
 
   return createPortal(
-    <div className={`fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-md transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'animate-fadeIn'}`} onClick={handleClose}>
+    <div className={`fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'animate-fadeIn'}`} onClick={handleClose}>
       <div
         className={`bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl w-full h-[100dvh] md:h-[90vh] md:max-w-4xl md:rounded-[48px] shadow-2xl border border-white/20 overflow-hidden flex flex-col transition-all duration-200 ${isClosing ? 'scale-[0.98] opacity-0 translate-y-4 md:translate-y-0' : 'animate-pop-in'}`}
         onClick={e => e.stopPropagation()}
@@ -196,6 +275,18 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
             background: linear-gradient(120deg, rgba(251, 191, 36, 0.25) 0%, rgba(251, 191, 36, 0.25) 100%);
             color: #fde047; /* 在深色模式下，將字體改為亮黃色，搭配微光底線，大幅提升質感 */
           }
+          /* 例句單字高亮標示 */
+          mark {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: inherit;
+            padding: 0 0.2em;
+            border-radius: 0.2em;
+            font-weight: 900;
+          }
+          .dark mark {
+            background-color: rgba(16, 185, 129, 0.25);
+            color: #34d399;
+          }
         `}</style>
         {/* Header */}
         <div className="px-6 md:px-8 pt-[calc(1.5rem+env(safe-area-inset-top))] md:pt-8 pb-4 flex justify-between items-start shrink-0 w-full">
@@ -203,14 +294,23 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
             <h2 className="text-[36px] md:text-[44px] font-black text-slate-900 dark:text-white tracking-tighter leading-none break-words whitespace-normal">{word.word}</h2>
             {isEditing ? (
               <div className="flex flex-col gap-2 mt-3 animate-fadeIn">
-                <div className="flex gap-2">
-                  <input className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 px-3 py-2 rounded-xl text-sm font-bold w-24 outline-none focus:border-emerald-400 text-[var(--text-primary)] transition-colors" value={editData.pos} onChange={e => setEditData({...editData, pos: e.target.value})} placeholder="詞性" />
-                  <input className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 px-3 py-2 rounded-xl text-sm font-bold flex-1 outline-none focus:border-emerald-400 text-[var(--text-primary)] transition-colors" value={editData.meaning} onChange={e => setEditData({...editData, meaning: e.target.value})} placeholder="中文解釋" />
-                </div>
+                {editMeanings.map((m, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <input className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 px-3 py-2 rounded-xl text-sm font-bold w-24 outline-none focus:border-emerald-400 text-[var(--text-primary)] transition-colors" value={m.pos} onChange={e => { const newM = [...editMeanings]; newM[idx].pos = e.target.value; setEditMeanings(newM); }} placeholder="詞性" />
+                    <input className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 px-3 py-2 rounded-xl text-sm font-bold flex-1 outline-none focus:border-emerald-400 text-[var(--text-primary)] transition-colors" value={m.meaning} onChange={e => { const newM = [...editMeanings]; newM[idx].meaning = e.target.value; setEditMeanings(newM); }} placeholder="中文解釋" />
+                    {editMeanings.length > 1 && (
+                      <button onClick={() => setEditMeanings(editMeanings.filter((_, i) => i !== idx))} className="p-2 text-rose-400 hover:text-rose-500 transition-colors"><Trash2 size={16}/></button>
+                    )}
+                  </div>
+                ))}
+                <button onClick={() => setEditMeanings([...editMeanings, { pos: 'n.', meaning: '' }])} className="text-emerald-500 hover:bg-emerald-50 dark:hover:bg-white/5 text-[12px] font-bold self-start px-3 py-1.5 rounded-lg mt-1 transition-colors">+ 新增其他詞性解釋</button>
+
                 <div className="flex gap-2 mt-1">
-                  <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black transition-colors active:scale-95">取消</button>
+                  <button onClick={() => { setIsEditing(false); setEditMeanings(getMeanings(word)); }} className="px-4 py-2 bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black transition-colors active:scale-95">取消</button>
                   <button onClick={() => {
-                    updateWord(word.id, { meaning: editData.meaning, partOfSpeech: editData.pos, pos: editData.pos });
+                    const cleanMeanings = editMeanings.filter(m => m.meaning.trim() !== '');
+                    if(cleanMeanings.length === 0) return alert('請至少保留一個解釋');
+                    updateWord(word.id, { meanings: cleanMeanings });
                     triggerNotification('修改成功', '單字資訊已更新');
                     setIsEditing(false);
                   }} className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md active:scale-95 transition-all">儲存變更</button>
@@ -218,19 +318,25 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[12px] font-black text-slate-500 uppercase">{word.partOfSpeech || word.pos}</span>
-                  <span className="text-slate-400 text-[12px] font-bold">Level {word.level || '1'}</span>
-                  <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'US'); }} className="ml-2 px-2.5 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg text-[11px] font-black hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇺🇸 US</button>
-                  <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'UK'); }} className="px-2.5 py-1 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-lg text-[11px] font-black hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95">🇬🇧 UK</button>
+                <div className="flex items-center gap-2.5 mt-2 flex-wrap">
+                  <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[12px] font-black text-slate-500 border border-slate-200/50 dark:border-white/5 shadow-sm">Level {word.level || '1'}</span>
+                  
+                  {/* 發音按鈕優化：加入小喇叭與 Hover 浮動效果 */}
+                  <div className="h-4 w-[1px] bg-slate-200 dark:bg-white/10 mx-1"></div>
+                  <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'US'); }} className="group px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl text-[12px] font-black hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:-translate-y-0.5 transition-all shadow-sm flex items-center gap-1.5 active:scale-95 border border-blue-100/50 dark:border-blue-500/20">
+                    <Volume2 size={14} className="group-hover:scale-110 transition-transform"/> 🇺🇸 US
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, 'UK'); }} className="group px-3 py-1.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl text-[12px] font-black hover:bg-rose-100 dark:hover:bg-rose-500/20 hover:-translate-y-0.5 transition-all shadow-sm flex items-center gap-1.5 active:scale-95 border border-rose-100/50 dark:border-rose-500/20">
+                    <Volume2 size={14} className="group-hover:scale-110 transition-transform"/> 🇬🇧 UK
+                  </button>
                   <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, accent || 'US', 0.4); }} className="px-2.5 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg text-[11px] font-black hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-all shadow-sm flex items-center gap-1 active:scale-95" title="慢速發音">🐢 慢速</button>
+                  
                   {canEdit && (
-                    <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditData({ meaning: word?.meaning || word?.chinese || '', pos: word?.partOfSpeech || word?.pos || 'n.' }); }} className="ml-1 p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-all active:scale-90" title="編輯單字">
+                    <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); setEditMeanings(getMeanings(word)); }} className="ml-1 p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-all active:scale-90" title="編輯單字">
                       <PenTool size={14} />
                     </button>
                   )}
                 </div>
-                <p className="text-[20px] font-bold text-slate-600 dark:text-slate-300 mt-2">{word.meaning || word.chinese}</p>
               </>
             )}
           </div>
@@ -243,14 +349,14 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
                   if (onSave) onSave();
                   addWords([word], 'Personal', false);
                 }}
-                className={`p-2.5 md:p-3 rounded-full transition-all active:scale-90 shadow-sm flex items-center justify-center ${isSaved ? 'bg-rose-500 text-white shadow-rose-500/30' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-100'}`}
+                className={`p-3 md:p-4 rounded-full transition-all duration-300 active:scale-90 shadow-sm flex items-center justify-center ${isSaved ? 'bg-rose-500 text-white shadow-rose-500/30 scale-105' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-100'}`}
                 title="加入個人收藏"
               >
-                <Heart size={24} className={isSaved ? 'fill-current animate-heart-burst' : ''} />
+                <Heart size={26} className={isSaved ? 'fill-current animate-heart-burst' : ''} />
               </button>
             )}
-            <button onClick={handleClose} className="p-2.5 md:p-3 bg-slate-100 dark:bg-white/5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all active:scale-90 flex items-center justify-center touch-manipulation shrink-0" title="關閉視窗">
-              <X size={24} />
+            <button onClick={handleClose} className="p-3 md:p-4 bg-slate-200/80 dark:bg-white/20 rounded-full text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-emerald-400 transition-all active:scale-90 flex items-center justify-center touch-manipulation shrink-0 hover:bg-slate-300 dark:hover:bg-white/30 shadow-md border border-slate-300 dark:border-white/30 backdrop-blur-md" title="關閉視窗">
+              <X size={28} strokeWidth={2.5} />
             </button>
           </div>
         </div>
@@ -258,7 +364,7 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
         <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-[calc(3rem+env(safe-area-inset-bottom))] space-y-8 custom-scrollbar">
           {/* 1. 視覺化拆解圖 (有解析時才顯示) */}
           {analysis && !analysis.startsWith('ERROR:') && (
-            <div className="p-8 bg-gradient-to-br from-slate-50 to-white dark:from-white/5 dark:to-transparent rounded-[40px] border border-slate-100 dark:border-white/5 relative overflow-hidden group">
+            <div className="p-6 md:p-8 bg-gradient-to-br from-slate-50 to-white dark:from-white/5 dark:to-transparent rounded-[32px] md:rounded-[40px] border border-slate-100 dark:border-white/5 relative overflow-hidden group shadow-sm">
               <div className="relative z-10 flex flex-wrap items-center justify-center gap-3 md:gap-6">
                 {breakdown ? breakdown.map((p, i) => (
                   <div key={i} className="flex items-center gap-3 group/part">
@@ -285,9 +391,63 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
             </div>
           )}
 
-          {/* 2. AI 詳細解析 */}
-          <div className="grid md:grid-cols-[1fr_280px] gap-8">
+          {/* 雙欄核心排版 7:3 */}
+          <div className="grid md:grid-cols-[1fr_320px] gap-8 items-start">
+            
+            {/* 左側：主學習區 */}
             <div className="space-y-6">
+              
+              {/* 詞性與解釋渲染區 (從頂部移下來) */}
+              {!isEditing && (
+                <div className="space-y-5">
+                  {getMeanings(word).map((m, i) => (
+                    <div key={i} className="bg-slate-50/50 dark:bg-white/5 p-5 md:p-6 rounded-[28px] border border-slate-100/80 dark:border-white/5 transition-all hover:shadow-md hover:bg-white dark:hover:bg-white/10 group">
+                      <div className="flex items-start gap-4">
+                        <span className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-xl font-black text-sm uppercase tracking-widest mt-0.5 shadow-sm">{m.pos}</span>
+                        <div className="space-y-3">
+                          <h3 className="text-[22px] md:text-[26px] font-bold text-slate-800 dark:text-white leading-snug">{m.meaning}</h3>
+                          
+                          {/* 🚀 動態 AI 例句區塊 */}
+                          {m.example ? (
+                            <div className="pl-4 border-l-2 border-emerald-200 dark:border-emerald-500/30 space-y-1.5 mt-4 opacity-90 hover:opacity-100 transition-opacity relative group/example pr-8">
+                              <p className="text-[15.5px] font-bold text-slate-700 dark:text-slate-300 font-serif italic leading-relaxed" dangerouslySetInnerHTML={{ __html: `"${m.example}"` }}></p>
+                              <p className="text-[13px] font-bold text-slate-500 dark:text-slate-400" dangerouslySetInnerHTML={{ __html: m.exampleChinese }}></p>
+                              {m.exampleAuthor && (
+                                <div className="text-[10px] font-bold text-emerald-600/70 dark:text-emerald-400/70 mt-1.5 flex items-center gap-1">
+                                  <Award size={10} className="text-amber-500" />
+                                  例句貢獻者：{m.exampleAuthor}
+                                </div>
+                              )}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); playVoice(m.example.replace(/<\/?mark>/g, ''), accent); }}
+                                className="absolute right-0 top-1 p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl transition-all active:scale-90"
+                                title="朗讀例句"
+                              >
+                                <Volume2 size={16} />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleGenerateExample(i, m);
+                              }}
+                              disabled={generatingExampleIdx === i}
+                              className="mt-3 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg text-[12px] font-black hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors disabled:opacity-50 w-fit active:scale-95 border border-emerald-100 dark:border-emerald-500/20 shadow-sm"
+                            >
+                              {generatingExampleIdx === i ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                              {generatingExampleIdx === i ? '生成中...' : '✨ 生成 AI 專屬例句'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* AI 語源解析區 */}
               <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2"><Sparkles size={20} className="text-yellow-500" /> 深度語源解析</span>
                 {analysis && !analysis.startsWith('ERROR:') && (
@@ -296,8 +456,14 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
                   </button>
                 )}
               </h3>
+              {word.aiAnalysisAuthor && (
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 -mt-4 mb-3 pl-1">
+                   <Award size={12} className="text-amber-500" /> 
+                   解析貢獻者：<span className="text-amber-600 dark:text-amber-400">{word.aiAnalysisAuthor}</span>
+                </div>
+              )}
               {analysis && !analysis.startsWith('ERROR:') ? (
-                <div className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300 highlighter">
+                <div className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-300 highlighter bg-purple-50/30 dark:bg-purple-900/5 p-6 md:p-8 rounded-[32px] border border-purple-100/50 dark:border-purple-500/10">
                   {cleanAnalysis.split(/(?=###)/g).map((sec, idx) => {
                     if (sec.trim().startsWith('###') && sec.includes('大腦記憶法')) {
                       return (
@@ -335,45 +501,54 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
                   <p className="text-purple-600 dark:text-purple-400 font-bold animate-pulse">正在為您編寫專屬大腦記憶法與解析...</p>
                 </div>
               ) : (
-                <div className="p-10 border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[32px] text-center space-y-4">
-                  <div className="w-16 h-16 bg-purple-100 dark:bg-purple-500/10 rounded-full flex items-center justify-center mx-auto text-purple-600">
-                    <Brain size={32} />
+                /* 優化：未解析時的橫幅 Banner */
+                <div className="flex flex-col sm:flex-row items-center justify-between p-5 bg-purple-50/80 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-500/30 rounded-[28px] gap-4 shadow-sm group hover:shadow-md transition-all">
+                  <div className="flex items-center gap-4 text-left w-full sm:w-auto">
+                    <div className="w-12 h-12 bg-white dark:bg-black/20 rounded-2xl flex items-center justify-center text-purple-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+                      <Brain size={24} />
+                    </div>
+                    <div>
+                      <p className="text-[15px] font-black text-purple-900 dark:text-purple-200">想知道這個字是怎麼來的嗎？</p>
+                      <p className="text-[12px] font-bold text-purple-600/70 dark:text-purple-400/70">解鎖字根字首與專屬諧音記憶法</p>
+                    </div>
                   </div>
-                  <p className="text-slate-400 font-bold">目前無解析資料，準備好來一場語源之旅嗎？</p>
-                  <button onClick={() => handleAiAnalyze(word.id, word.word)} className="mt-2 px-8 py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-[24px] font-black shadow-lg shadow-purple-500/30 active:scale-95 transition-all">✨ 點擊生成詳細解析</button>
+                  <button onClick={() => handleAiAnalyze(word.id, word.word)} className="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white rounded-[18px] font-black shadow-lg shadow-purple-500/30 active:scale-95 transition-all whitespace-nowrap text-[14px]">✨ 一鍵生成</button>
                 </div>
               )}
             </div>
 
-            {/* Sidebar Stats & Actions */}
-            <div className="space-y-4">
-              <div className="p-6 bg-emerald-50/50 dark:bg-emerald-500/5 rounded-3xl border border-emerald-100/50 dark:border-emerald-500/10">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-black text-[12px] uppercase mb-4">
-                  <Zap size={14} /> 學習數據
+            {/* 右側：個人管理區 Sidebar (沿用淡薄荷綠設計) */}
+            <div className="bg-emerald-50/50 dark:bg-emerald-500/5 rounded-[32px] border border-emerald-100/80 dark:border-emerald-500/10 p-5 md:p-6 flex flex-col gap-6 sticky top-8 shadow-sm">
+              
+              {/* Spaced Repetition (學習回饋出口) */}
+              <div>
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-black text-[13px] uppercase mb-4 tracking-widest">
+                  <Trophy size={16} /> 學習回饋
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <span className="block text-[11px] text-slate-400 font-bold mb-1">熟練度標記</span>
-                    <div className="flex gap-1.5">
-                      {[1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className={`h-2.5 rounded-full transition-all duration-700 ${i <= (word.repetitions || 0) ? 'w-4 bg-emerald-500' : 'w-2 bg-slate-200 dark:bg-white/10'}`} />
-                      ))}
-                    </div>
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button onClick={() => handleToggleLearned(true)} className={`py-4 rounded-[20px] font-black text-[13px] flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm border ${word.learned ? 'bg-emerald-500 text-white border-emerald-500 shadow-emerald-500/30' : 'bg-white/60 dark:bg-black/20 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600'}`}>
+                    <CheckCircle2 size={24} className={word.learned ? 'text-white' : ''} />
+                    已學
+                  </button>
+                  <button onClick={() => handleToggleLearned(false)} className={`py-4 rounded-[20px] font-black text-[13px] flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm border ${word.learned === false || word.learned === undefined ? 'bg-slate-500 text-white border-slate-500 shadow-slate-500/30' : 'bg-white/60 dark:bg-black/20 text-slate-500 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-700'}`}>
+                    <BookOpen size={24} className={word.learned === false || word.learned === undefined ? 'text-white' : ''} />
+                    未學
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  const currentNotes = word.notes || '';
-                  const updatedNotes = currentNotes ? `${currentNotes}\n\n【深度解析】\n${analysis}` : analysis;
-                  updateWord(word.id, { notes: updatedNotes });
-                  triggerNotification('筆記同步', '已將完整解析存入單字筆記');
-                }}
-                disabled={!analysis || analysis.startsWith('ERROR:')}
-                className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[24px] font-black text-[14px] shadow-xl active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <Plus size={18} /> 同步全段筆記
-              </button>
+
+              {/* Personal Notes (無邊界文字輸入框) */}
+              <div className="flex flex-col flex-1">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-black text-[13px] uppercase mb-3 tracking-widest">
+                  <PenTool size={16} /> 專屬筆記
+                </div>
+                <textarea
+                  defaultValue={word.notes || ''}
+                  onBlur={(e) => { if(e.target.value !== word.notes) { updateWord(word.id, { notes: e.target.value }); triggerNotification('筆記已儲存', '自動同步成功'); } }}
+                  placeholder="寫下你的諧音聯想、錯誤訂正或延伸筆記..."
+                  className="w-full min-h-[160px] bg-white/60 dark:bg-black/20 border border-emerald-200/50 dark:border-emerald-500/20 rounded-[20px] p-4 text-[14px] font-bold text-slate-700 dark:text-slate-300 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all resize-none shadow-inner placeholder:text-slate-400/60 leading-relaxed"
+                ></textarea>
+              </div>
             </div>
           </div>
 
@@ -399,6 +574,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState(''); // 新增防抖搜尋狀態
   const [filterPos, setFilterPos] = useState('all');
+  const [filterLearned, setFilterLearned] = useState('all'); // 新增：已學/未學篩選狀態
   const [isSyncing, setIsSyncing] = useState(false);
   const [userWords, setUserWords] = useState([]); // 個人學習進度
   const [currentSet, setCurrentSet] = useState('6000_words'); // 目前選擇的單字庫來源
@@ -510,7 +686,13 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
 
   // 🚀 Firestore 實時監聽：個人學習進度 (SM-2 狀態)
   useEffect(() => {
-    if (!db || !user?.uid) return;
+    if (!user?.uid) {
+      // 🚀 關鍵修復：訪客模式時，載入本機進度
+      const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
+      setUserWords(localData);
+      return;
+    }
+    if (!db) return;
 
     // 新架構：個人學習進度/錯題本
     const q = query(collection(db, 'Users', user.uid, 'PersonalVocab'));
@@ -569,8 +751,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       }
       vocabRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab');
     } else {
-      // 🌍 6000 核心單字庫 (獨立拆分至 Global)
-      vocabRef = collection(db, 'Global', 'Vocab', '6000Words');
+      // 🌍 6000 核心單字庫 (改存放於 Schools/taiwan/FreeVocab)
+      vocabRef = collection(db, 'Schools', 'taiwan', 'FreeVocab');
     }
 
     // 🚀 Firebase 雲端原生搜尋：利用 Document ID (__name__) 達成完美的不分大小寫搜尋
@@ -622,7 +804,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       if (!schoolId || !gradeId) return;
       vocabRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab');
     } else {
-      vocabRef = collection(db, 'Global', 'Vocab', '6000Words');
+      vocabRef = collection(db, 'Schools', 'taiwan', 'FreeVocab');
     }
 
     const q = query(vocabRef, orderBy('__name__', 'asc'), startAfter(lastVisible), limit(30));
@@ -639,14 +821,44 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     }
   }, [lastVisible, debouncedSearch, currentSet, teacherGrade, teacherStage, logDebug, user?.uid]);
 
-  // 合併單字與個人進度 (確保未在當前分頁的個人單字也能被測驗與複習)
+  // 🚀 智慧合併單字與個人進度 (防止舊版個人資料覆蓋全域最新解析)
   const mergedWords = useMemo(() => {
     const progressMap = new Map(userWords.map(p => [String(p.word || '').toLowerCase(), p]));
     const merged = words.map(w => {
       const wordKey = String(w.word || '').toLowerCase();
       const progress = progressMap.get(wordKey);
       if (progress) progressMap.delete(wordKey); // 移除已匹配的
-      return progress ? { ...w, ...progress } : w;
+      
+      if (progress) {
+        const mergedObj = { ...w };
+        // 允許進度覆蓋的欄位 (SRS 與個人專屬筆記)
+        const overrideKeys = ['interval', 'easeFactor', 'repetitions', 'nextReview', 'lastResult', 'learned', 'notes', 'tags'];
+        overrideKeys.forEach(k => {
+          if (progress[k] !== undefined) mergedObj[k] = progress[k];
+        });
+
+        // 智慧合併 meanings：避免舊版 Personal 蓋掉新的 Global 多詞性結構，但保留 Personal 生成的例句
+        if (!mergedObj.meanings || mergedObj.meanings.length === 0) {
+           if (progress.meanings && progress.meanings.length > 0) mergedObj.meanings = progress.meanings;
+        } else if (progress.meanings && progress.meanings.length > 0) {
+           mergedObj.meanings = mergedObj.meanings.map(gMeaning => {
+              const pMeaning = progress.meanings.find(pm => pm.pos === gMeaning.pos && pm.meaning === gMeaning.meaning);
+              if (pMeaning && pMeaning.example && !gMeaning.example) {
+                 return { ...gMeaning, example: pMeaning.example, exampleChinese: pMeaning.exampleChinese, exampleAuthor: pMeaning.exampleAuthor };
+              }
+              return gMeaning;
+           });
+        }
+
+        // 智慧合併 aiAnalysis：確保不被舊版的空白或錯誤解析蓋掉
+        if (progress.aiAnalysis && !progress.aiAnalysis.startsWith('ERROR:') && !mergedObj.aiAnalysis) {
+           mergedObj.aiAnalysis = progress.aiAnalysis;
+           mergedObj.aiAnalysisAuthor = progress.aiAnalysisAuthor;
+        }
+        
+        return mergedObj;
+      }
+      return w;
     });
     // 加上剩下那些「沒有在當前 30 筆清單中，但使用者有背過」的單字
     const remainingUserWords = Array.from(progressMap.values());
@@ -701,26 +913,50 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       const allData = results.flat();
 
       if (allData.length > 0 && isAdmin) {
-        const batch = writeBatch(db);
-        allData.forEach((item, i) => {
-          const word = String(item['單字'] || item['word'] || '').trim();
-          if (!word) return;
-          // 預設將 GAS 的 6000 單字同步至 Global 節點
-          const ref = doc(db, 'Global', 'Vocab', '6000Words', word.toLowerCase());
-          batch.set(ref, {
-            word: word,
-            meaning: String(item['中文'] || item['chinese'] || '').trim(),
-            chinese: String(item['中文'] || item['chinese'] || '').trim(),
-            pos: String(item['屬性'] || item['pos'] || 'n.').trim(),
-            level: String(item['級別'] || item['level'] || 1),
-            type: '內建',
-            shared: true,
-            serialNumber: item['流水號'] || item['編號'] || Date.now() + i,
-            date: String(item['日期'] || item['date'] || new Date().toLocaleDateString()),
-            updatedAt: serverTimestamp()
-          }, { merge: true });
-        });
-        await batch.commit();
+        // 🚀 分批寫入，突破 Firebase 每次 500 筆的上限限制
+        const chunks = [];
+        for (let i = 0; i < allData.length; i += 400) {
+          chunks.push(allData.slice(i, i + 400));
+        }
+
+        const grouped = {};
+        for (const chunk of chunks) {
+          chunk.forEach((item, i) => {
+            const wordVal = String(item['單字'] || item['word'] || '').trim();
+            if (!wordVal) return;
+            const lower = wordVal.toLowerCase();
+            if (!grouped[lower]) {
+              grouped[lower] = {
+                word: wordVal, level: Number(item['級別'] || item['level']) || 1, type: '官方內建',
+                shared: true, serialNumber: Number(item['流水號'] || item['編號']) || Date.now() + i, meanings: []
+              };
+            }
+            grouped[lower].meanings.push({
+              pos: String(item['屬性'] || item['pos'] || 'n.').trim(),
+              meaning: String(item['中文'] || item['chinese'] || '').trim()
+            });
+          });
+        }
+
+        const finalData = Object.values(grouped);
+        const finalChunks = [];
+        for (let i = 0; i < finalData.length; i += 400) finalChunks.push(finalData.slice(i, i + 400));
+
+        for (const fChunk of finalChunks) {
+          const batch = writeBatch(db);
+          fChunk.forEach(wObj => {
+             const safeDocId = String(wObj.word).toLowerCase().replace(/\//g, '_');
+             const ref = doc(db, 'Schools', 'taiwan', 'FreeVocab', safeDocId);
+             const uniqueMeanings = []; const seen = new Set();
+             wObj.meanings.forEach(m => { const key = `${m.pos}-${m.meaning}`; if(!seen.has(key)) { seen.add(key); uniqueMeanings.push(m); } });
+             batch.set(ref, {
+                word: wObj.word, level: wObj.level, type: wObj.type, shared: wObj.shared,
+                serialNumber: wObj.serialNumber, meanings: uniqueMeanings, updatedAt: serverTimestamp()
+             }, { merge: true });
+          });
+          await batch.commit();
+        }
+        
         logDebug('SUCCESS', `已從 GAS 同步 ${allData.length} 筆單字至 vocab 庫`);
         if (showToast) alert(`同步成功！已更新 ${allData.length} 個單字`);
       }
@@ -741,27 +977,57 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     const wordObj = mergedWords.find(w => w.id === id);
     if (!wordObj) return;
 
-    if (isGuest) {
-      const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
-      const index = localData.findIndex(w => w.id === id || w.word.toLowerCase() === wordObj.word.toLowerCase());
-      if (index !== -1) {
-        localData[index] = { ...localData[index], ...updates, updatedAt: Date.now() };
-        localStorage.setItem('gsat_local_vocab', JSON.stringify(localData));
-        if (currentSet === 'Personal') setWords([...localData]);
+    // 🚀 智慧分流：區分「SRS 個人進度」與「全域內容 (共編)」
+    const isSrsUpdate = 'interval' in updates || 'notes' in updates || 'repetitions' in updates || 'easeFactor' in updates || 'nextReview' in updates || 'lastResult' in updates || 'learned' in updates;
+    const isGlobalUpdate = currentSet !== 'Personal' && !isSrsUpdate;
+
+    // 🚀 終極安全防護：無論單字來源，一律強制轉小寫並把斜線替換為底線，徹底解決 a/an 崩潰問題
+    const safeId = String(wordObj.word).toLowerCase().replace(/\//g, '_'); 
+
+    if (isGlobalUpdate) {
+      // 🌍 全域更新：所有使用者(含訪客)的 AI 解析、例句、詞性解釋，直接寫入公用資料庫
+      let ref;
+      if (currentSet === 'Teacher Picks') {
+        ref = doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', safeId);
+      } else if (currentSet === 'school_vocab') {
+        ref = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', safeId);
+      } else {
+        ref = doc(db, 'Schools', 'taiwan', 'FreeVocab', safeId);
       }
-      return;
+
+      await setDoc(ref, {
+        ...updates,
+        word: wordObj.word,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      logDebug('INFO', '已貢獻全域單字內容', { word: wordObj.word });
+    } else {
+      // 👤 個人更新：學習進度、忘記/秒答、專屬筆記
+      if (isGuest) {
+        const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
+        const index = localData.findIndex(w => String(w.word).toLowerCase() === String(wordObj.word).toLowerCase());
+        if (index !== -1) {
+          localData[index] = { ...localData[index], ...updates, updatedAt: Date.now() };
+        } else {
+          localData.push({ ...wordObj, ...updates, id: 'local_' + Date.now() + Math.random(), updatedAt: Date.now(), source: 'Personal' });
+        }
+        localStorage.setItem('gsat_local_vocab', JSON.stringify(localData));
+        setUserWords([...localData]); 
+        if (currentSet === 'Personal') setWords([...localData]);
+        return;
+      }
+
+      const ref = doc(db, 'Users', user.uid, 'PersonalVocab', safeId);
+      await setDoc(ref, {
+        ...updates,
+        word: wordObj.word,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      logDebug('INFO', '已更新個人進度/筆記', { word: wordObj.word });
     }
-
-    const ref = doc(db, 'Users', user.uid, 'PersonalVocab', wordObj.word.toLowerCase());
-    await setDoc(ref, {
-      ...updates,
-      word: wordObj.word,
-      updatedAt: serverTimestamp()
-    }, { merge: true });
-
-    logDebug('INFO', '已更新單字進度', { word: wordObj.word });
-  }, [user?.uid, mergedWords, logDebug]);
-
+  }, [user?.uid, mergedWords, logDebug, currentSet, schoolId, gradeId, teacherGrade, teacherStage]);
   const deleteWord = useCallback(async (id) => {
     if (!user?.uid || !isAdmin) return;
     try {
@@ -780,16 +1046,17 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           alert("您只能刪除「個人收藏」中的單字喔！");
           return;
         }
-    
-    if ((currentSet === 'Teacher Picks' || currentSet === 'school_vocab') && !schoolId) return;
 
+        if ((currentSet === 'Teacher Picks' || currentSet === 'school_vocab') && !schoolId) return;
+
+        const safeId = String(id).replace(/\//g, '_');
         const ref = currentSet === 'Personal'
-          ? doc(db, 'Users', user.uid, 'PersonalVocab', wordObj.word.toLowerCase())
+          ? doc(db, 'Users', user.uid, 'PersonalVocab', safeId)
           : currentSet === 'Teacher Picks'
-            ? doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', wordObj.word.toLowerCase())
+            ? doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', safeId)
             : currentSet === 'school_vocab'
-              ? doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', wordObj.word.toLowerCase())
-              : doc(db, 'Global', 'Vocab', '6000Words', wordObj.word.toLowerCase());
+              ? doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', safeId)
+              : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeId);
         await deleteDoc(ref);
         logDebug('SUCCESS', '已從雲端刪除單字', { word: wordObj.word, set: currentSet });
       }
@@ -823,47 +1090,65 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       return;
     }
 
-    if (isGuest) {
-      alert("訪客模式無法修改公共單字庫，請先登入喔！");
-      return;
-    }
-
     if (targetSet === 'Teacher Picks' && !schoolId) { triggerNotification('錯誤', '請先設定學校', 'error'); return; }
     if (targetSet === 'school_vocab' && (!schoolId || !gradeId)) { triggerNotification('錯誤', '請先設定學校與年級', 'error'); return; }
 
-    const batch = writeBatch(db);
-    newWords.forEach((w, i) => {
-      const wordVal = (w.word || '').trim();
+    // 🚀 群組化同一個單字，合併成陣列
+    const grouped = {};
+    newWords.forEach((w) => {
+      const wordVal = String(w.word || '').trim();
       if (!wordVal) return;
-
-      const ref = targetSet === 'Personal'
-        ? doc(db, 'Users', user.uid, 'PersonalVocab', wordVal.toLowerCase())
-        : targetSet === 'Teacher Picks'
-          ? doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', wordVal.toLowerCase())
-          : targetSet === 'school_vocab'
-            ? doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', wordVal.toLowerCase())
-            : doc(db, 'Global', 'Vocab', '6000Words', wordVal.toLowerCase());
-      const sn = Date.now() + i;
-
-      batch.set(ref, {
-        word: wordVal,
-        meaning: w.meaning || w.chinese || '',
-        chinese: w.meaning || w.chinese || '',
-        pos: w.partOfSpeech || w.pos || 'n.',
-        level: String(w.level || '1'),
-        type: targetSet === 'Personal' ? '個人' : (isAdmin ? (w.source || '教師') : '個人'),
-        shared: isAdmin && targetSet !== 'Personal',
-        serialNumber: sn,
-        tags: w.tags || [], // 確保寫入 tags 陣列
-        date: new Date().toLocaleDateString(),
-        userEmail: user.email || '',
-        createdAt: serverTimestamp()
-      }, { merge: true });
-
-      if (shouldPush && targetSet !== 'Personal') pushToGAS(w);
+      const lower = wordVal.toLowerCase();
+      if (!grouped[lower]) {
+        grouped[lower] = { ...w, word: wordVal, meanings: [], originalW: w };
+      }
+      if (w.meanings && Array.isArray(w.meanings)) grouped[lower].meanings.push(...w.meanings);
+      else if (w.meaning || w.chinese) grouped[lower].meanings.push({ pos: String(w.partOfSpeech || w.pos || 'n.').trim(), meaning: String(w.meaning || w.chinese || '').trim() });
     });
 
-    await batch.commit();
+    const finalData = Object.values(grouped);
+    // 🚀 大量上傳分批保護機制
+    const chunks = [];
+    for (let i = 0; i < finalData.length; i += 400) {
+      chunks.push(finalData.slice(i, i + 400));
+    }
+
+    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+      const chunk = chunks[chunkIdx];
+      const batch = writeBatch(db);
+      chunk.forEach((wObj, i) => {
+        const wordVal = wObj.word;
+        const safeDocId = String(wordVal).toLowerCase().replace(/\//g, '_'); // 防呆
+
+        const ref = targetSet === 'Personal'
+          ? doc(db, 'Users', user.uid, 'PersonalVocab', safeDocId)
+          : targetSet === 'Teacher Picks'
+            ? doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', safeDocId)
+            : targetSet === 'school_vocab'
+              ? doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', safeDocId)
+              : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeDocId);
+        const sn = Date.now() + (chunkIdx * 400) + i;
+
+        const uniqueMeanings = []; const seen = new Set();
+        wObj.meanings.forEach(m => { const key = `${m.pos}-${m.meaning}`; if(!seen.has(key)) { seen.add(key); uniqueMeanings.push(m); } });
+
+        batch.set(ref, {
+          word: wordVal,
+          level: Number(wObj.level) || 1,
+          type: targetSet === 'Personal' ? '個人' : (wObj.source || '社群貢獻'),
+          shared: targetSet !== 'Personal',
+          serialNumber: sn,
+          tags: wObj.tags || [],
+          meanings: uniqueMeanings,
+          userEmail: user.email || '',
+          updatedAt: serverTimestamp(),
+          createdAt: wObj.createdAt || serverTimestamp() // 保留舊有創建時間
+        }, { merge: true });
+
+        if (shouldPush && targetSet !== 'Personal') pushToGAS(wObj.originalW);
+      });
+      await batch.commit();
+    }
     logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至 ${targetSet}`);
   }, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet]);
 
@@ -967,6 +1252,19 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           100% { transform: scale(1); }
         }
         .animate-heart-burst { animation: heart-burst 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* 例句單字高亮標示共用樣式 */
+        mark {
+          background-color: rgba(16, 185, 129, 0.15);
+          color: inherit;
+          padding: 0 0.2em;
+          border-radius: 0.2em;
+          font-weight: 900;
+        }
+        .dark mark {
+          background-color: rgba(16, 185, 129, 0.25);
+          color: #34d399;
+        }
       `}</style>
       {/* Header */}
       <div className="flex justify-between items-center px-1 shrink-0">
@@ -997,17 +1295,17 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
 
       {/* Sub-tabs */}
       <div className="px-1 mb-2">
-        <div 
+        <div
           ref={scrollRefTabs}
           onMouseDown={e => onDragStart(e, scrollRefTabs)} onMouseLeave={() => setDragState({ ...dragState, isDragging: false })} onMouseUp={() => setDragState({ ...dragState, isDragging: false })} onMouseMove={onDragMove}
           className={`relative flex gap-2 overflow-x-auto scrollbar-hide bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-[24px] backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-inner select-none ${dragState.isDragging && dragState.ref === scrollRefTabs ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
           {/* 魔術背景膠囊 */}
-          <div 
+          <div
             className="absolute top-1.5 bottom-1.5 bg-white dark:bg-slate-700 rounded-[20px] shadow-sm border border-slate-100 dark:border-slate-600 transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
-            style={{ 
-              width: `calc((100% - 12px) / ${SUB_TABS.length})`, 
-              transform: `translateX(calc(${SUB_TABS.findIndex(t => t.id === subTab)} * 100%))` 
+            style={{
+              width: `calc((100% - 12px) / ${SUB_TABS.length})`,
+              transform: `translateX(calc(${SUB_TABS.findIndex(t => t.id === subTab)} * 100%))`
             }}
           />
           {SUB_TABS.map(tab => (
@@ -1056,6 +1354,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
             setAnalyzingIds={setAnalyzingIds}
             filterPos={filterPos}
             setFilterPos={setFilterPos}
+            filterLearned={filterLearned}
+            setFilterLearned={setFilterLearned}
             triggerNotification={triggerNotification}
             playVoice={playVoice}
             accent={accent}
@@ -1065,6 +1365,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
             setTeacherGrade={setTeacherGrade}
             teacherStage={teacherStage}
             setTeacherStage={setTeacherStage}
+            user={user}
           />
         )}
         {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
@@ -1140,14 +1441,15 @@ const WordBank = ({
   currentSet, setCurrentSet, isAdmin, handleExportIG,
   detailedWordId, setDetailedWordId, analyzingIds, aiAnalysisData,
   setAiAnalysisData, setAnalyzingIds, filterPos, setFilterPos,
+  filterLearned, setFilterLearned,
   triggerNotification, playVoice, accent, setAccent, dbError,
   teacherGrade, setTeacherGrade,
-  teacherStage, setTeacherStage
+  teacherStage, setTeacherStage,
+  user
 }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [newWord, setNewWord] = useState('');
-  const [newMeaning, setNewMeaning] = useState('');
-  const [newPos, setNewPos] = useState('n.');
+  const [newMeanings, setNewMeanings] = useState([{ pos: 'n.', meaning: '' }]);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [newTags, setNewTags] = useState(''); // 新增標籤輸入狀態
 
@@ -1181,15 +1483,26 @@ const WordBank = ({
 
   const filtered = useMemo(() => {
     let list = words;
-    if (filterPos !== 'all') list = list.filter(w => (w.partOfSpeech || w.pos) === filterPos);
+    if (filterPos !== 'all') list = list.filter(w => getMeanings(w).some(m => m.pos === filterPos));
     if (filterTag !== 'all') list = list.filter(w => w.tags && w.tags.includes(filterTag));
+    
+    // 🚀 新增：已學/未學篩選邏輯
+    if (filterLearned === 'learned') {
+      list = list.filter(w => w.learned === true);
+    } else if (filterLearned === 'unlearned') {
+      list = list.filter(w => w.learned !== true); // 包含 false 或 undefined
+    }
+
     return list;
-  }, [words, filterPos, filterTag]);
+  }, [words, filterPos, filterTag, filterLearned]);
 
   const handleAiAnalyze = async (id, word) => {
     setAnalyzingIds(prev => new Set(prev).add(id));
     try {
-      const prompt = `你是一位專業的英文語源學老師與記憶專家。請針對單字 "${word}" 提供結構化解析。
+      const targetWord = mergedWords.find(w => w.id === id);
+      const meaningsStr = targetWord ? getMeanings(targetWord).map(m => `(${m.pos}) ${m.meaning}`).join(', ') : '';
+      
+      const prompt = `你是一位專業的英文語源學老師與記憶專家。請針對單字 "${word}" ${meaningsStr ? `(包含常見意思：${meaningsStr}) ` : ''}提供結構化解析。
 請務必遵守以下規範：
 1. **單字拆解**：請在開頭以 Prefix, Root, Suffix 格式拆解單字。
 2. **一字多義與多詞性**：若該單字有多種詞性或截然不同的重要意思，請務必詳細列出。
@@ -1213,8 +1526,10 @@ const WordBank = ({
       if (!response) throw new Error('API 回傳為空');
       setAiAnalysisData(prev => ({ ...prev, [id]: response }));
 
-      // 自動同步到單字筆記 (Firestore)
-      await updateWord(id, { notes: response });
+      // 自動同步到專屬解析欄位 (Firestore)
+      await updateWord(id, { 
+        aiAnalysis: response, aiAnalysisAuthor: user?.displayName || '熱心同學', aiAnalysisAuthorId: user?.uid || 'guest'
+      });
     } catch (e) {
       setAiAnalysisData(prev => ({ ...prev, [id]: 'ERROR:AI 解析失敗，可能是 API 繁忙或連線異常。' }));
       triggerNotification('解析失敗', 'AI 伺服器連線失敗', 'error');
@@ -1232,17 +1547,18 @@ const WordBank = ({
 
     setIsAutoFilling(true);
     try {
-      const prompt = `你是一個專業的高中英文老師。請提供單字 "${newWord.trim()}" 的最常見中文解釋與詞性。
-請嚴格以 JSON 格式回傳，不要有任何 Markdown 或其他文字：
-{"meaning": "繁體中文解釋", "pos": "詞性縮寫(n./v./adj./adv./prep./conj./phr.)"}`;
+      const prompt = `你是一個專業的高中英文老師。請提供單字 "${newWord.trim()}" 的所有常見中文解釋與對應詞性。
+請嚴格以 JSON 陣列格式回傳，不要有任何 Markdown 或其他文字：
+[{"meaning": "繁體中文解釋", "pos": "詞性縮寫(n./v./adj./adv./prep./conj./phr.)"}]`;
 
       const response = await fetchAI(prompt);
       if (response) {
-        const match = response.match(/\{[\s\S]*\}/);
+        const match = response.match(/\[[\s\S]*\]/);
         if (match) {
           const parsed = JSON.parse(match[0]);
-          setNewMeaning(parsed.meaning || '');
-          setNewPos(parsed.pos || 'n.');
+          if (Array.isArray(parsed) && parsed.length > 0) {
+             setNewMeanings(parsed.map(p => ({ pos: p.pos || 'n.', meaning: p.meaning || '' })));
+          }
           triggerNotification('AI 填入成功', '已自動帶入解釋與詞性');
         } else {
           throw new Error('無法解析格式');
@@ -1259,16 +1575,17 @@ const WordBank = ({
   };
 
   const handleManualAdd = () => {
-    if (!newWord.trim() || !newMeaning.trim()) {
-      alert('請輸入單字與解釋');
+    const validMeanings = newMeanings.filter(m => m.meaning.trim() !== '');
+    if (!newWord.trim() || validMeanings.length === 0) {
+      alert('請輸入單字與至少一個解釋');
       return;
     }
     const tagsArray = newTags.split(/[,，\s]+/).filter(t => t.trim() !== ''); // 支援空格或逗號分隔
-    const wordObj = { word: newWord.trim(), meaning: newMeaning.trim(), partOfSpeech: newPos, level: 1, source: 'Personal', tags: tagsArray };
+    const wordObj = { word: newWord.trim(), meanings: validMeanings, level: 1, source: 'Personal', tags: tagsArray };
     const target = isAdmin ? currentSet : 'Personal';
     addWords([wordObj], target, false);
     if (!isAdmin && currentSet !== 'Personal') setCurrentSet('Personal');
-    setNewWord(''); setNewMeaning(''); setNewPos('n.'); setNewTags('');
+    setNewWord(''); setNewMeanings([{ pos: 'n.', meaning: '' }]); setNewTags('');
     setShowAdd(false);
   };
 
@@ -1310,7 +1627,7 @@ const WordBank = ({
     <div className="space-y-4">
       {/* 來源選擇與搜尋 */}
       <div className="flex flex-col gap-3">
-        <div 
+        <div
           ref={scrollRefSet}
           onMouseDown={onDragStart} onMouseLeave={() => setDragState(prev => ({ ...prev, isDragging: false }))} onMouseUp={() => setDragState(prev => ({ ...prev, isDragging: false }))} onMouseMove={onDragMove}
           className={`flex gap-2 overflow-x-auto scrollbar-hide pb-1 px-1 select-none ${dragState.isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
@@ -1416,43 +1733,58 @@ const WordBank = ({
                   {isAutoFilling ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} />} AI 填入
                 </button>
               </div>
-              <div className="w-full sm:w-[140px]">
-                <div className="relative h-full">
-                  <select value={newPos} onChange={e => setNewPos(e.target.value)} className="w-full h-full bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all appearance-none text-[var(--text-primary)]">
-                    <option value="n.">n. 名詞</option>
-                    <option value="v.">v. 動詞</option>
-                    <option value="adj.">adj. 形容詞</option>
-                    <option value="adv.">adv. 副詞</option>
-                    <option value="prep.">prep. 介系</option>
-                    <option value="conj.">conj. 連接</option>
-                    <option value="phr.">phr. 片語</option>
-                  </select>
-                  <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-              </div>
             </div>
 
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input type="text" placeholder="輸入中文解釋..." value={newMeaning} onChange={e => setNewMeaning(e.target.value)} className="flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
-                <input type="text" placeholder="自訂標籤 (用空格分隔，例: 段考 L1)" value={newTags} onChange={e => setNewTags(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleManualAdd()} className="flex-1 sm:max-w-[200px] bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[14px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
+              {newMeanings.map((m, idx) => (
+                <div key={idx} className="flex flex-col sm:flex-row gap-3 relative">
+                  <div className="w-full sm:w-[140px] shrink-0 relative">
+                    <select value={m.pos} onChange={e => { const arr = [...newMeanings]; arr[idx].pos = e.target.value; setNewMeanings(arr); }} className="w-full h-full bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all appearance-none text-[var(--text-primary)]">
+                      <option value="n.">n. 名詞</option><option value="v.">v. 動詞</option><option value="adj.">adj. 形容詞</option><option value="adv.">adv. 副詞</option><option value="prep.">prep. 介系</option><option value="conj.">conj. 連接</option><option value="phr.">phr. 片語</option>
+                    </select>
+                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                  <div className="flex-1 flex gap-2">
+                    <input type="text" placeholder="輸入中文解釋..." value={m.meaning} onChange={e => { const arr = [...newMeanings]; arr[idx].meaning = e.target.value; setNewMeanings(arr); }} className="flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
+                    {newMeanings.length > 1 && (
+                      <button onClick={() => setNewMeanings(newMeanings.filter((_, i) => i !== idx))} className="p-4 bg-red-50 text-red-500 rounded-[24px] hover:bg-red-100 transition-colors"><Trash2 size={18}/></button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div className="flex flex-col sm:flex-row gap-3 items-center">
+                <button onClick={() => setNewMeanings([...newMeanings, { pos: 'n.', meaning: '' }])} className="text-emerald-500 bg-emerald-50 dark:bg-white/5 hover:bg-emerald-100 font-bold text-sm self-start px-4 py-2 rounded-xl transition-colors">+ 新增其他詞性解釋</button>
+                <input type="text" placeholder="自訂標籤 (用空格分隔，例: 段考 L1)" value={newTags} onChange={e => setNewTags(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleManualAdd()} className="w-full sm:flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[14px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
               </div>
               <button onClick={handleManualAdd} className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[24px] font-black text-[16px] shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 whitespace-nowrap">
-                <Check size={20} /> 儲存至{isAdmin ? currentSet : '個人收藏'}
+                <Check size={20} /> 儲存至 {currentSet === 'Personal' ? '個人收藏' : '公用單字庫 (共編)'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 詞性過濾 */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide px-1 py-1">
-        {['all', 'n.', 'v.', 'adj.', 'adv.', 'prep.', 'conj.'].map(pos => (
-          <button key={pos} onClick={() => setFilterPos(pos)}
-            className={`px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-95 ${filterPos === pos ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/60 dark:border-white/10 text-slate-500 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-white/10 shadow-sm'}`}>
-            {pos === 'all' ? '全部詞性' : pos}
-          </button>
-        ))}
+      {/* 篩選標籤區塊 (詞性 + 學習狀態) */}
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-1 py-1">
+          {['all', 'n.', 'v.', 'adj.', 'adv.', 'prep.', 'conj.'].map(pos => (
+            <button key={pos} onClick={() => setFilterPos(pos)}
+              className={`px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-95 ${filterPos === pos ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/60 dark:border-white/10 text-slate-500 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-white/10 shadow-sm'}`}>
+              {pos === 'all' ? '全部詞性' : pos}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-1 pb-1">
+          {['all', 'unlearned', 'learned'].map(status => {
+            const labels = { all: '全部狀態', learned: '✅ 已學', unlearned: '📖 未學' };
+            return (
+              <button key={status} onClick={() => setFilterLearned(status)}
+                className={`px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-95 ${filterLearned === status ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/20' : 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border border-white/60 dark:border-white/10 text-slate-500 dark:text-gray-400 hover:bg-white/60 dark:hover:bg-white/10 shadow-sm'}`}>
+                {labels[status]}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* 批次管理工具列 */}
@@ -1501,6 +1833,7 @@ const WordBank = ({
           </div>
         ) : (
           filtered.map((w, idx) => {
+            const currentMeanings = getMeanings(w);
             return (
               <div
                 key={w.id}
@@ -1554,10 +1887,17 @@ const WordBank = ({
                     </div>
 
                     {/* 第二行：詞性 + 發音 */}
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none transition-all ${posColors[w.partOfSpeech || w.pos] || 'text-gray-500 bg-gray-500/10 border-gray-100'}`}>
-                        {w.partOfSpeech || w.pos}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* 🚀 新增：單字卡上的已學/未學狀態標示 */}
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none transition-all flex items-center gap-1 ${w.learned ? 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20' : 'text-rose-600 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-500/10 dark:border-rose-500/20'}`}>
+                        {w.learned ? <CheckCircle2 size={11} strokeWidth={2.5} /> : <BookOpen size={11} strokeWidth={2.5} />}
+                        {w.learned ? '已學' : '未學'}
                       </span>
+                      {currentMeanings.map((m, i) => (
+                        <span key={i} className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none transition-all ${posColors[m.pos] || 'text-gray-500 bg-gray-500/10 border-gray-100'}`}>
+                          {m.pos}
+                        </span>
+                      ))}
                       {w.tags && w.tags.map(t => (
                         <span key={t} className="text-[10px] font-black px-2 py-0.5 rounded-lg border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 leading-none">
                           #{t}
@@ -1581,7 +1921,7 @@ const WordBank = ({
 
                     {/* 第三行：中文意思 */}
                     <p className="text-[15px] font-bold leading-relaxed break-words whitespace-normal transition-all duration-500 text-slate-400 dark:text-slate-500 line-clamp-1">
-                      {w.meaning || w.chinese}
+                      {getPrimaryMeaning(w)}
                     </p>
                   </div>
                 </div>
@@ -1594,8 +1934,8 @@ const WordBank = ({
       {/* 詳情全屏視窗 */}
       {detailedWordId && (
         <WordDetailOverlay
-          word={filtered.find(w => w.id === detailedWordId) || words.find(w => w.id === detailedWordId)}
-          analysis={words.find(w => w.id === detailedWordId)?.notes || aiAnalysisData[detailedWordId]}
+          word={filtered.find(w => w.id === detailedWordId) || mergedWords.find(w => w.id === detailedWordId)}
+          analysis={filtered.find(w => w.id === detailedWordId)?.aiAnalysis || mergedWords.find(w => w.id === detailedWordId)?.aiAnalysis || aiAnalysisData[detailedWordId]}
           isAnalyzing={analyzingIds.has(detailedWordId)}
           handleAiAnalyze={handleAiAnalyze}
           currentSet={currentSet}
@@ -1608,6 +1948,7 @@ const WordBank = ({
           playVoice={playVoice}
           accent={accent}
           isAdmin={isAdmin}
+          user={user}
         />
       )}
     </div>
@@ -1701,6 +2042,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
   }
 
   const current = sessionWords[idx];
+  const currentMeanings = getMeanings(current);
 
   const handleRate = (quality) => {
     const updated = calculateNextReview(current, quality);
@@ -1846,7 +2188,11 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
             className="absolute inset-0 flex flex-col items-center justify-center p-10 rounded-[48px] bg-white/50 dark:bg-zinc-900/50 backdrop-blur-2xl backdrop-saturate-200 border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_12px_40px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_12px_40px_rgba(0,0,0,0.3)] overflow-hidden"
           >
             <span className="text-[42px] font-black text-slate-900 dark:text-white mb-4 text-center tracking-tight leading-tight pointer-events-none break-words whitespace-normal px-6 w-full">{current.word}</span>
-            {current.partOfSpeech && <span className="text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg mb-6 pointer-events-none">{current.partOfSpeech}</span>}
+            <div className="flex gap-2 flex-wrap justify-center pointer-events-none mb-6">
+              {currentMeanings.map((m, i) => (
+                <span key={i} className="text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg">{m.pos}</span>
+              ))}
+            </div>
             <p className="text-[13px] font-black text-slate-400 uppercase tracking-widest mt-4 flex items-center gap-2 pointer-events-none"><Sparkles size={14} /> 點擊翻面</p>
           </div>
 
@@ -1859,8 +2205,20 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
             {showAnswer && offsetX < -20 && <div className="absolute inset-0 bg-rose-400/20 flex items-center justify-start p-8 transition-opacity duration-300 pointer-events-none"><span className="text-6xl drop-shadow-lg">😵</span></div>}
 
             <div className="w-12 h-1 bg-emerald-200 dark:bg-emerald-500/30 rounded-full mb-6 pointer-events-none"></div>
-            <p className="text-[22px] font-black text-emerald-700 dark:text-emerald-400 mb-4 pointer-events-none text-center break-words whitespace-normal px-4">{current.meaning}</p>
-            {current.example && <p className="text-[14px] font-bold text-slate-500 dark:text-emerald-100/60 italic max-w-sm pointer-events-none text-center break-words whitespace-normal px-4">"{current.example}"</p>}
+            <div className="space-y-3 mb-4 pointer-events-none text-center px-4 max-h-[140px] overflow-y-auto custom-scrollbar">
+              {currentMeanings.map((m, i) => (
+                <div key={i} className="flex flex-col items-center">
+                  <span className="text-[11px] font-black text-emerald-600/60 dark:text-emerald-400/60 mb-0.5">{m.pos}</span>
+                  <p className="text-[20px] font-black text-emerald-700 dark:text-emerald-400 leading-snug break-words whitespace-normal">{m.meaning}</p>
+                  {m.example && (
+                    <div className="mt-1.5 space-y-0.5 w-full">
+                      <p className="text-[13px] font-bold text-slate-500 dark:text-emerald-100/70 italic break-words whitespace-normal" dangerouslySetInnerHTML={{ __html: `"${m.example}"` }}></p>
+                      <p className="text-[11px] font-bold text-slate-400 dark:text-emerald-200/50 break-words whitespace-normal" dangerouslySetInnerHTML={{ __html: m.exampleChinese }}></p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
 
             {/* 發音控制區 */}
             <div className="flex items-center gap-4 my-2 pointer-events-auto">
@@ -2003,8 +2361,9 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
     const shuffled = getWeightedShuffledWords(words);
     const qs = shuffled.slice(0, Math.min(quizCount, words.length)).map(w => {
       const wrongOptions = words.filter(o => o.id !== w.id).sort(() => Math.random() - 0.5).slice(0, 3);
-      const options = [...wrongOptions.map(o => o.meaning), w.meaning].sort(() => Math.random() - 0.5);
-      return { word: w, options, answer: w.meaning };
+      const answerText = getPrimaryMeaning(w);
+      const options = [...wrongOptions.map(o => getPrimaryMeaning(o)), answerText].sort(() => Math.random() - 0.5);
+      return { word: w, options, answer: answerText };
     });
     setQuestions(qs);
     setQIdx(0); setScore(0); setSelected(null); setShowResult(false); setQuizDone(false);
@@ -2133,7 +2492,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
         <p className="text-[14px] font-bold text-slate-400 mb-8">
           {pct >= 80 ? '太強了！繼續保持！' : pct >= 50 ? '還不錯，再接再厲！' : '多練習幾次就會進步的！'}
         </p>
-        
+
         {wrongWords.length > 0 && (
           <button onClick={() => {
             addWords(wrongWords, 'Personal', false);
@@ -2168,7 +2527,11 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
         </div>
         <div className="text-center py-6 sm:py-8 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[32px] sm:rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-5 sm:mb-6">
           <span className="text-[28px] sm:text-[36px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">{q.word.word}</span>
-          <p className="text-[12px] sm:text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg inline-block mt-2 sm:mt-3">{q.word.partOfSpeech}</p>
+          <div className="flex gap-2 justify-center mt-2 sm:mt-3">
+            {getMeanings(q.word).map((m, i) => (
+              <span key={i} className="text-[12px] sm:text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg inline-block">{m.pos}</span>
+            ))}
+          </div>
         </div>
         <div className="space-y-3">
           {q.options.map((opt, i) => {
@@ -2205,18 +2568,22 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
         </div>
         <div className="text-center py-6 sm:py-10 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[32px] sm:rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-5 sm:mb-6">
           <p className="text-[11px] sm:text-[12px] font-bold text-slate-400 mb-2 sm:mb-3 uppercase tracking-widest">請拼出以下中文的英文</p>
-          <span className="text-[24px] sm:text-[32px] font-black text-slate-900 dark:text-white px-4 block leading-tight">{q.word.meaning}</span>
-          {q.word.partOfSpeech && <p className="text-[12px] font-bold text-slate-400 mt-2">({q.word.partOfSpeech})</p>}
+          <span className="text-[24px] sm:text-[32px] font-black text-slate-900 dark:text-white px-4 block leading-tight">{getPrimaryMeaning(q.word)}</span>
+          <div className="flex gap-2 justify-center mt-2">
+            {getMeanings(q.word).map((m, i) => (
+              <span key={i} className="text-[12px] font-bold text-slate-400">({m.pos})</span>
+            ))}
+          </div>
         </div>
         <div className="space-y-3">
           <input ref={spellRef} autoFocus type="text" value={spellInput} onChange={e => setSpellInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (!showResult || spellFailed) && handleSpellSubmit()}
             disabled={showResult && !spellFailed}
             className={`w-full text-center text-[22px] sm:text-[24px] font-black py-4 sm:py-5 rounded-[20px] sm:rounded-[24px] border-2 outline-none transition-all duration-300 tracking-widest ${showResult && !spellFailed
-                ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]'
-                : spellFailed
-                  ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-400 text-rose-600 dark:text-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 placeholder:text-rose-300'
-                  : 'bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] focus:bg-white/60 dark:focus:bg-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
+              ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]'
+              : spellFailed
+                ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-400 text-rose-600 dark:text-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 placeholder:text-rose-300'
+                : 'bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] focus:bg-white/60 dark:focus:bg-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
               }`} placeholder={spellFailed ? "再試一次..." : "..."} />
           {spellFailed && (
             <div className="flex flex-col items-center gap-3 animate-slide-up-fade">
@@ -2276,11 +2643,12 @@ const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin }) => {
 
       // 2. 構建 Gemini Prompt
       const prompt = `你是一個專業的英文老師。請辨識這張圖片中的英文單字與中文解釋，並輸出為 JSON 陣列格式。
-                      結構如下：[{"word": "單字", "meaning": "中文", "partOfSpeech": "詞性(n./v./adj./adv./prep./conj.)", "example": "英文例句"}]
+                      結構如下：
+                      [{"word": "單字", "meanings": [{"pos": "詞性縮寫(n./v./adj./adv./prep./conj.)", "meaning": "中文解釋"}]}]
                       注意事項：
                       1. 只輸出 JSON 陣列，不要有其他文字。
                       2. 盡力確保拼寫正確。
-                      3. 詞性必須符合規範縮寫。`;
+                      3. 若同一個字有多個詞性與解釋，請合併在 meanings 陣列中。`;
 
       // 3. 調用內建 AI Proxy
       const text = await fetchAI(prompt, { image: { mimeType: file.type, data: base64Data } });
@@ -2374,7 +2742,8 @@ const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin }) => {
 
   const confirmImport = () => {
     if (!preview) return;
-    addWords(preview);
+    // 🚨 避免大量 Excel 匯入時癱瘓 GAS，強制關閉 shouldPush (第三個參數設為 false)
+    addWords(preview, isAdmin ? currentSet : 'Personal', false);
     setResult({ count: preview.length });
     setPreview(null);
   };

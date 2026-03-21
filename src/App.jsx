@@ -310,6 +310,17 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     }
   }, [appPhase]);
 
+  // ─── 智慧引導：未設定學籍者自動跳轉設定頁 ─────────────────────────────────
+  useEffect(() => {
+    if (appPhase === 'app' && user && (!schoolId || !gradeId)) {
+      const timer = setTimeout(() => {
+        navToSettings('academic');
+        triggerNotification('歡迎！', '請先選擇您的學校與年級，以啟用完整功能喔。');
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [appPhase, user, schoolId, gradeId]);
+
   // 全域自動置頂
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -638,13 +649,38 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
     }
   };
 
-  const handleImport206Template = async () => {
-    if (!classID || classID !== '206') {
-      triggerNotification('提示', '請先將班級代碼設定為 206');
-      return;
+  const handleImportTemplate = async (type) => {
+    let templateSource = [];
+    let successMessage = '';
+    
+    if (type === '206') {
+      if (!classID || classID !== '206') {
+        triggerNotification('提示', '請先將班級代碼設定為 206');
+        return;
+      }
+      templateSource = SCHEDULE_206_TEMPLATE;
+      successMessage = '內中 206 班課表已導入並同步至雲端！';
+    } else if (type === 'taiwan') {
+      if (classID) {
+        triggerNotification('提示', '若要導入個人範本，請先清空班級代碼（保留空白）');
+        return;
+      }
+      // 自訂的全台通用基礎課表
+      templateSource = [
+        { day: 1, course: '國語文', startTime: '08:10', endTime: '09:00' },
+        { day: 1, course: '英語文', startTime: '09:10', endTime: '10:00' },
+        { day: 1, course: '數學', startTime: '10:10', endTime: '11:00' },
+        { day: 2, course: '自然科學', startTime: '08:10', endTime: '09:00' },
+        { day: 2, course: '社會', startTime: '09:10', endTime: '10:00' },
+        { day: 3, course: '自主學習', startTime: '10:10', endTime: '11:00' },
+        { day: 4, course: '藝術與綜合', startTime: '13:10', endTime: '14:00' },
+        { day: 5, course: '健康與體育', startTime: '14:10', endTime: '15:00' }
+      ];
+      successMessage = '全台通用範本已成功導入您的個人課表！';
     }
+
     const transformed = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-    SCHEDULE_206_TEMPLATE.forEach((item, idx) => {
+    templateSource.forEach((item, idx) => {
       if (transformed[item.day] !== undefined) {
         transformed[item.day].push({
           id: Date.now() + idx, subject: item.course, teacher: item.teacher,
@@ -657,7 +693,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
       try {
         await saveToFirestore(transformed);
-        triggerNotification('導入成功', '內中 206 班課表已導入並同步至雲端！');
+        triggerNotification('導入成功', successMessage);
       } catch (err) {
         if (err.message === 'PERMISSION_DENIED_NOT_ADMIN') {
           triggerNotification('權限不足 ❌', '只有管理員可以修改班級雲端課表！');
@@ -1174,6 +1210,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
             {activeTab === 'help' && <TutorialTab onOpenFeedback={() => navTo('feedback')} campusName={campusName} />}
             {activeTab === 'settings' && (
               <SettingsTab
+                user={user}
                 isAdmin={isAdmin}
                 setIsAdmin={setIsAdmin}
                 triggerNotification={triggerNotification}
@@ -1191,7 +1228,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
                 classID={classID}
                 setClassID={setClassID}
                 setIsEditingSchedule={setIsEditingSchedule}
-                handleImport206Template={handleImport206Template}
+                handleImportTemplate={handleImportTemplate}
                 customCountdowns={customCountdowns}
                 setCustomCountdowns={setCustomCountdowns}
                 campusName={campusName}
@@ -1242,9 +1279,23 @@ export default function App() {
 
         const oldClass = userSnap.exists() ? userSnap.data().classId : null;
         let currentClass = localStorage.getItem('gsat_class_id');
-        if (userSnap.exists() && userSnap.data().classId !== undefined && currentClass === null) {
-          currentClass = userSnap.data().classId;
-          localStorage.setItem('gsat_class_id', currentClass); // 確保本地端狀態同步
+        let currentSchool = localStorage.getItem('gsat_school_id');
+        let currentGrade = localStorage.getItem('gsat_grade_id');
+
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          if (data.classId !== undefined && currentClass === null) {
+            currentClass = data.classId;
+            localStorage.setItem('gsat_class_id', currentClass);
+          }
+          if (data.schoolId !== undefined && currentSchool === null) {
+            currentSchool = data.schoolId;
+            localStorage.setItem('gsat_school_id', currentSchool);
+          }
+          if (data.gradeId !== undefined && currentGrade === null) {
+            currentGrade = data.gradeId;
+            localStorage.setItem('gsat_grade_id', currentGrade);
+          }
         }
         
         // 🚀 讓前端 UI 知道他是幹部或管理員，從而解鎖「編輯課表」按鈕
@@ -1253,15 +1304,20 @@ export default function App() {
         }
         
         if (!currentClass) currentClass = '';
+        if (!currentSchool) currentSchool = '';
+        if (!currentGrade) currentGrade = '';
 
         // 🚀 配合安全規則：寫入 role 欄位以供後端判定身分
-        // 目前預設所有新登入者皆為 student，後續可透過後台介面或 Firebase 控制台手動升級
-        const role = 'student';
+        const role = userSnap.exists() && userSnap.data().role ? userSnap.data().role : 'student';
 
         await setDoc(userRef, {
           fcmToken: token, lastActive: serverTimestamp(),
           userName: currentUser.displayName || '同學',
-          email: currentUser.email || '', classId: currentClass, role: role
+          email: currentUser.email || '', 
+          classId: currentClass,
+          schoolId: currentSchool,
+          gradeId: currentGrade,
+          role: role
         }, { merge: true });
 
         // 🚀 自動訂閱該班級的 FCM 主題
