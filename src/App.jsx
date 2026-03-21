@@ -89,7 +89,7 @@ const MaintenanceView = ({ error }) => (
 );
 
 // ─── 核心 App 組件 ────────────────────────────────────────────────────────
-const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setUser, isAdmin, setIsAdmin }) => {
+const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPushPermissionPrompt, user, setUser, isAdmin, setIsAdmin }) => {
   const theme = forcedTheme;
   const setTheme = setForcedTheme;
 
@@ -1002,7 +1002,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
 
   // ─── Phases ───────────────────────────────────────────────────────────────
   if (appPhase === 'auth') return <LandingPage onStart={handleAuthClick} onGuestStart={handleGuestStart} />;
-  if (appPhase === 'welcome') return <WelcomeScreen isFirstTime={!localStorage.getItem('gsat_legal_accepted')} onFinishWelcome={() => { localStorage.setItem('gsat_onboarding_done', 'true'); setAppPhase('app'); }} requestPushPermission={testPushNotification} />;
+  if (appPhase === 'welcome') return <WelcomeScreen isFirstTime={!localStorage.getItem('gsat_legal_accepted')} onFinishWelcome={() => { localStorage.setItem('gsat_onboarding_done', 'true'); setAppPhase('app'); }} requestPushPermission={requestPushPermissionPrompt} />;
   if (firebaseError) return <MaintenanceView error={firebaseError} />;
 
   return (
@@ -1053,7 +1053,10 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
             <div className="flex gap-3 relative z-10">
               <button onClick={() => setShowPushPrompt(false)} className="flex-1 py-4 bg-white/50 dark:bg-white/5 hover:bg-white/70 backdrop-blur-md border border-white/60 dark:border-white/10 rounded-[24px] font-black text-[15px] text-slate-600 dark:text-slate-300 transition-all active:scale-95 shadow-sm">稍後再說</button>
               <button onClick={async () => {
-                await testPushNotification();
+                const granted = await requestPushPermissionPrompt();
+                if (granted) {
+                  await testPushNotification(user);
+                }
                 setShowPushPrompt(false);
               }} className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-[24px] font-black text-[15px] shadow-[0_10px_20px_rgba(16,185,129,0.3)] transition-all active:scale-95 border border-emerald-400/50">立即啟用</button>
             </div>
@@ -1370,17 +1373,20 @@ export default function App() {
   const requestPushPermissionPrompt = async () => {
     if (!('Notification' in window)) {
       toast.error('此瀏覽器不支援通知。iOS 請先「加入主畫面」。');
-      return;
+      return false;
     }
     try {
       const perm = await Notification.requestPermission();
       if (perm === 'granted') {
         toast.success('通知已授權！系統將自動連線。');
+        return true;
       } else {
         toast.error('請在瀏覽器設定中允許通知。');
+        return false;
       }
     } catch (err) {
       console.error("FCM Error:", err);
+      return false;
     }
   };
 
@@ -1411,6 +1417,7 @@ export default function App() {
           forcedTheme={theme}
           setForcedTheme={setTheme}
           testPushNotification={requestPushPermission}
+          requestPushPermissionPrompt={requestPushPermissionPrompt}
           user={user}
           setUser={setUser}
           isAdmin={isAdmin}

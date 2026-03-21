@@ -58,6 +58,18 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
   const [grantedNotif, setGrantedNotif] = useState(false);
   const [agreed, setAgreed] = useState(false);
 
+  React.useEffect(() => {
+    if (grantedLocation && grantedNotif) {
+      if (!isFirstTime || agreed) {
+        const timer = setTimeout(() => {
+          localStorage.setItem('gsat_legal_accepted', 'true');
+          onFinishWelcome();
+        }, 600);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [grantedLocation, grantedNotif, agreed, isFirstTime, onFinishWelcome]);
+
   const handleLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(() => setGrantedLocation(true), () => setGrantedLocation(true));
@@ -65,8 +77,13 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
   };
 
   const handleNotif = async () => {
-    await requestPushPermission();
-    setGrantedNotif(true);
+    const granted = await requestPushPermission();
+    if (granted) {
+      setGrantedNotif(true);
+    } else {
+      // 就算拒絕，也讓它打勾以防卡關
+      setGrantedNotif(true);
+    }
   };
 
   return (
