@@ -6,6 +6,7 @@ import {
   FileSpreadsheet, Bug, Terminal, ChevronDown, ChevronUp, ChevronRight, Wand2, Volume2,
   FileText, BarChart2, Flame, Clock, TrendingUp, Share2, Book, Zap, AlertCircle, Tag, Frown, Meh, Smile, Award
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import ReactMarkdown from 'react-markdown';
 import { db } from '../../config/firebase';
@@ -226,17 +227,51 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
     if (!match) return null;
 
     const lines = match[1].trim().split('\n');
-    // 尋找包含 "+" 號的行作為解析目標，避免抓到 AI 的說明文字
-    const targetLine = lines.find(l => l.includes('+')) || lines[0];
+    // 尋找包含 "+" 號或冒號的行作為解析目標，避免抓到 AI 的說明文字
+    const targetLine = lines.find(l => l.includes('+') || l.match(/[:：]/)) || lines[0];
     if (!targetLine) return null;
 
-    const parts = targetLine.split('+').map(p => {
-      // 增加容錯：支援全形/半形的冒號與括號，以及不穩定的空格
-      const info = p.match(/\*\*(.*?)\*\*\s*[:：]\s*(.*?)\s*[(（](.*?)[)）]/);
-      if (!info) return { label: '', value: p.trim().replace(/\*/g, ''), meaning: '' };
-      return { label: info[1].trim(), value: info[2].trim(), meaning: info[3].trim() };
-    });
-    return parts;
+    // 🚀 優化 1：去除所有 Markdown 星號，讓 Regex 判斷不受粗體干擾
+    const cleanLine = targetLine.replace(/\*/g, '');
+
+    // 🚀 優化 2：支援更彈性的格式與缺失括號的容錯處理
+    const parts = cleanLine.split('+').map(p => {
+      const trimmed = p.trim();
+      if (!trimmed) return null;
+
+      const info = trimmed.match(/^(.*?)\s*[:：]\s*(.*?)\s*[(（](.*?)[)）]$/);
+      let parsedLabel = '', parsedValue = '', parsedMeaning = '';
+
+      if (info) {
+        parsedLabel = info[1].trim();
+        parsedValue = info[2].trim();
+        parsedMeaning = info[3].trim();
+      } else {
+        const partialInfo = trimmed.match(/^(.*?)\s*[:：]\s*(.*)$/);
+        if (partialInfo) {
+          parsedLabel = partialInfo[1].trim();
+          parsedValue = partialInfo[2].trim();
+        } else {
+          parsedLabel = 'Part';
+          parsedValue = trimmed;
+        }
+      }
+
+      // 🚀 優化 3：將中英文標籤自動正規化 (Normalization)，確保卡片顏色正確渲染
+      let normalizedLabel = 'Suffix';
+      if (parsedLabel.match(/prefix|字首/i)) normalizedLabel = 'Prefix';
+      else if (parsedLabel.match(/root|字根/i)) normalizedLabel = 'Root';
+      else if (parsedLabel.match(/suffix|字尾/i)) normalizedLabel = 'Suffix';
+      else if (parsedLabel) normalizedLabel = parsedLabel;
+
+      return {
+        label: normalizedLabel,
+        value: parsedValue,
+        meaning: parsedMeaning
+      };
+    }).filter(Boolean);
+
+    return parts.length > 0 ? parts : null;
   };
 
   const breakdown = getBreakdown();
@@ -309,7 +344,7 @@ const WordDetailOverlay = ({ word, analysis, isAnalyzing, handleAiAnalyze, onClo
                   <button onClick={() => { setIsEditing(false); setEditMeanings(getMeanings(word)); }} className="px-4 py-2 bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black transition-colors active:scale-95">取消</button>
                   <button onClick={() => {
                     const cleanMeanings = editMeanings.filter(m => m.meaning.trim() !== '');
-                    if(cleanMeanings.length === 0) return alert('請至少保留一個解釋');
+                    if(cleanMeanings.length === 0) return toast.error('請至少保留一個解釋');
                     updateWord(word.id, { meanings: cleanMeanings });
                     triggerNotification('修改成功', '單字資訊已更新');
                     setIsEditing(false);
@@ -1499,7 +1534,7 @@ const WordBank = ({
   const handleAiAnalyze = async (id, word) => {
     setAnalyzingIds(prev => new Set(prev).add(id));
     try {
-      const targetWord = mergedWords.find(w => w.id === id);
+      const targetWord = words.find(w => w.id === id);
       const meaningsStr = targetWord ? getMeanings(targetWord).map(m => `(${m.pos}) ${m.meaning}`).join(', ') : '';
       
       const prompt = `你是一位專業的英文語源學老師與記憶專家。請針對單字 "${word}" ${meaningsStr ? `(包含常見意思：${meaningsStr}) ` : ''}提供結構化解析。
@@ -1934,8 +1969,8 @@ const WordBank = ({
       {/* 詳情全屏視窗 */}
       {detailedWordId && (
         <WordDetailOverlay
-          word={filtered.find(w => w.id === detailedWordId) || mergedWords.find(w => w.id === detailedWordId)}
-          analysis={filtered.find(w => w.id === detailedWordId)?.aiAnalysis || mergedWords.find(w => w.id === detailedWordId)?.aiAnalysis || aiAnalysisData[detailedWordId]}
+          word={filtered.find(w => w.id === detailedWordId) || words.find(w => w.id === detailedWordId)}
+          analysis={filtered.find(w => w.id === detailedWordId)?.aiAnalysis || words.find(w => w.id === detailedWordId)?.aiAnalysis || aiAnalysisData[detailedWordId]}
           isAnalyzing={analyzingIds.has(detailedWordId)}
           handleAiAnalyze={handleAiAnalyze}
           currentSet={currentSet}

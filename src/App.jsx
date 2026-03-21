@@ -869,7 +869,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
             setUserProfile(profile);
             localStorage.setItem('gsat_user_profile', JSON.stringify(profile));
 
-            triggerNotification('Google 登入成功', '安全性流程驗證通過！');
+            toast.success('Google 登入成功：安全性流程驗證通過！');
             setAppPhase('welcome');
 
             // 清理 URL
@@ -905,7 +905,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
             setUserProfile(profile);
             localStorage.setItem('gsat_user_profile', JSON.stringify(profile));
 
-            triggerNotification('Google 登入成功', '已啟用雲端備份！');
+            toast.success('Google 登入成功：已啟用雲端備份！');
             setAppPhase('app'); // 🚀 直接進入 App
           }
         } catch (error) {
@@ -1184,7 +1184,14 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
                 dashboardLayout={dashboardLayout}
               />
             )}
-            {activeTab === 'english' && <VocabularyTab user={user} isAdmin={isAdmin} />}
+            {activeTab === 'english' && (
+              <VocabularyTab 
+                user={user} 
+                isAdmin={isAdmin} 
+                schoolId={schoolId} 
+                gradeId={gradeId} 
+              />
+            )}
             {activeTab === 'contactBook' && (
               <ContactBookTab
                 contactBook={contactBook}

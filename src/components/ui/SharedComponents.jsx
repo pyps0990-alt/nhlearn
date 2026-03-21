@@ -3,6 +3,7 @@ import {
   Bell, ShieldCheck, Sparkles, GraduationCap, MapPin, CheckCircle2,
   ChevronRight, Lock, Globe, MessageSquare, X, Share, PlusSquare, Smartphone
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export const IosNotification = ({ notification }) => {
   const safeTop = 'max(16px, env(safe-area-inset-top))';
@@ -148,7 +149,7 @@ export const WelcomeScreen = ({ onFinishWelcome, requestPushPermission, isFirstT
 
         <button
           onClick={() => {
-            if (isFirstTime && !agreed) return alert('請先勾選同意條款');
+            if (isFirstTime && !agreed) return toast.error('請先勾選同意條款');
             localStorage.setItem('gsat_legal_accepted', 'true');
             onFinishWelcome();
           }}
@@ -195,7 +196,7 @@ export const FeedbackModal = ({ isOpen, onClose }) => {
   const [content, setContent] = useState('');
   if (!isOpen) return null;
   const handleSubmit = () => {
-    if (!content.trim()) return alert('請填寫回饋內容');
+    if (!content.trim()) return toast.error('請填寫回饋內容');
     const subject = encodeURIComponent(`GSAT Pro - ${type}`);
     const body = encodeURIComponent(`分類：${type}\n\n我的回饋：\n${content}\n\n--- 來自 GSAT Pro APP ---`);
     window.location.href = `mailto:pyps0990@gmail.com?subject=${subject}&body=${body}`;
