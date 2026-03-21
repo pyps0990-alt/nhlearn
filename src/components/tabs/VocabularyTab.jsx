@@ -1680,10 +1680,10 @@ const WordBank = ({
         >
           {[
             { id: '6000_words', label: '6000 核心單字', icon: <BookOpen size={14} /> },
-            { id: 'school_vocab', label: '學校單字庫', icon: <BookOpen size={14} /> },
-            { id: 'Teacher Picks', label: '教師推薦', icon: <Sparkles size={14} /> },
+            schoolId && gradeId && { id: 'school_vocab', label: '學校單字庫', icon: <BookOpen size={14} /> },
+            schoolId && { id: 'Teacher Picks', label: '教師推薦', icon: <Sparkles size={14} /> },
             { id: 'Personal', label: '個人收藏', icon: <Heart size={14} /> }
-          ].map(set => (
+          ].filter(Boolean).map(set => (
             <button
               key={set.id}
               onClick={() => setCurrentSet(set.id)}
