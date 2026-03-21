@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Notebook, ChevronLeft, ChevronRight, Plus, CheckCircle2,
   Trash2, BookOpen, Calendar, ChevronDown, Camera, Loader2, Bell,
-  LayoutGrid, List, Lock, MessageSquare, Send
+  LayoutGrid, List, Lock, MessageSquare, Send, AlertCircle
 } from 'lucide-react';
 import { WEEKDAYS, ICON_MAP } from '../../utils/constants';
 import { fetchAI } from '../../utils/helpers';
@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import { db } from '../../config/firebase'; // 確保路徑正確
 import { collection, addDoc, onSnapshot, query, where, doc, setDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
-const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID, user, schoolId, gradeId, navToSettings }) => {
+const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID, user, schoolId, gradeId, navToSettings, errorMsg }) => {
   if (!schoolId || !gradeId || !classID) {
     return (
       <div className="flex flex-col items-center justify-center py-32 px-6 text-center animate-slide-up-fade">
@@ -466,6 +466,14 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
         </div>
       ) : (
         renderCalendar()
+      )}
+
+      {/* 資料庫權限錯誤提示 */}
+      {errorMsg && (
+        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-5 rounded-[24px] text-sm font-bold border border-red-200 dark:border-red-900/30 shadow-sm mx-1 flex items-center gap-3 animate-pop-in">
+          <AlertCircle size={20} className="shrink-0" />
+          {errorMsg}
+        </div>
       )}
 
       {/* 新增區塊 - 開放全班編輯 */}

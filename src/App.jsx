@@ -142,6 +142,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
   const [notices, setNotices] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0); // 紀錄未讀通知數量 (用於 iOS 紅點)
   const lastNoticeTimestamp = useRef(Date.now() - 60000); // 🔴 容忍 1 分鐘的時鐘誤差，確保不漏接任何剛發送的推播
+  const [contactBookError, setContactBookError] = useState('');
   const [campusName, setCampusName] = useState(() => localStorage.getItem('gsat_campus_name') || '內湖高中');
   const [campusAddress, setCampusAddress] = useState(() => localStorage.getItem('gsat_campus_address') || '台北市內湖區文德路218號');
   const [campusLat, setCampusLat] = useState(() => localStorage.getItem('gsat_campus_lat') || '25.078410');
@@ -281,9 +282,15 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
           setSchoolId(data.schoolId);
           localStorage.setItem('gsat_school_id', data.schoolId);
         }
-        if (data.gradeId !== undefined && data.gradeId !== gradeId) {
-          setGradeId(data.gradeId);
-          localStorage.setItem('gsat_grade_id', data.gradeId);
+        if (data.gradeId !== undefined) {
+          let normalizedGrade = data.gradeId;
+          if (normalizedGrade && !normalizedGrade.includes('_') && normalizedGrade.startsWith('grade')) {
+            normalizedGrade = normalizedGrade.replace('grade', 'grade_');
+          }
+          if (normalizedGrade !== gradeId) {
+            setGradeId(normalizedGrade);
+            localStorage.setItem('gsat_grade_id', normalizedGrade);
+          }
         }
       }
     }).catch(e => console.error("Sync user profile error:", e));
@@ -433,6 +440,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
     if (classID && schoolId && gradeId) {
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
       unsubAssignments = onSnapshot(assignmentsRef, (snapshot) => {
+        setContactBookError('');
         const cb = {};
         snapshot.docs.forEach(docSnap => {
           const data = docSnap.data();
@@ -443,7 +451,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
           }
         });
         setContactBook(cb);
-      }, (err) => console.error("Assignments sync error:", err));
+      }, (err) => {
+        console.error("Assignments sync error:", err);
+        if (err.code === 'permission-denied') setContactBookError('資料庫權限不足：請檢查 Firebase 安全規則是否開放聯絡簿讀寫。');
+        else setContactBookError(err.message);
+      });
     }
 
     return () => { unsubSchedule(); unsubAssignments(); unsubSchool(); };
@@ -1219,6 +1231,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
                 schoolId={schoolId}
                 gradeId={gradeId}
                 navToSettings={navToSettings}
+                errorMsg={contactBookError}
               />
             )}
             {activeTab === 'notes' && (
@@ -1320,9 +1333,15 @@ export default function App() {
             currentSchool = data.schoolId;
             localStorage.setItem('gsat_school_id', currentSchool);
           }
-          if (data.gradeId !== undefined && currentGrade === null) {
-            currentGrade = data.gradeId;
-            localStorage.setItem('gsat_grade_id', currentGrade);
+          if (data.gradeId !== undefined) {
+            let normalizedGrade = data.gradeId;
+            if (normalizedGrade && !normalizedGrade.includes('_') && normalizedGrade.startsWith('grade')) {
+              normalizedGrade = normalizedGrade.replace('grade', 'grade_');
+            }
+            if (currentGrade === null || currentGrade !== normalizedGrade) {
+              currentGrade = normalizedGrade;
+              localStorage.setItem('gsat_grade_id', currentGrade);
+            }
           }
         }
         
