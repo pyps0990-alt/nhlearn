@@ -613,7 +613,12 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [userWords, setUserWords] = useState([]); // 個人學習進度
   const [currentSet, setCurrentSet] = useState('6000_words'); // 目前選擇的單字庫來源
-  const [teacherGrade, setTeacherGrade] = useState('grade_2'); // 教師推薦的年級選擇
+  const [teacherGrade, setTeacherGrade] = useState(() => {
+    // 預設與使用者的 gradeId 同步，並保證有底線格式
+    let g = gradeId || localStorage.getItem('gsat_grade_id') || 'grade_2';
+    if (g && !g.includes('_') && g.startsWith('grade')) g = g.replace('grade', 'grade_');
+    return g;
+  }); // 教師推薦的年級選擇
   const [teacherStage, setTeacherStage] = useState('stage_1'); // 教師推薦的階段選擇
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [detailedWordId, setDetailedWordId] = useState(null);
@@ -776,7 +781,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         setWords([]);
         return;
       }
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
+      // 🚀 修復：直接指向 TeacherVocab，簡化結構並與實際可能相符
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'TeacherVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
     } else if (currentSet === 'school_vocab') {
       // 🏫 學校年級專屬單字庫
       if (!schoolId || !gradeId) {
@@ -784,7 +790,10 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         setWords([]);
         return;
       }
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab');
+      // 🚀 加入 gradeId 防呆
+      let g = gradeId;
+      if (g && !g.includes('_') && g.startsWith('grade')) g = g.replace('grade', 'grade_');
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', g, 'SchoolVocab');
     } else {
       // 🌍 6000 核心單字庫 (改存放於 Schools/taiwan/FreeVocab)
       vocabRef = collection(db, 'Schools', 'taiwan', 'FreeVocab');
@@ -834,10 +843,12 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
     } else if (currentSet === 'Teacher Picks') {
       if (!schoolId) return;
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'TeacherVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
     } else if (currentSet === 'school_vocab') {
       if (!schoolId || !gradeId) return;
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab');
+      let g = gradeId;
+      if (g && !g.includes('_') && g.startsWith('grade')) g = g.replace('grade', 'grade_');
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', g, 'SchoolVocab');
     } else {
       vocabRef = collection(db, 'Schools', 'taiwan', 'FreeVocab');
     }
