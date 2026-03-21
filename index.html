@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-TW">
 
-<head>    
+<head>
   <meta name="google-site-verification" content="DawqxUxvlBCSyRCaCvLFW2vO1lwsc3TdX6P62pk5-AQ" />
   <meta charset="UTF-8" />
   <link rel="icon" type="image/x-icon" href="/gsat-pro.ico" />
@@ -20,39 +20,68 @@
     href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Noto+Sans+TC:wght@400;500;600;700;800;900&display=swap"
     rel="stylesheet">
 
-  <title>GSAT Pro — 學測備考管理</title>
+  <title>GSAT Pro</title>
   <!-- 🚀 加入這三行：預先建立 Firebase 連線 -->
-    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
-    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
-    
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
+
   <!-- Google API & Identity Services -->
   <script src="https://apis.google.com/js/api.js" async defer></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
     /* Inline critical CSS for the splash screen — prevents FOUC */
-    body { margin: 0; background: #020617; }
+    body {
+      margin: 0;
+      background: #020617;
+    }
+
     #splash {
-      position: fixed; inset: 0; z-index: 99999;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       background: #020617;
       font-family: 'Noto Sans TC', -apple-system, sans-serif;
       transition: opacity 0.4s ease;
     }
-    #splash.hidden { opacity: 0; pointer-events: none; }
+
+    #splash.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
     #splash h1 {
-      font-size: 2rem; font-weight: 900;
+      font-size: 2rem;
+      font-weight: 900;
       background: linear-gradient(135deg, #10B981, #34d399);
-      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
       margin: 0 0 12px;
     }
-    #splash p { color: rgba(255,255,255,0.4); font-size: 13px; font-weight: 600; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #splash p {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
     .splash-spinner {
-      width: 28px; height: 28px; margin-top: 24px;
-      border: 3px solid rgba(16,185,129,0.15);
+      width: 28px;
+      height: 28px;
+      margin-top: 24px;
+      border: 3px solid rgba(16, 185, 129, 0.15);
       border-top-color: #10B981;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;

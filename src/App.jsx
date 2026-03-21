@@ -836,7 +836,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, user, setU
               scope: SCOPES,
               ux_mode: 'redirect',
               redirect_uri: GOOGLE_REDIRECT_URI,
-              include_granted_scopes: true,
+              include_granted_scopes: false,
               // Google 要求在某些版本中仍需提供 callback 即使是 redirect 模式
               callback: (resp) => { console.log("GSI Callback Triggered:", resp); }
             });
