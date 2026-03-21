@@ -10,7 +10,24 @@ import toast from 'react-hot-toast';
 import { db } from '../../config/firebase'; // 確保路徑正確
 import { collection, addDoc, onSnapshot, query, where, doc, setDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
-const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID, user }) => {
+const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID, user, schoolId, gradeId, navToSettings }) => {
+  if (!schoolId || !gradeId || !classID) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 px-6 text-center animate-slide-up-fade">
+        <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/20 rounded-[28px] flex items-center justify-center mb-6 border border-emerald-100 dark:border-emerald-900/30 shadow-inner">
+          <Notebook size={36} className="text-emerald-500" />
+        </div>
+        <h4 className="text-[20px] font-black text-slate-900 dark:text-white mb-2">尚未綁定班級</h4>
+        <p className="text-[14px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed mb-8 max-w-[280px]">
+          電子聯絡簿為全班共享的雲端空間。<br />請先前往設定頁面選擇您的「學校、年級」並輸入「班級代碼」。
+        </p>
+        <button onClick={() => navToSettings?.('academic')} className="flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[15px] shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all">
+          前往設定班級
+        </button>
+      </div>
+    );
+  }
+
   if (!contactBook || !subjects) return (
     <div className="flex flex-col items-center justify-center py-32 animate-fadeIn">
       <div className="relative flex items-center justify-center mb-6">

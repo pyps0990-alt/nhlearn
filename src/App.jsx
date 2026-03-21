@@ -605,9 +605,6 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
   const saveContactBookToFirestore = async (newContactBook) => {
     if (!db || !classID) return;
     if (!schoolId || !gradeId) throw new Error("MISSING_SCHOOL_OR_GRADE");
-    if (!user) {
-      throw new Error('GUEST_MODE');
-    }
     try {
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
       // 算一下你到底準備存入幾項作業
@@ -1201,6 +1198,9 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
                 saveContactBookToFirestore={saveContactBookToFirestore}
                 classID={classID}
                 user={user}
+                schoolId={schoolId}
+                gradeId={gradeId}
+                navToSettings={navToSettings}
               />
             )}
             {activeTab === 'notes' && (
