@@ -23,6 +23,8 @@ export default defineConfig({
       workbox: {
         // 設定要快取供離線瀏覽的檔案
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // 🚨 重要：排除 /api/ 開頭的路徑，不要被 Service Worker 攔截，讓它直接回到 Vercel 伺服器
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
