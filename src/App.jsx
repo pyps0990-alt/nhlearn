@@ -605,6 +605,8 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
   const saveContactBookToFirestore = async (newContactBook) => {
     if (!db || !classID) return;
     if (!schoolId || !gradeId) throw new Error("MISSING_SCHOOL_OR_GRADE");
+    if (!user) throw new Error("GUEST_MODE");
+    if (!user.email?.endsWith('.edu.tw') && !isAdmin) throw new Error("NOT_SCHOOL_ACCOUNT");
     try {
       const assignmentsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'Assignments');
       // 算一下你到底準備存入幾項作業
@@ -735,8 +737,24 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
 
   // ─── 測試 Firebase 雲端通知推播 ──────────────────────────────────────────
   const sendTestNotice = async () => {
-    // 替換為單純的 UI 提示，不再觸發前端本地推播
-    toast.success('這是一則測試通知 (雲端推播已接管)');
+    if (!('serviceWorker' in navigator)) {
+      toast.error('您的瀏覽器不支援背景推播服務');
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification('🎉 測試成功！', {
+          body: '您的裝置已成功設定推播通知。未來的提醒都會像這樣出現喔！',
+          icon: '/vite.svg', // 替換為你的 app icon
+          vibrate: [200, 100, 200]
+        });
+      } catch (e) {
+        toast.error('無法顯示通知，請檢查系統層級的通知權限。');
+      }
+    } else {
+      toast.error('請先允許通知權限！');
+    }
   };
 
   // ─── Theme ────────────────────────────────────────────────────────────────

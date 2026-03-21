@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Notebook, ChevronLeft, ChevronRight, Plus, CheckCircle2,
   Trash2, BookOpen, Calendar, ChevronDown, Camera, Loader2, Bell,
-  LayoutGrid, List
+  LayoutGrid, List, Lock, MessageSquare, Send
 } from 'lucide-react';
 import { WEEKDAYS, ICON_MAP } from '../../utils/constants';
 import { fetchAI } from '../../utils/helpers';
@@ -66,6 +66,14 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
   const [completedIds, setCompletedIds] = useState(new Set());
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [expiredConfirmOpen, setExpiredConfirmOpen] = useState(false);
+  const [openCommentId, setOpenCommentId] = useState(null);
+  const [commentText, setCommentText] = useState('');
+  
+  // 取得台灣時區的今天日期字串 (YYYY-MM-DD)
+  const todayStr = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
+
+  // 🚀 安全權限：檢查是否為登入狀態且具備學校信箱 (.edu.tw) 或管理員身分
+  const canEditContactBook = user && (user.email?.endsWith('.edu.tw') || isAdmin);
 
   // 🚀 全新邏輯：同步個人完成狀態
   useEffect(() => {
@@ -174,13 +182,14 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       toast.success('新增成功並同步至雲端！');
     } catch (error) {
       if (error.message === 'GUEST_MODE') {
-        toast.success('新增成功！(訪客模式已暫存於本機)');
+        toast.error('請先登入帳號');
+      } else if (error.message === 'NOT_SCHOOL_ACCOUNT') {
+        toast.error('權限不足：請使用學校帳號 (@*.edu.tw) 登入');
       } else {
-        toast.error('無法同步至雲端，已暫存於本機。請檢查權限或網路連線。');
+        toast.error('無法同步至雲端，請檢查權限或網路連線。');
       }
     }
   };
-
   const confirmDelete = async () => {
     if (!deleteConfirmId) return;
     const id = deleteConfirmId;
@@ -198,9 +207,11 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       toast.success('刪除成功');
     } catch (error) {
       if (error.message === 'GUEST_MODE') {
-        toast.success('刪除成功！(本機紀錄)');
+        toast.error('請先登入帳號');
+      } else if (error.message === 'NOT_SCHOOL_ACCOUNT') {
+        toast.error('權限不足：請使用學校帳號 (@*.edu.tw) 登入');
       } else {
-        toast.error('無法同步至雲端，本機紀錄已刪除。');
+        toast.error('無法同步至雲端，請檢查權限或網路連線。');
       }
     }
   };
@@ -283,6 +294,42 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     } else {
       // 訪客模式：寫入 localStorage
       localStorage.setItem(`gsat_completed_${classID}`, JSON.stringify(Array.from(newCompletedIds)));
+    }
+  };
+
+  // 🚀 全新邏輯：處理單筆作業留言討論
+  const handleAddComment = async (dateStr, entryId) => {
+    if (!commentText.trim()) return;
+    if (!user) {
+      toast.error('請先登入帳號才能留言與討論喔！');
+      return;
+    }
+
+    const newContactBook = { ...contactBook };
+    const entries = newContactBook[dateStr];
+    if (!entries) return;
+    
+    const entryIdx = entries.findIndex(e => e.id === entryId);
+    if (entryIdx === -1) return;
+
+    const newComment = {
+      id: Date.now().toString(),
+      author: user.displayName || '同學',
+      authorId: user.uid,
+      text: commentText.trim(),
+      timestamp: new Date().toISOString()
+    };
+
+    if (!entries[entryIdx].comments) entries[entryIdx].comments = [];
+    entries[entryIdx].comments.push(newComment);
+
+    setContactBook(newContactBook);
+    setCommentText(''); // 清空輸入框
+
+    try {
+      await saveContactBookToFirestore(newContactBook);
+    } catch (e) {
+      toast.error('留言同步失敗，請檢查網路。');
     }
   };
 
@@ -422,119 +469,120 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       )}
 
       {/* 新增區塊 - 開放全班編輯 */}
-      <div ref={addFormRef} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[36px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 overflow-hidden relative group transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 dark:bg-emerald-500/10 rounded-full -mr-12 -mt-12 opacity-40 group-hover:scale-125 transition-transform duration-1000"></div>
-
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-2xl">
-              <Plus size={20} className="shrink-0" />
-            </div>
-            <h3 className="text-[18px] font-black text-[var(--text-primary)]">新增事項</h3>
+      {!canEditContactBook ? (
+        <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-8 rounded-[36px] shadow-sm border border-white/60 dark:border-white/10 text-center animate-slide-up-fade">
+          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock size={24} className="text-slate-400" />
           </div>
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:flex-none">
-              <select className="w-full md:w-40 bg-white/60 dark:bg-black/20 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-[18px] px-4 py-3 text-[14px] font-black outline-none focus:border-emerald-400 transition-all shadow-sm appearance-none text-[var(--text-primary)]" value={newEntry.subject} onChange={e => setNewEntry({ ...newEntry, subject: e.target.value })}>
-                {subjects.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-              </select>
-              <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none shrink-0" />
+          <h3 className="text-[18px] font-black text-slate-800 dark:text-white mb-2">僅限學校帳號編輯</h3>
+          <p className="text-[14px] font-bold text-slate-500 dark:text-slate-400">
+            為維護全班聯絡簿的正確性，請使用帶有 .edu.tw 的學校 Google 帳號登入，即可解鎖新增與刪除權限。
+          </p>
+        </div>
+      ) : (
+        <div ref={addFormRef} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[36px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 overflow-hidden relative group transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 dark:bg-emerald-500/10 rounded-full -mr-12 -mt-12 opacity-40 group-hover:scale-125 transition-transform duration-1000"></div>
+
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-2xl">
+                <Plus size={20} className="shrink-0" />
+              </div>
+              <h3 className="text-[18px] font-black text-[var(--text-primary)]">新增事項</h3>
             </div>
-            <div className="relative shrink-0">
-              <input type="file" accept="image/*" onChange={handleAIParse} className="absolute inset-0 opacity-0 cursor-pointer z-10" disabled={isParsing} />
-              <button className={`flex items-center justify-center gap-2 px-4 py-3 rounded-[18px] text-[13px] font-black transition-all border shadow-sm ${isParsing ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 active:scale-95'}`}>
-                {isParsing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-                {isParsing ? '辨識中' : '圖片導入'}
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:flex-none">
+                <select className="w-full md:w-40 bg-white/60 dark:bg-black/20 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-[18px] px-4 py-3 text-[14px] font-black outline-none focus:border-emerald-400 transition-all shadow-sm appearance-none text-[var(--text-primary)]" value={newEntry.subject} onChange={e => setNewEntry({ ...newEntry, subject: e.target.value })}>
+                  {subjects.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none shrink-0" />
+              </div>
+              <div className="relative shrink-0">
+                <input type="file" accept="image/*" onChange={handleAIParse} className="absolute inset-0 opacity-0 cursor-pointer z-10" disabled={isParsing} />
+                <button className={`flex items-center justify-center gap-2 px-4 py-3 rounded-[18px] text-[13px] font-black transition-all border shadow-sm ${isParsing ? 'bg-slate-100 border-slate-200 text-slate-400' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 active:scale-95'}`}>
+                  {isParsing ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+                  {isParsing ? '辨識中' : '圖片導入'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-5 relative z-10">
+            <div className="flex flex-col gap-4">
+              <div className="relative">
+                <textarea
+                  className="w-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
+                  placeholder="📝 今日指派作業 (例如：完成習作 P.10-15)"
+                  value={newEntry.homework}
+                  onChange={e => setNewEntry({ ...newEntry, homework: e.target.value })}
+                />
+                <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-2 rounded-[16px] border border-emerald-200/50 dark:border-emerald-500/20 shadow-sm backdrop-blur-md">
+                  <Calendar size={14} className="text-emerald-600 dark:text-emerald-400" />
+                  <input
+                    type="date"
+                    value={newEntry.homeworkDeadline}
+                    onChange={e => setNewEntry({ ...newEntry, homeworkDeadline: e.target.value })}
+                    className="bg-transparent text-[11px] font-black outline-none text-emerald-800 dark:text-emerald-400 tracking-wider"
+                  />
+                </div>
+              </div>
+
+              <div className="relative">
+                <textarea
+                  className="w-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-red-400 focus:ring-2 focus:ring-red-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
+                  placeholder="💯 明日考試內容 (例如：第一課默寫)"
+                  value={newEntry.exam}
+                  onChange={e => setNewEntry({ ...newEntry, exam: e.target.value })}
+                />
+                <div className="absolute right-4 top-4">
+                  <select
+                    value={newEntry.examType}
+                    onChange={e => setNewEntry({ ...newEntry, examType: e.target.value })}
+                    className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-black px-2.5 py-1.5 rounded-lg outline-none cursor-pointer border border-slate-200 dark:border-slate-700 shadow-sm appearance-none"
+                  >
+                    {Object.keys(EXAM_TYPES).map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-red-50 dark:bg-red-950/40 px-4 py-2 rounded-[16px] border border-red-200/50 dark:border-red-500/20 shadow-sm backdrop-blur-md">
+                  <Calendar size={14} className="text-red-600 dark:text-red-400" />
+                  <input
+                    type="date"
+                    value={newEntry.examDeadline}
+                    onChange={e => setNewEntry({ ...newEntry, examDeadline: e.target.value })}
+                    className="bg-transparent text-[11px] font-black outline-none text-red-800 dark:text-red-400 tracking-wider"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-2">
+              <button onClick={handleAddEntry} className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[15px] shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
+                儲存與同步 <CheckCircle2 size={18} />
               </button>
             </div>
           </div>
         </div>
-
-        <div className="flex flex-col gap-5 relative z-10">
-          <div className="flex flex-col gap-4">
-            <div className="relative">
-              <textarea
-                className="w-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
-                placeholder="📝 今日指派作業 (例如：完成習作 P.10-15)"
-                value={newEntry.homework}
-                onChange={e => setNewEntry({ ...newEntry, homework: e.target.value })}
-              />
-              <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-2 rounded-[16px] border border-emerald-200/50 dark:border-emerald-500/20 shadow-sm backdrop-blur-md">
-                <Calendar size={14} className="text-emerald-600 dark:text-emerald-400" />
-                <input
-                  type="date"
-                  value={newEntry.homeworkDeadline}
-                  onChange={e => setNewEntry({ ...newEntry, homeworkDeadline: e.target.value })}
-                  className="bg-transparent text-[11px] font-black outline-none text-emerald-800 dark:text-emerald-400 tracking-wider"
-                />
-              </div>
-            </div>
-
-            <div className="relative">
-              <textarea
-                className="w-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-red-400 focus:ring-2 focus:ring-red-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
-                placeholder="💯 明日考試內容 (例如：第一課默寫)"
-                value={newEntry.exam}
-                onChange={e => setNewEntry({ ...newEntry, exam: e.target.value })}
-              />
-              <div className="absolute right-4 top-4">
-                <select
-                  value={newEntry.examType}
-                  onChange={e => setNewEntry({ ...newEntry, examType: e.target.value })}
-                  className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-black px-2.5 py-1.5 rounded-lg outline-none cursor-pointer border border-slate-200 dark:border-slate-700 shadow-sm appearance-none"
-                >
-                  {Object.keys(EXAM_TYPES).map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-red-50 dark:bg-red-950/40 px-4 py-2 rounded-[16px] border border-red-200/50 dark:border-red-500/20 shadow-sm backdrop-blur-md">
-                <Calendar size={14} className="text-red-600 dark:text-red-400" />
-                <input
-                  type="date"
-                  value={newEntry.examDeadline}
-                  onChange={e => setNewEntry({ ...newEntry, examDeadline: e.target.value })}
-                  className="bg-transparent text-[11px] font-black outline-none text-red-800 dark:text-red-400 tracking-wider"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end mt-2">
-            <button onClick={handleAddEntry} className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[20px] font-black text-[15px] shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] flex items-center justify-center gap-2 hover:-translate-y-0.5">
-              儲存與同步 <CheckCircle2 size={18} />
-            </button>
-          </div>
-        </div>
-      </div>
-
+      )}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between mb-2 mt-4 px-1">
-          <div className="flex items-center gap-3">
-            <h3 className="text-[18px] font-black text-[var(--text-primary)] flex items-center gap-2">
-              <Calendar size={20} className="text-emerald-500" />
-              {getFormattedDate(selectedDate)} 的清單
-            </h3>
-            <span className="text-[12px] font-bold text-slate-400 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-lg">{entriesForDate.length} 項</span>
-          </div>
-          {entriesForDate.length > 0 && (
-            <button onClick={handleToggleAllGroups} className="text-[12px] font-black text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 px-3 py-1.5 rounded-[12px] transition-colors flex items-center gap-1.5 active:scale-95 shadow-sm">
-              {collapsedSubjects.size === Object.keys(groupedEntries).length ? '一鍵展開' : '一鍵收合'}
-              <ChevronDown size={14} className={`transition-transform duration-300 ${collapsedSubjects.size === Object.keys(groupedEntries).length ? 'rotate-0' : 'rotate-180'}`} />
-            </button>
-          )}
+          <button onClick={handleToggleAllGroups} className="text-[12px] font-black text-slate-500 hover:text-emerald-500 transition-colors flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 px-3 py-1.5 rounded-[12px] active:scale-95">
+            {collapsedSubjects.size === Object.keys(groupedEntries).length ? '全部展開' : '全部收合'}
+          </button>
         </div>
-        {entriesForDate.length === 0 ? (
-          <div className="text-center py-16 bg-gray-50/50 rounded-[40px] border-2 border-dashed border-gray-200 flex flex-col items-center gap-3">
-            <div className="p-4 bg-white rounded-3xl shadow-sm text-gray-200">
-              <BookOpen size={32} className="text-slate-300" />
-            </div>
-            <p className="text-gray-400 font-bold text-[14px]">這天目前沒有任何紀錄 ✨</p>
+
+        {Object.keys(groupedEntries).length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[40px] bg-white/30 dark:bg-white/5">
+            <CheckCircle2 size={48} className="text-emerald-300 dark:text-emerald-600/50 mb-4" />
+            <p className="text-[15px] font-black text-slate-500 dark:text-slate-400">這天沒有任何聯絡簿事項</p>
+            <p className="text-[12px] font-bold text-slate-400 mt-1">您可以點擊上方日期或箭頭查看其他天</p>
           </div>
         ) : (
           Object.values(groupedEntries).map((group, idx) => {
-            const subjectInfo = subjects.find(s => s.name === group.subject) || { icon: 'BookText', color: 'text-gray-500 bg-gray-50' };
-            const allCompleted = group.items.length > 0 && group.items.every(item => completedIds.has(item.id));
             const isCollapsed = collapsedSubjects.has(group.subject);
+            const allCompleted = group.items.every(item => completedIds.has(item.id));
+            const subjectInfo = subjects?.find(s => s.name === group.subject) || { icon: 'BookText', color: 'text-emerald-500' };
 
             return (
               <div key={group.subject || idx} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 p-7 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] relative group animate-pop-in">
@@ -556,48 +604,99 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                 {!isCollapsed && (
                   <div className="animate-fadeIn">
                     <div className="flex flex-col gap-4">
-                      {group.items.map((entry) => (
-                        <div key={entry.id} className="relative group/item flex flex-col gap-4">
+                      {group.items.map((entry) => {
+                        // 判斷是否過期
+                        const isHwExpired = (entry.homeworkDeadline || selectedDate) < todayStr;
+                        const isExamExpired = (entry.examDeadline || selectedDate) < todayStr;
+                        
+                        return (
+                        <div key={entry.id} className="relative group/item flex flex-col gap-3">
                           {entry.homework && (
                             <div className="flex gap-4">
-                              <div className="w-1 bg-emerald-500 rounded-full shrink-0"></div>
+                              <div className={`w-1 rounded-full shrink-0 ${isHwExpired ? 'bg-slate-300 dark:bg-slate-600' : 'bg-emerald-500'}`}></div>
                               <div className="flex-1 py-1">
                                 <div className="flex items-center justify-between mb-1">
-                                  <div className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">作業</div>
+                                  <div className={`text-[11px] font-black uppercase tracking-widest ${isHwExpired ? 'text-slate-400' : 'text-emerald-600'}`}>
+                                    {isHwExpired ? '已過期作業' : '今日作業'}
+                                  </div>
                                   {entry.homeworkDeadline && (
-                                    <div className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 border border-emerald-100">
-                                      <Calendar size={10} /> 截止：{entry.homeworkDeadline}
+                                    <div className={`text-[10px] px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 border ${isHwExpired ? 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                                      <Calendar size={10} /> 期限：{entry.homeworkDeadline}
                                     </div>
                                   )}
                                 </div>
-                                <p className="text-[15px] font-bold text-gray-700 dark:text-gray-300 leading-relaxed min-h-[24px] pr-8">{entry.homework}</p>
+                                <p className={`text-[15px] font-bold leading-relaxed min-h-[24px] pr-8 transition-all ${isHwExpired ? 'line-through text-slate-400 dark:text-slate-500 opacity-60' : 'text-gray-700 dark:text-gray-300'}`}>{entry.homework}</p>
                               </div>
                             </div>
                           )}
                           {entry.exam && (
                             <div className="flex gap-4">
-                              <div className="w-1 bg-red-500 rounded-full shrink-0"></div>
+                              <div className={`w-1 rounded-full shrink-0 ${isExamExpired ? 'bg-slate-300 dark:bg-slate-600' : 'bg-red-500'}`}></div>
                               <div className="flex-1 py-1">
                                 <div className="flex items-center justify-between mb-1">
-                                  <div className="text-[11px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2">
-                                    考試
-                                    <span className={`px-1.5 py-0.5 rounded-[6px] text-[9px] shadow-sm ${EXAM_TYPES[entry.examType || '小考']?.color || EXAM_TYPES['小考'].color}`}>{entry.examType || '小考'}</span>
+                                  <div className={`text-[11px] font-black uppercase tracking-widest flex items-center gap-2 ${isExamExpired ? 'text-slate-400' : 'text-red-600'}`}>
+                                    {isExamExpired ? '已過期考試' : '考試'}
+                                    <span className={`px-1.5 py-0.5 rounded-[6px] text-[9px] shadow-sm ${isExamExpired ? 'bg-slate-100 text-slate-400 dark:bg-slate-800' : EXAM_TYPES[entry.examType || '小考']?.color || EXAM_TYPES['小考'].color}`}>{entry.examType || '小考'}</span>
                                   </div>
                                   {entry.examDeadline && (
-                                    <div className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 border border-red-100">
+                                    <div className={`text-[10px] px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 border ${isExamExpired ? 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700' : 'bg-red-50 text-red-600 border-red-100'}`}>
                                       <Calendar size={10} /> 日期：{entry.examDeadline}
                                     </div>
                                   )}
                                 </div>
-                                <p className="text-[15px] font-bold text-gray-700 dark:text-gray-300 leading-relaxed min-h-[24px] pr-8">{entry.exam}</p>
+                                <p className={`text-[15px] font-bold leading-relaxed min-h-[24px] pr-8 transition-all ${isExamExpired ? 'line-through text-slate-400 dark:text-slate-500 opacity-60' : 'text-gray-700 dark:text-gray-300'}`}>{entry.exam}</p>
                               </div>
                             </div>
                           )}
-                          <button onClick={() => setDeleteConfirmId(entry.id)} className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all active:scale-90">
-                            <Trash2 size={18} />
-                          </button>
+                          {canEditContactBook && (
+                            <button onClick={() => setDeleteConfirmId(entry.id)} className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all active:scale-90">
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                          
+                          {/* 留言討論按鈕與區塊 */}
+                          <div className="ml-5 flex flex-col gap-2">
+                            <button
+                              onClick={() => setOpenCommentId(openCommentId === entry.id ? null : entry.id)}
+                              className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-emerald-500 transition-colors w-fit"
+                            >
+                              <MessageSquare size={13} />
+                              {entry.comments?.length ? `${entry.comments.length} 則討論` : '發起討論 / 提問'}
+                            </button>
+                            {openCommentId === entry.id && (
+                              <div className="pl-3 sm:pl-4 space-y-3 border-l-2 border-slate-200 dark:border-white/10 py-1 animate-slide-up-fade">
+                                {entry.comments?.map(c => (
+                                  <div key={c.id} className="bg-white/60 dark:bg-black/20 p-3 rounded-2xl border border-slate-100 dark:border-white/5 text-[13px] shadow-sm">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="font-black text-slate-700 dark:text-slate-300">{c.author}</span>
+                                      <span className="text-[9px] text-slate-400">{new Date(c.timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute:'2-digit' })}</span>
+                                    </div>
+                                    <p className="font-bold text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{c.text}</p>
+                                  </div>
+                                ))}
+                                <div className="flex gap-2 items-end">
+                                  <textarea
+                                    value={commentText}
+                                    onChange={e => setCommentText(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddComment(selectedDate, entry.id); } }}
+                                    placeholder="問問題或提供解答 (Shift+Enter 換行)..."
+                                    className="flex-1 bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 rounded-2xl px-4 py-3 text-[13px] font-bold outline-none focus:border-emerald-400 text-slate-700 dark:text-slate-200 resize-none min-h-[44px] max-h-[120px]"
+                                    rows={1}
+                                  />
+                                  <button
+                                    onClick={() => handleAddComment(selectedDate, entry.id)}
+                                    disabled={!commentText.trim()}
+                                    className="p-3 bg-emerald-500 disabled:bg-slate-300 disabled:dark:bg-slate-700 text-white rounded-xl shadow-sm hover:bg-emerald-600 active:scale-95 transition-all shrink-0"
+                                  >
+                                    <Send size={16} className={commentText.trim() ? "translate-x-0.5 -translate-y-0.5" : ""} />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      ))}
+                      );
+                      })}
                     </div>
 
                     {/* 互動區塊：打勾確認收到 */}
@@ -667,7 +766,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                 修改日期
               </button>
               <button onClick={() => { setExpiredConfirmOpen(false); handleAddEntry(true); }} className="flex-1 py-3.5 rounded-2xl font-black bg-amber-500 text-white shadow-lg shadow-amber-500/30 hover:bg-amber-600 active:scale-95 transition-all">
-                確定新增
+                確認新增
               </button>
             </div>
           </div>
