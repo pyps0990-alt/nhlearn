@@ -1412,6 +1412,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
             teacherStage={teacherStage}
             setTeacherStage={setTeacherStage}
             user={user}
+            schoolId={schoolId}
+            gradeId={gradeId}
           />
         )}
         {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
@@ -1491,7 +1493,7 @@ const WordBank = ({
   triggerNotification, playVoice, accent, setAccent, dbError,
   teacherGrade, setTeacherGrade,
   teacherStage, setTeacherStage,
-  user
+  user, schoolId, gradeId
 }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [newWord, setNewWord] = useState('');
