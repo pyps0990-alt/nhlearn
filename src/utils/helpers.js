@@ -61,3 +61,37 @@ export const fetchAI = async (prompt, options = {}) => {
   console.error("❌ 所有 AI 模型均嘗試失敗:", lastError);
   throw new Error("AI 伺服器繁忙，所有備援模型均連線失敗，請稍後再試。");
 };
+
+export const normalizePOS = (pos) => {
+  if (!pos) return 'n.';
+  const p = pos.trim().toLowerCase().replace(/\./g, '');
+  const map = {
+    'noun': 'n.',
+    'n': 'n.',
+    'verb': 'v.',
+    'v': 'v.',
+    'adjective': 'adj.',
+    'adj': 'adj.',
+    'a': 'adj.',
+    'adverb': 'adv.',
+    'adv': 'adv.',
+    'preposition': 'prep.',
+    'prep': 'prep.',
+    'pr': 'prep.',
+    'conjunction': 'conj.',
+    'conj': 'conj.',
+    'c': 'conj.',
+    'pronoun': 'pron.',
+    'pron': 'pron.',
+    'interjection': 'int.',
+    'int': 'int.',
+    'i': 'int.',
+    'phrase': 'phr.',
+    'phr': 'phr.',
+    'abbreviation': 'abbr.',
+    'abbr': 'abbr.',
+    'suffix': 'suf.',
+    'prefix': 'pref.'
+  };
+  return map[p] || (pos.endsWith('.') ? pos.toLowerCase() : pos.toLowerCase() + '.');
+};

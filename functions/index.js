@@ -342,11 +342,11 @@ exports.dictLookupAI = onCall({ region: "us-central1", secrets: [geminiApiKey] }
         const dictionaryPrompt = `解析單字 "${cleanWord}" 並回傳 JSON：
 {
     "word": "${cleanWord}",
-        "pos": "詞性",
-            "chinese": "中文解釋",
-                "etymology": "語源解析",
-                    "example": "例句(附繁體中文翻譯)",
-                        "level": "難度(1-6)"
+    "pos": "詞性縮寫(務必帶點，如 n./v./adj./adv./prep./conj./abbr./phr.)",
+    "chinese": "中文解釋",
+    "etymology": "語源解析",
+    "example": "例句(附繁體中文翻譯)",
+    "level": "難度(1-6)"
 }
 請用繁體中文。`;
 
@@ -357,6 +357,25 @@ exports.dictLookupAI = onCall({ region: "us-central1", secrets: [geminiApiKey] }
         });
 
         const jsonResult = JSON.parse(response.text);
+
+        // 🚀 服務端 POS 規整化
+        const normalizePOS = (pos) => {
+            if (!pos) return 'n.';
+            const p = pos.trim().toLowerCase().replace(/\./g, '');
+            const map = {
+                'noun': 'n.', 'n': 'n.',
+                'verb': 'v.', 'v': 'v.',
+                'adjective': 'adj.', 'adj': 'adj.', 'a': 'adj.',
+                'adverb': 'adv.', 'adv': 'adv.',
+                'preposition': 'prep.', 'prep': 'prep.',
+                'conjunction': 'conj.', 'conj': 'conj.',
+                'pronoun': 'pron.', 'pron': 'pron.',
+                'phrase': 'phr.', 'phr': 'phr.'
+            };
+            return map[p] || (pos.endsWith('.') ? pos.toLowerCase() : pos.toLowerCase() + '.');
+        };
+
+        if (jsonResult.pos) jsonResult.pos = normalizePOS(jsonResult.pos);
 
         await cacheRef.set({
             result: jsonResult,

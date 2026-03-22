@@ -16,15 +16,18 @@ import {
   getDocs, limit, startAfter
 } from 'firebase/firestore';
 
-import { fetchAI } from '../../utils/helpers';
+import { fetchAI, normalizePOS } from '../../utils/helpers';
 
 const GAS_URL = import.meta.env.VITE_GAS_VOCAB_URL;
 
 // ─── Schema Helpers (相容新舊資料結構) ──────────────────────────────────────
 export const getMeanings = (w) => {
   if (!w) return [];
-  if (w.meanings && Array.isArray(w.meanings) && w.meanings.length > 0) return w.meanings;
-  return [{ pos: w.partOfSpeech || w.pos || 'n.', meaning: w.meaning || w.chinese || '' }];
+  if (w.meanings && Array.isArray(w.meanings) && w.meanings.length > 0) {
+    return w.meanings.map(m => ({ ...m, pos: normalizePOS(m.pos) }));
+  }
+  const pos = w.partOfSpeech || w.pos || 'n.';
+  return [{ pos: normalizePOS(pos), meaning: w.meaning || w.chinese || '' }];
 };
 export const getPrimaryMeaning = (w) => getMeanings(w).map(m => m.meaning).join(' / ');
 
@@ -36,54 +39,59 @@ export const parseMorphology = (analysis) => {
   const match = analysis.match(/\[?單字構造拆解\]?([\s\S]*?)(?=###|$)/i);
   if (!match) return { breakdown: null, tags: [] };
 
-  const lines = match[1].trim().split('\n');
-  const targetLine = lines.find(l => l.includes('+') || l.match(/[:：]/)) || lines[0];
-  if (!targetLine) return { breakdown: null, tags: [] };
-
-  const cleanLine = targetLine.replace(/\*/g, '');
+  const content = match[1].trim();
+  const lines = content.includes('\n') ? content.split('\n') : [content];
   const tags = [];
+  const breakdownMap = new Map(); // 使用 Map 來避免重複並方便合併
 
-  const breakdown = cleanLine.split('+').map(p => {
-    const trimmed = p.trim();
-    if (!trimmed) return null;
+  lines.forEach(line => {
+    const cleanLine = line.replace(/\*/g, '').trim();
+    if (!cleanLine || cleanLine.startsWith('(')) return; // 略過範例說明括號
 
-    // 🚀 優化：更強大的容錯切割邏輯 (支援各種 AI 的奇葩排版)
-    const colonIdx = trimmed.indexOf(':') > -1 ? trimmed.indexOf(':') : trimmed.indexOf('：');
-    if (colonIdx === -1) {
-      return { label: 'Part', value: trimmed, meaning: '' };
-    }
+    // 支援「A + B + C」或單獨一行「A: ...」
+    const parts = cleanLine.includes('+') ? cleanLine.split('+') : [cleanLine];
 
-    const rawLabel = trimmed.substring(0, colonIdx).trim();
-    const rest = trimmed.substring(colonIdx + 1).trim();
+    parts.forEach(p => {
+      const trimmed = p.replace(/^[-•]\s*/, '').trim(); // 移除列表符號
+      if (!trimmed) return;
 
-    let value = rest;
-    let meaning = '';
+      const colonIdx = trimmed.indexOf(':') > -1 ? trimmed.indexOf(':') : trimmed.indexOf('：');
+      if (colonIdx === -1) return;
 
-    // 嘗試從括號中提取中文意思
-    const match = rest.match(/[(（](.*?)[)）]/);
-    if (match) {
-      meaning = match[1].trim();
-      // 將括號連同裡面的內容從 value 中移除
-      value = rest.replace(/[(（].*?[)）]/, '').trim();
-    }
+      const rawLabel = trimmed.substring(0, colonIdx).trim();
+      const rest = trimmed.substring(colonIdx + 1).trim();
 
-    // 正規化標籤與提取 Tag
-    let normLabel = 'Suffix';
-    if (rawLabel.match(/prefix|字首|前綴/i)) normLabel = 'Prefix';
-    else if (rawLabel.match(/root|字根|詞根/i)) normLabel = 'Root';
-    else if (rawLabel.match(/suffix|字尾|後綴/i)) normLabel = 'Suffix';
-    else normLabel = rawLabel;
+      let value = rest;
+      let meaning = '';
 
-    if (value) {
-      // 確保 Tag 標籤乾淨 (移除連字號與非字母字元)
-      const tagValue = value.replace(/[^a-zA-Z]/g, '').toLowerCase();
-      if (normLabel !== 'Part' && tagValue) tags.push(`${normLabel.toLowerCase()}:${tagValue}`);
-    }
+      // 提取括號中的意思
+      const mMatch = rest.match(/[(（](.*?)[)）]/);
+      if (mMatch) {
+        meaning = mMatch[1].trim();
+        value = rest.replace(/[(（].*?[)）]/, '').trim();
+      }
 
-    return { label: normLabel, value, meaning };
-  }).filter(Boolean);
+      // 正規化標籤 (Prefix, Root, Suffix)
+      let normLabel = 'Suffix';
+      if (rawLabel.match(/prefix|字首|前綴/i)) normLabel = 'Prefix';
+      else if (rawLabel.match(/root|字根|詞根/i)) normLabel = 'Root';
+      else if (rawLabel.match(/suffix|字尾|後綴/i)) normLabel = 'Suffix';
+      else normLabel = rawLabel;
 
-  return { breakdown: breakdown.length > 0 ? breakdown : null, tags };
+      if (value) {
+        const tagValue = value.replace(/[^a-zA-Z]/g, '').toLowerCase();
+        if (normLabel !== 'Part' && tagValue) tags.push(`${normLabel.toLowerCase()}:${tagValue}`);
+        
+        // 存入 Map，同一個 label 只取第一個出現的正則化結果
+        if (!breakdownMap.has(normLabel)) {
+          breakdownMap.set(normLabel, { label: normLabel, value, meaning });
+        }
+      }
+    });
+  });
+
+  const finalBreakdown = Array.from(breakdownMap.values());
+  return { breakdown: finalBreakdown.length > 0 ? finalBreakdown : null, tags: Array.from(new Set(tags)) };
 };
 
 // ─── SRS Algorithm (SM-2 simplified) ────────────────────────────────────────
@@ -942,7 +950,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           // 如果 detectedPos 像是一個詞性縮寫，則進行修正
           if (['n', 'v', 'adj', 'adv', 'prep', 'conj', 'phr', 'n.', 'v.', 'adj.', 'adv.', 'prep.', 'conj.', 'phr.'].includes(detectedPos.toLowerCase())) {
             word = cleanWord;
-            const normalizedPos = detectedPos.endsWith('.') ? detectedPos.toLowerCase() : detectedPos.toLowerCase() + '.';
+            const normalizedPos = normalizePOS(detectedPos);
             // 只有當 meanings 裡沒有這個詞性時才更新或覆蓋
             if (meanings.length === 1 && (meanings[0].pos === 'n.' || meanings[0].pos === detectedPos)) {
               meanings = [{ ...meanings[0], pos: normalizedPos }];
@@ -1787,7 +1795,7 @@ const WordBank = ({
   const handleAiAnalyze = async (id, word) => {
     setAnalyzingIds(prev => new Set(prev).add(id));
     try {
-      const targetWord = words.find(w => w.id === id);
+      const targetWord = mergedWords.find(w => w.id === id); // 改用 mergedWords 確保包含個人收藏
       const meaningsStr = targetWord ? getMeanings(targetWord).map(m => `(${m.pos}) ${m.meaning}`).join(', ') : '';
 
       const prompt = `你是一位專業的英文語源學老師與記憶專家。請針對單字 "${word}" ${meaningsStr ? `(包含常見意思：${meaningsStr}) ` : ''}提供結構化解析。
@@ -1818,13 +1826,13 @@ const WordBank = ({
 
       // 🔍 🚀 統一形態解析並提取標籤 (Prefix, Root, Suffix) 與結構化數據
       const { tags: generatedTags, breakdown } = parseMorphology(response);
-      const existingTags = Array.isArray(targetWord.tags) ? targetWord.tags : [];
+      const existingTags = targetWord?.tags || [];
       const mergedTags = Array.from(new Set([...existingTags, ...generatedTags]));
 
-      // 提取個別欄位給 Firestore (prefix, root, suffix)
-      const prefix = breakdown?.find(p => p.label === 'Prefix')?.value || '';
-      const root = breakdown?.find(p => p.label === 'Root')?.value || '';
-      const suffix = breakdown?.find(p => p.label === 'Suffix')?.value || '';
+      const cleanV = (v) => v ? v.replace(/^-|-$/g, '').trim() : ''; // 清除前後連字號
+      const prefix = cleanV(breakdown?.find(p => p.label === 'Prefix')?.value);
+      const root = cleanV(breakdown?.find(p => p.label === 'Root')?.value);
+      const suffix = cleanV(breakdown?.find(p => p.label === 'Suffix')?.value);
 
       // 2. 嘗試同步至雲端 (獨立 try-catch，避免同步失敗毀掉已生成的內容)
       try {
@@ -1870,8 +1878,8 @@ const WordBank = ({
     setIsAutoFilling(true);
     try {
       const prompt = `你是一個專業的高中英文老師。請提供單字 "${newWord.trim()}" 的所有常見中文解釋與對應詞性。
-請嚴格以 JSON 陣列格式回傳，不要有任何 Markdown 或其他文字：
-[{"meaning": "繁體中文解釋", "pos": "詞性縮寫(n./v./adj./adv./prep./conj./phr.)"}]`;
+  請嚴格以 JSON 陣列格式回傳，不要有任何 Markdown 或其他文字：
+  [{"meaning": "繁體中文解釋", "pos": "詞性縮寫(務必帶點，如 n./v./adj./adv./prep./conj./abbr./phr.)"}]`;
 
       const response = await fetchAI(prompt);
       if (response) {
@@ -1879,7 +1887,10 @@ const WordBank = ({
         if (match) {
           const parsed = JSON.parse(match[0]);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setNewMeanings(parsed.map(p => ({ pos: p.pos || 'n.', meaning: p.meaning || '' })));
+            setNewMeanings(parsed.map(p => ({ 
+              pos: normalizePOS(p.pos), 
+              meaning: p.meaning || '' 
+            })));
           }
           triggerNotification('AI 填入成功', '已自動帶入解釋與詞性');
         } else {
