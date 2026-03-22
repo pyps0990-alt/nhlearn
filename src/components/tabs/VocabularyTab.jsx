@@ -201,6 +201,10 @@ const WordDetailOverlay = ({
     }
     if (isClosing) return;
     setIsClosing(true);
+    // 🚀 核心修復：立即恢復背景滾動，不需要等退場動畫結束
+    document.body.style.overflow = '';
+    document.body.style.height = ''; 
+    
     if (window.speechSynthesis) window.speechSynthesis.cancel(); // 立即停止發音，不拖泥帶水
     setTimeout(() => {
       onClose();
@@ -304,7 +308,7 @@ const WordDetailOverlay = ({
   const cleanAnalysis = analysis && !analysis.startsWith('ERROR:') ? analysis.replace(/###\s*\[?單字構造拆解\]?[\s\S]*?(?=###|$)/i, '').trim() : '';
 
   return createPortal(
-    <div className={`fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl transition-opacity duration-200 ${isClosing ? 'opacity-0' : 'animate-fadeIn'}`} onClick={handleClose}>
+    <div className={`fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl transition-opacity duration-200 ${isClosing ? 'opacity-0 pointer-events-none' : 'animate-fadeIn'}`} onClick={handleClose}>
       <div
         className={`bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl w-full h-[100dvh] md:h-[90vh] md:max-w-4xl md:rounded-[48px] shadow-2xl border border-white/20 overflow-hidden flex flex-col transition-all duration-200 ${isClosing ? 'scale-[0.98] opacity-0 translate-y-4 md:translate-y-0' : 'animate-pop-in'}`}
         onClick={e => e.stopPropagation()}
@@ -545,7 +549,7 @@ const WordDetailOverlay = ({
               {/* AI 語源解析區 */}
               <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2"><Sparkles size={20} className="text-yellow-500" /> 深度語源解析</span>
-                {analysis && !analysis.startsWith('ERROR:') && (
+                {analysis && !analysis.startsWith('ERROR:') && isAdmin && (
                   <button onClick={() => handleAiAnalyze(word.id, word.word)} disabled={isAnalyzing} className="px-2.5 py-1.5 bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-emerald-500 rounded-xl transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 text-[11px] font-black shadow-sm">
                     <RefreshCw size={14} className={isAnalyzing ? 'animate-spin' : ''} /> 重新生成
                   </button>
@@ -1237,6 +1241,23 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
 
       logDebug('INFO', '已更新個人進度/筆記', { word: wordObj.word });
     }
+
+    // 🚀 核心修復：雙重同步機制
+    // 如果是 AI 解析更新且使用者已登入，且剛才不是個人更新，則額外強制備份一份到個人庫
+    // 確保在手機端/權限不足時，使用者依然能看到自己產生的解析內容
+    if (!isGuest && isGlobalUpdate && ('aiAnalysis' in updates)) {
+      try {
+        const personalRef = doc(db, 'Users', user.uid, 'PersonalVocab', safeId);
+        await setDoc(personalRef, {
+          ...updates,
+          word: wordObj.word,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        logDebug('INFO', '解析內容已同步備份至個人空間', { word: wordObj.word });
+      } catch (e) {
+        console.warn("個人備份失敗:", e.message);
+      }
+    }
   }, [user?.uid, mergedWords, logDebug, currentSet, schoolId, gradeId, teacherGrade, teacherStage]);
   const deleteWord = useCallback(async (id) => {
     if (!user?.uid || !isAdmin) return;
@@ -1795,22 +1816,31 @@ const WordBank = ({
       // 1. 立即更新本地快取 (確保使用者立刻看到內容)
       setAiAnalysisData(prev => ({ ...prev, [id]: response }));
 
-      // 🔍 🚀 統一形態解析並提取標籤 (Prefix, Root, Suffix)
-      const { tags: generatedTags } = parseMorphology(response);
+      // 🔍 🚀 統一形態解析並提取標籤 (Prefix, Root, Suffix) 與結構化數據
+      const { tags: generatedTags, breakdown } = parseMorphology(response);
       const existingTags = Array.isArray(targetWord.tags) ? targetWord.tags : [];
       const mergedTags = Array.from(new Set([...existingTags, ...generatedTags]));
+
+      // 提取個別欄位給 Firestore (prefix, root, suffix)
+      const prefix = breakdown?.find(p => p.label === 'Prefix')?.value || '';
+      const root = breakdown?.find(p => p.label === 'Root')?.value || '';
+      const suffix = breakdown?.find(p => p.label === 'Suffix')?.value || '';
 
       // 2. 嘗試同步至雲端 (獨立 try-catch，避免同步失敗毀掉已生成的內容)
       try {
         const existingAnalysis = targetWord.aiAnalysis;
-        if (!existingAnalysis || existingAnalysis.startsWith('ERROR:')) {
+        // 如果是管理者或是目前沒有有效解析，才進行雲端寫入
+        if (isAdmin || !existingAnalysis || existingAnalysis.startsWith('ERROR:')) {
           await updateWord(id, {
             aiAnalysis: response,
             aiAnalysisAuthor: user?.displayName || '熱心同學',
             aiAnalysisAuthorId: user?.uid || 'guest',
-            tags: mergedTags
+            tags: mergedTags,
+            prefix,
+            root,
+            suffix
           });
-          logDebug('SUCCESS', 'AI 解析已自動同步至雲端庫', { word: response.substring(0, 20) + '...' });
+          logDebug('SUCCESS', 'AI 解析與拆解已自動同步至雲端庫', { word: response.substring(0, 20) + '...' });
         }
       } catch (saveErr) {
         console.warn('⚠️ 雲端備份失敗 (權限限制):', saveErr.message);
