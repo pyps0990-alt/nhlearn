@@ -42,7 +42,7 @@ export const getBookDocId = (gradeRaw, semester) => {
 export const getStageStr = (sNum) => {
   if (Number(sNum) === 1) return '第1次段考';
   if (Number(sNum) === 2) return '第2次段考';
-  return '第三次段考';
+  return '第3次段考';
 };
 
 // ─── 形態解析助手 (Morphology Parser) ───────────────────────────────────────
@@ -218,15 +218,19 @@ const WordDetailOverlay = ({
   const [isClosing, setIsClosing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editMeanings, setEditMeanings] = useState(() => getMeanings(word));
+  const [editUnit, setEditUnit] = useState(word.unit || '');
+  const [editAnalysis, setEditAnalysis] = useState(analysis || word.aiAnalysis || '');
   const [generatingExampleIdx, setGeneratingExampleIdx] = useState(null);
   const generatedRef = useRef(new Set()); // 紀錄已觸發生成的 idx
 
   useEffect(() => {
     setEditMeanings(getMeanings(word));
-  }, [word]);
+    setEditUnit(word.unit || '');
+    setEditAnalysis(analysis || word.aiAnalysis || '');
+  }, [word, analysis]);
 
-  // 🚀 維基共編模式：開放所有使用者 (包含訪客) 編輯與貢獻單字內容
-  const canEdit = true;
+  // 🚀 管理員或個人收藏模式下可編輯單字內容
+  const canEdit = isAdmin || currentSet === 'Personal';
 
   // 🚀 核心修復：立即給予視覺回饋，並延遲 DOM 的卸載，徹底解決手機端卡頓感
   const handleClose = useCallback((e) => {
@@ -412,12 +416,28 @@ const WordDetailOverlay = ({
                 ))}
                 <button onClick={() => setEditMeanings([...editMeanings, { pos: 'n.', meaning: '' }])} className="text-emerald-500 hover:bg-emerald-50 dark:hover:bg-white/5 text-[12px] font-bold self-start px-3 py-1.5 rounded-lg mt-1 transition-colors">+ 新增其他詞性解釋</button>
 
+                {isAdmin && (
+                  <div className="flex gap-2 items-center">
+                    <div className="text-[12px] font-black text-slate-400 shrink-0">單元 (Unit):</div>
+                    <input className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 px-3 py-1.5 rounded-xl text-sm font-bold flex-1 outline-none focus:border-indigo-400 text-[var(--text-primary)] transition-colors" value={editUnit} onChange={e => setEditUnit(e.target.value)} placeholder="例: Unit_01" />
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1">
+                  <div className="text-[12px] font-black text-slate-400">詳盡解析 (Markdown):</div>
+                  <textarea className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 px-4 py-3 rounded-2xl text-[13px] font-medium min-h-[200px] outline-none focus:border-purple-400 text-[var(--text-primary)] transition-colors resize-y" value={editAnalysis} onChange={e => setEditAnalysis(e.target.value)} placeholder="輸入 Markdown 格式的詳盡解析內容..." />
+                </div>
+
                 <div className="flex gap-2 mt-1">
-                  <button onClick={() => { setIsEditing(false); setEditMeanings(getMeanings(word)); }} className="px-4 py-2 bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black transition-colors active:scale-95">取消</button>
+                  <button onClick={() => { setIsEditing(false); setEditMeanings(getMeanings(word)); setEditUnit(word.unit || ''); setEditAnalysis(analysis || word.aiAnalysis || ''); }} className="px-4 py-2 bg-slate-200 dark:bg-white/10 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black transition-colors active:scale-95">取消</button>
                   <button onClick={() => {
                     const cleanMeanings = editMeanings.filter(m => m.meaning.trim() !== '');
                     if (cleanMeanings.length === 0) return toast.error('請至少保留一個解釋');
-                    updateWord(word.id, { meanings: cleanMeanings });
+                    updateWord(word.id, {
+                      meanings: cleanMeanings,
+                      unit: editUnit,
+                      aiAnalysis: editAnalysis
+                    });
                     triggerNotification('修改成功', '單字資訊已更新');
                     setIsEditing(false);
                   }} className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md active:scale-95 transition-all">儲存變更</button>
@@ -766,7 +786,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
   }, [gradeId]);
 
   const [campusSemester, setCampusSemester] = useState('up');
-  const [campusStage, setCampusStage] = useState('stage_1');
+  const [campusStage, setCampusStage] = useState(1); // 新增：段考階段 (1, 2, 3)
+  const [campusUnit, setCampusUnit] = useState('Unit_01');
 
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [detailedWordId, setDetailedWordId] = useState(null);
@@ -981,8 +1002,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       }
 
       if (currentSet === 'Campus') {
-        const stageNum = parseInt(campusStage.replace('stage_', ''), 10);
-        constraints.push(where('examStage', '==', getStageStr(stageNum)));
+        constraints.push(where('unit', '==', campusUnit));
       }
 
       if (filterLevel !== 'all') {
@@ -994,8 +1014,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       q = query(...constraints);
     } else {
       if (currentSet === 'Campus') {
-        const stageNum = parseInt(campusStage.replace('stage_', ''), 10);
-        q = query(vocabRef, where('examStage', '==', getStageStr(stageNum)), orderBy('__name__', 'asc'), limit(20));
+        q = query(vocabRef, where('unit', '==', campusUnit), orderBy('__name__', 'asc'), limit(20));
       } else {
         q = query(vocabRef, orderBy('__name__', 'asc'), limit(20));
       }
@@ -1056,7 +1075,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     });
 
     return () => unsub();
-  }, [debouncedSearch, currentSet, filterLevel, campusGrade, campusSemester, campusStage, logDebug, user?.uid, schoolId]);
+  }, [debouncedSearch, currentSet, filterLevel, campusGrade, campusSemester, campusUnit, logDebug, user?.uid, schoolId]);
 
 
   // 加載更多 (效能優化)
@@ -1068,7 +1087,6 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     if (currentSet === 'Personal') {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
     } else if (currentSet === 'Campus') {
-      if (!schoolId) return;
       const bookId = getBookDocId(campusGrade, campusSemester);
       vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', bookId, 'Vocab');
     } else {
@@ -1086,8 +1104,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       constraints.push(where('level', '==', Number(filterLevel)));
     }
     if (currentSet === 'Campus') {
-      const stageNum = parseInt(campusStage.replace('stage_', ''), 10);
-      constraints.push(where('examStage', '==', getStageStr(stageNum)));
+      constraints.push(where('unit', '==', campusUnit));
     }
     const q = query(...constraints);
     try {
@@ -1360,7 +1377,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         console.warn("個人備份失敗:", e.message);
       }
     }
-  }, [user?.uid, user?.email, isAdmin, currentSet, schoolId, campusGrade, campusSemester, campusStage, mergedWords, logDebug]);
+  }, [user?.uid, user?.email, isAdmin, currentSet, schoolId, campusGrade, campusSemester, campusUnit, mergedWords, logDebug]);
 
   const deleteWord = useCallback(async (id) => {
     if (!user?.uid) return;
@@ -1407,7 +1424,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       logDebug('ERROR', '刪除失敗', e.message);
       triggerNotification('刪除失敗', e.message, 'error');
     }
-  }, [user?.uid, isAdmin, mergedWords, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
+  }, [user?.uid, isAdmin, mergedWords, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusUnit]);
 
 
   const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush = true) => {
@@ -1492,7 +1509,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           tags: wObj.tags || [],
           meanings: uniqueMeanings,
           semester: targetSet === 'Campus' ? campusSemester : null,
-          examStage: targetSet === 'Campus' ? getStageStr(campusStage.replace('stage_', '')) : null,
+          unit: targetSet === 'Campus' ? campusUnit : (wObj.unit || null),
           userEmail: user.email || '',
           updatedAt: serverTimestamp(),
           createdAt: wObj.createdAt || serverTimestamp() // 保留舊有創建時間
@@ -1503,7 +1520,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       await batch.commit();
     }
     logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至 ${targetSet}`);
-  }, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
+  }, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusUnit]);
 
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -1806,8 +1823,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
             setCampusGrade={setCampusGrade}
             campusSemester={campusSemester}
             setCampusSemester={setCampusSemester}
-            campusStage={campusStage}
-            setCampusStage={setCampusStage}
+            campusUnit={campusUnit}
+            setCampusUnit={setCampusUnit}
 
             user={user}
             schoolId={schoolId}
@@ -2160,6 +2177,15 @@ const WordBank = ({
       list = list.filter(w => w.learned !== true);
     }
 
+    // 🚀 單字單元解析與搜尋優化
+    if (searchStr.includes('unit')) {
+      const match = searchStr.match(/unit\s*(\d+)/i);
+      if (match) {
+        const uId = `Unit_${match[1].padStart(2, '0')}`;
+        list = list.filter(w => w.unit === uId);
+      }
+    }
+
     // 🚀 級別篩選
     if (filterLevel !== 'all') {
       list = list.filter(w => String(w.level) === filterLevel);
@@ -2406,15 +2432,53 @@ const WordBank = ({
                     </button>
                   ))}
                 </div>
+                <div className="w-px h-5 bg-slate-200 dark:bg-white/10 shrink-0" />
+                <div className="flex bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl">
+                  {[1, 2, 3].map(stg => (
+                    <button key={stg} onClick={() => setCampusStage(stg)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-black whitespace-nowrap transition-all ${campusStage === stg ? 'bg-white dark:bg-zinc-700 text-amber-500 shadow-sm' : 'text-slate-400'}`}>
+                      {stg}段
+                    </button>
+                  ))}
+                </div>
               </div>
-              {/* 第二排：段考 */}
-              <div className="flex gap-1.5">
-                {[1, 2, 3].map(s => (
-                  <button key={s} onClick={() => setCampusStage(`stage_${s}`)}
-                    className={`flex-1 py-2 rounded-xl text-[11px] font-black text-center transition-all ${campusStage === `stage_${s}` ? 'bg-indigo-500 text-white shadow-sm' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}>
-                    {s === 1 ? '第一段' : s === 2 ? '第二段' : '期末考'}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 mt-2 px-1">
+                <div className="flex-1 relative">
+                  <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="輸入單元篩選 (例: 1 或 Unit 1)"
+                    value={campusUnit.replace('Unit_', '')}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) return setCampusUnit('Unit_01');
+                      // 智能判斷：如果是純數字，自動補完前綴
+                      if (/^\d+$/.test(val)) {
+                        setCampusUnit(`Unit_${val.padStart(2, '0')}`);
+                      } else {
+                        setCampusUnit(val);
+                      }
+                    }}
+                    className="w-full bg-slate-100 dark:bg-white/5 border border-transparent focus:border-indigo-400 dark:focus:border-indigo-500 rounded-xl pl-9 pr-4 py-2.5 text-[11px] font-black text-slate-700 dark:text-slate-300 outline-none transition-all shadow-inner"
+                  />
+                </div>
+              </div>
+              {/* 第二排：單元選擇 (橫向捲動) */}
+              <div
+                ref={scrollRefSet}
+                onMouseDown={onDragStart} onMouseLeave={() => setDragState({ ...dragState, isDragging: false })} onMouseUp={() => setDragState({ ...dragState, isDragging: false })} onMouseMove={onDragMove}
+                className="flex gap-2 overflow-x-auto scrollbar-hide py-1 cursor-grab select-none active:cursor-grabbing"
+              >
+                {Array.from({ length: 16 }).map((_, i) => {
+                  const uId = `Unit_${String(i + 1).padStart(2, '0')}`;
+                  const isCur = campusUnit === uId;
+                  return (
+                    <button key={uId} onClick={() => setCampusUnit(uId)}
+                      className={`shrink-0 px-4 py-2.5 rounded-xl text-[11px] font-black transition-all ${isCur ? 'bg-indigo-500 text-white shadow-md scale-105' : 'bg-slate-100 dark:bg-white/5 text-slate-400 hover:bg-slate-200'}`}>
+                      {uId.replace('_', ' ')}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
