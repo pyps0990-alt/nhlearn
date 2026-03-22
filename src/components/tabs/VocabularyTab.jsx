@@ -791,17 +791,21 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     if (!db || !schoolId) return;
 
     const checkSources = async () => {
+      // 🚀 優化：若是 .edu.tw 帳號或管理員，不論資料庫是否為空，都應顯示來源按鈕以便管理與新增
+      const isPrivileged = isAdmin || user?.email?.endsWith('.edu.tw');
       try {
-        const campusPath = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words');
+        const campusPath = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab');
         const campusSnap = await getDocs(query(campusPath, limit(1)));
-        setSourcesVisibility(prev => ({ ...prev, school: !campusSnap.empty }));
+        setSourcesVisibility(prev => ({ ...prev, school: isPrivileged || !campusSnap.empty }));
       } catch (e) {
+        setSourcesVisibility(prev => ({ ...prev, school: isPrivileged }));
         console.error("Check sources error:", e);
       }
     };
 
+    logDebug('INFO', '執行 checkSources');
     checkSources();
-  }, [db, schoolId, campusGrade, campusSemester, campusStage]);
+  }, [db, schoolId, campusGrade, campusSemester, campusStage, user?.email, isAdmin]);
 
 
   // --- 通知系統 ---
@@ -943,7 +947,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         setIsLoading(false);
         return;
       }
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words');
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab');
     } else {
 
       // 🌍 6000 核心單字庫 (改存放於 Schools/taiwan/FreeVocab)
@@ -1006,6 +1010,12 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       logDebug('ERROR', '載入單字庫失敗', error.message);
       if (error.code === 'permission-denied') {
         setDbError('權限不足：請確認您已登入，且資料庫安全規則設定正確。');
+        if (currentSet === 'Campus') {
+          // 若是校園單字因權限或無資料阻擋，則不顯示報錯橫幅，讓畫面自然呈現「目前沒有單字」
+          setDbError('');
+        } else {
+          setDbError('權限不足：請確認您已登入，且資料庫安全規則設定正確。');
+        }
       } else {
         setDbError(`載入失敗：${error.message}`);
       }
@@ -1026,7 +1036,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
     } else if (currentSet === 'Campus') {
       if (!schoolId) return;
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words');
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab');
     } else {
 
       vocabRef = collection(db, 'Schools', 'taiwan', 'FreeVocab');
@@ -1256,7 +1266,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       // 🌍 全域更新：所有使用者(含訪客)的 AI 解析、例句、詞性解釋，直接寫入公用資料庫
       let ref;
       if (currentSet === 'Campus') {
-        ref = doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words', safeId);
+        ref = doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', safeId);
       } else {
         ref = doc(db, 'Schools', 'taiwan', 'FreeVocab', safeId);
       }
@@ -1314,7 +1324,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
   }, [user?.uid, user?.email, isAdmin, currentSet, schoolId, campusGrade, campusSemester, campusStage, mergedWords, logDebug]);
 
   const deleteWord = useCallback(async (id) => {
-    if (!user?.uid || !isAdmin) return;
+    if (!user?.uid) return;
     try {
       const wordObj = mergedWords.find(w => w.id === id);
       if (wordObj) {
@@ -1327,202 +1337,217 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           return;
         }
 
-        if (!isAdmin && currentSet !== 'Personal') {
+        if (!isAdmin && currentSet !== 'Personal' && !user?.email?.endsWith('.edu.tw')) {
           alert("您只能刪除「個人收藏」中的單字喔！");
           return;
         }
-        if (currentSet === 'Campus' && !schoolId) return;
+        // 🚀 強制校正 ID：確保刪除邏輯使用的 ID 與儲存時一致 (全小寫且無斜線)
+        const safeId = String(wordObj.word).toLowerCase().replace(/\//g, '_');
 
-
-        const safeId = String(id).replace(/\//g, '_');
         const ref = currentSet === 'Personal'
           ? doc(db, 'Users', user.uid, 'PersonalVocab', safeId)
           : currentSet === 'Campus'
-            ? doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words', safeId)
+            ? doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', safeId)
             : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeId);
+
         await deleteDoc(ref);
+
+        // 🚀 同步更新本地 state
+        if (currentSet === 'Personal') {
+          setWords(prev => prev.filter(w => w.id !== id && w.word.toLowerCase() !== wordObj.word.toLowerCase()));
+          setUserWords(prev => prev.filter(w => w.word.toLowerCase() !== wordObj.word.toLowerCase()));
+        }
+
         logDebug('SUCCESS', '已從雲端刪除單字', { word: wordObj.word, set: currentSet });
+        triggerNotification('刪除成功', `已將「${wordObj.word}」從庫中移除`);
       }
     } catch (e) {
       logDebug('ERROR', '刪除失敗', e.message);
+      triggerNotification('刪除失敗', e.message, 'error');
     }
   }, [user?.uid, isAdmin, mergedWords, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
 
 
-  const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush = true) => {
-    if (!db) return;
-    const isGuest = !user?.uid;
+const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush = true) => {
+  if (!db) return;
+  const isGuest = !user?.uid;
 
-    if (isGuest && targetSet === 'Personal') {
-      const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
-      const updated = [...localData];
-      newWords.forEach(w => {
-        const wordVal = (w.word || '').trim();
-        if (!wordVal) return;
-        if (!updated.some(x => x.word.toLowerCase() === wordVal.toLowerCase())) {
-          updated.push({
-            id: 'local_' + Date.now() + Math.random(),
-            ...w,
-            createdAt: Date.now(),
-            source: 'Personal'
-          });
-        }
-      });
-      localStorage.setItem('gsat_local_vocab', JSON.stringify(updated));
-      if (currentSet === 'Personal') setWords(updated);
-      logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至本地收藏 (訪客)`);
-      return;
-    }
-
-    if (targetSet === 'Teacher Picks' && !schoolId) { triggerNotification('錯誤', '請先設定學校', 'error'); return; }
-    if (targetSet === 'school_vocab' && (!schoolId || !gradeId)) { triggerNotification('錯誤', '請先設定學校與年級', 'error'); return; }
-
-    // 🚀 群組化同一個單字，合併成陣列
-    const grouped = {};
-    newWords.forEach((w) => {
-      const wordVal = String(w.word || '').trim();
+  if (isGuest && targetSet === 'Personal') {
+    const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
+    const updated = [...localData];
+    newWords.forEach(w => {
+      const wordVal = (w.word || '').trim();
       if (!wordVal) return;
-      const lower = wordVal.toLowerCase();
-      if (!grouped[lower]) {
-        grouped[lower] = { ...w, word: wordVal, meanings: [], originalW: w };
+      if (!updated.some(x => x.word.toLowerCase() === wordVal.toLowerCase())) {
+        updated.push({
+          id: 'local_' + Date.now() + Math.random(),
+          ...w,
+          createdAt: Date.now(),
+          source: 'Personal'
+        });
       }
-      if (w.meanings && Array.isArray(w.meanings)) grouped[lower].meanings.push(...w.meanings);
-      else if (w.meaning || w.chinese) grouped[lower].meanings.push({ pos: String(w.partOfSpeech || w.pos || 'n.').trim(), meaning: String(w.meaning || w.chinese || '').trim() });
     });
+    localStorage.setItem('gsat_local_vocab', JSON.stringify(updated));
+    if (currentSet === 'Personal') setWords(updated);
+    logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至本地收藏 (訪客)`);
+    return;
+  }
 
-    const finalData = Object.values(grouped);
-    // 🚀 大量上傳分批保護機制
-    const chunks = [];
-    for (let i = 0; i < finalData.length; i += 400) {
-      chunks.push(finalData.slice(i, i + 400));
+  if (targetSet === 'Teacher Picks' && !schoolId) { triggerNotification('錯誤', '請先設定學校', 'error'); return; }
+  if (targetSet === 'Campus' && (!schoolId || !gradeId)) { triggerNotification('錯誤', '請先設定學校與年級', 'error'); return; }
+  if (targetSet === 'Campus' && !isAdmin && !user?.email?.endsWith('.edu.tw')) {
+    triggerNotification('權限不足', '校務單字僅限教職員或校務帳號新增喔！', 'error');
+    return;
+  }
+
+  // 🚀 群組化同一個單字，合併成陣列
+  const grouped = {};
+  newWords.forEach((w) => {
+    const wordVal = String(w.word || '').trim();
+    if (!wordVal) return;
+    const lower = wordVal.toLowerCase();
+    if (!grouped[lower]) {
+      grouped[lower] = { ...w, word: wordVal, meanings: [], originalW: w };
     }
+    if (w.meanings && Array.isArray(w.meanings)) grouped[lower].meanings.push(...w.meanings);
+    else if (w.meaning || w.chinese) grouped[lower].meanings.push({ pos: String(w.partOfSpeech || w.pos || 'n.').trim(), meaning: String(w.meaning || w.chinese || '').trim() });
+  });
 
-    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
-      const chunk = chunks[chunkIdx];
-      const batch = writeBatch(db);
-      chunk.forEach((wObj, i) => {
-        const wordVal = wObj.word;
-        const safeDocId = String(wordVal).toLowerCase().replace(/\//g, '_'); // 防呆
+  const finalData = Object.values(grouped);
+  // 🚀 大量上傳分批保護機制
+  const chunks = [];
+  for (let i = 0; i < finalData.length; i += 400) {
+    chunks.push(finalData.slice(i, i + 400));
+  }
 
-        const ref = targetSet === 'Personal'
-          ? doc(db, 'Users', user.uid, 'PersonalVocab', safeDocId)
-          : targetSet === 'Campus'
-            ? doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words', safeDocId)
-            : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeDocId);
+  for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+    const chunk = chunks[chunkIdx];
+    const batch = writeBatch(db);
+    chunk.forEach((wObj, i) => {
+      const wordVal = wObj.word;
+      const safeDocId = String(wordVal).toLowerCase().replace(/\//g, '_'); // 防呆
 
-        const sn = Date.now() + (chunkIdx * 400) + i;
+      const ref = targetSet === 'Personal'
+        ? doc(db, 'Users', user.uid, 'PersonalVocab', safeDocId)
+        : targetSet === 'Campus'
+          ? doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', safeDocId)
+          : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeDocId);
 
-        const uniqueMeanings = []; const seen = new Set();
-        wObj.meanings.forEach(m => { const key = `${m.pos}-${m.meaning}`; if (!seen.has(key)) { seen.add(key); uniqueMeanings.push(m); } });
+      const sn = Date.now() + (chunkIdx * 400) + i;
 
-        batch.set(ref, {
-          word: wordVal,
-          level: Number(wObj.level) || 1,
-          type: targetSet === 'Personal' ? '個人' : (wObj.source || '社群貢獻'),
-          shared: targetSet !== 'Personal',
-          serialNumber: sn,
-          tags: wObj.tags || [],
-          meanings: uniqueMeanings,
-          userEmail: user.email || '',
-          updatedAt: serverTimestamp(),
-          createdAt: wObj.createdAt || serverTimestamp() // 保留舊有創建時間
-        }, { merge: true });
+      const uniqueMeanings = []; const seen = new Set();
+      wObj.meanings.forEach(m => { const key = `${m.pos}-${m.meaning}`; if (!seen.has(key)) { seen.add(key); uniqueMeanings.push(m); } });
 
-        if (shouldPush && targetSet !== 'Personal') pushToGAS(wObj.originalW);
-      });
-      await batch.commit();
-    }
-    logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至 ${targetSet}`);
-  }, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
+      batch.set(ref, {
+        word: wordVal,
+        level: Number(wObj.level) || 1,
+        type: targetSet === 'Personal' ? '個人' : (wObj.source || '社群貢獻'),
+        shared: targetSet !== 'Personal',
+        serialNumber: sn,
+        tags: wObj.tags || [],
+        meanings: uniqueMeanings,
+        semester: targetSet === 'Campus' ? campusSemester : null,
+        stage: targetSet === 'Campus' ? campusStage : null,
+        userEmail: user.email || '',
+        updatedAt: serverTimestamp(),
+        createdAt: wObj.createdAt || serverTimestamp() // 保留舊有創建時間
+      }, { merge: true });
+
+      if (shouldPush && targetSet !== 'Personal') pushToGAS(wObj.originalW);
+    });
+    await batch.commit();
+  }
+  logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至 ${targetSet}`);
+}, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
 
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayMinutes = Math.floor((stats[todayStr]?.time || 0) / 60);
+const todayStr = new Date().toISOString().split('T')[0];
+const todayMinutes = Math.floor((stats[todayStr]?.time || 0) / 60);
 
-  // IG 限動小卡匯出功能：改為匯出「今日學習數據」
-  const handleExportIG = useCallback(async () => {
-    let currentStreak = 0;
-    try {
-      const statsData = JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {};
-      const tStr = new Date().toISOString().split('T')[0];
-      let tempDate = new Date();
-      while (true) {
-        const dStr = tempDate.toISOString().split('T')[0];
-        const s = statsData[dStr];
-        if (s && (s.words > 0 || s.time > 0)) {
-          currentStreak++;
-          tempDate.setDate(tempDate.getDate() - 1);
-        } else {
-          if (dStr === tStr) tempDate.setDate(tempDate.getDate() - 1);
-          else break;
-        }
+// IG 限動小卡匯出功能：改為匯出「今日學習數據」
+const handleExportIG = useCallback(async () => {
+  let currentStreak = 0;
+  try {
+    const statsData = JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {};
+    const tStr = new Date().toISOString().split('T')[0];
+    let tempDate = new Date();
+    while (true) {
+      const dStr = tempDate.toISOString().split('T')[0];
+      const s = statsData[dStr];
+      if (s && (s.words > 0 || s.time > 0)) {
+        currentStreak++;
+        tempDate.setDate(tempDate.getDate() - 1);
+      } else {
+        if (dStr === tStr) tempDate.setDate(tempDate.getDate() - 1);
+        else break;
       }
-    } catch (e) { }
+    }
+  } catch (e) { }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 1080;
-    canvas.height = 1920;
-    const ctx = canvas.getContext('2d');
+  const canvas = document.createElement('canvas');
+  canvas.width = 1080;
+  canvas.height = 1920;
+  const ctx = canvas.getContext('2d');
 
-    const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
-    grad.addColorStop(0, '#0f172a');
-    grad.addColorStop(1, '#064e3b');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 1080, 1920);
+  const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
+  grad.addColorStop(0, '#0f172a');
+  grad.addColorStop(1, '#064e3b');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1080, 1920);
 
-    ctx.beginPath(); ctx.arc(200, 300, 500, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(16, 185, 129, 0.15)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(900, 1500, 600, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(200, 300, 500, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(16, 185, 129, 0.15)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(900, 1500, 600, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'; ctx.fill();
 
-    ctx.beginPath();
-    ctx.roundRect(90, 400, 900, 1120, 60);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.stroke();
+  ctx.beginPath();
+  ctx.roundRect(90, 400, 900, 1120, 60);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.stroke();
 
-    ctx.textAlign = 'center';
-    ctx.font = 'bold 40px sans-serif';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.fillText(`GSAT PRO • 學習紀錄`, 540, 520);
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 40px sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+  ctx.fillText(`GSAT PRO • 學習紀錄`, 540, 520);
 
-    ctx.font = 'bold 160px sans-serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(`${currentStreak}`, 540, 780);
-    ctx.font = 'bold 50px sans-serif';
-    ctx.fillStyle = '#34d399';
-    ctx.fillText(`🔥 連續打卡天數`, 540, 880);
+  ctx.font = 'bold 160px sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(`${currentStreak}`, 540, 780);
+  ctx.font = 'bold 50px sans-serif';
+  ctx.fillStyle = '#34d399';
+  ctx.fillText(`🔥 連續打卡天數`, 540, 880);
 
-    const todayMin = Math.floor((stats[todayStr]?.time || 0) / 60);
-    ctx.font = 'bold 160px sans-serif';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(`${todayMin}`, 540, 1150);
-    ctx.font = 'bold 50px sans-serif';
-    ctx.fillStyle = '#60a5fa';
-    ctx.fillText(`⏱️ 今日專注時數 (分鐘)`, 540, 1250);
+  const todayMin = Math.floor((stats[todayStr]?.time || 0) / 60);
+  ctx.font = 'bold 160px sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(`${todayMin}`, 540, 1150);
+  ctx.font = 'bold 50px sans-serif';
+  ctx.fillStyle = '#60a5fa';
+  ctx.fillText(`⏱️ 今日專注時數 (分鐘)`, 540, 1250);
 
-    ctx.font = 'bold 36px sans-serif';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.fillText('持續累積，突破自我 🚀', 540, 1420);
+  ctx.font = 'bold 36px sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.fillText('持續累積，突破自我 🚀', 540, 1420);
 
-    const link = document.createElement('a');
-    link.download = `GSAT-Pro-Stats.jpg`;
-    link.href = canvas.toDataURL('image/jpeg', 0.95);
-    link.click();
-  }, []);
+  const link = document.createElement('a');
+  link.download = `GSAT-Pro-Stats.jpg`;
+  link.href = canvas.toDataURL('image/jpeg', 0.95);
+  link.click();
+}, []);
 
-  return (
-    <div className="flex flex-col w-full h-full animate-fadeIn pb-8 space-y-4 relative overflow-x-hidden">
-      {/* 利用 createPortal 將 Modal 抽離，避免受父層 transform 動畫影響導致版面錯位 */}
-      {showStatsModal && createPortal(
-        <StatsModal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} stats={stats} />,
-        document.body
-      )}
+return (
+  <div className="flex flex-col w-full h-full animate-fadeIn pb-8 space-y-4 relative overflow-x-hidden">
+    {/* 利用 createPortal 將 Modal 抽離，避免受父層 transform 動畫影響導致版面錯位 */}
+    {showStatsModal && createPortal(
+      <StatsModal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} stats={stats} />,
+      document.body
+    )}
 
-      {/* 注入答錯時的微震動動畫 */}
-      <style>{`
+    {/* 注入答錯時的微震動動畫 */}
+    <style>{`
         @keyframes vocab-shake {
           0%, 100% { transform: translateX(0); }
           20%, 60% { transform: translateX(-6px); }
@@ -1619,220 +1644,362 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           transition: 0s;
         }
       `}</style>
-      {/* Header (Sticky) */}
-      <div className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md pt-2 px-1">
-        <div className="flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl shrink-0">
-              <BookOpen size={24} className="shrink-0" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">單字特訓</h2>
-              <div className="flex items-center gap-2">
-                <p className="text-[11px] font-bold text-slate-400">{mergedWords.length} 個單字 · {todayReview.length} 個待複習</p>
-              </div>
-            </div>
+    {/* Header (Sticky) */}
+    <div className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md pt-2 px-1">
+      <div className="flex justify-between items-center shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl shrink-0">
+            <BookOpen size={24} className="shrink-0" />
           </div>
-
-          <div className="flex items-center gap-2">
-            {/* 學習時數膠囊按鈕 */}
-            <button onClick={() => setShowStatsModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-[12px] active:scale-95 transition-all border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm">
-              <Clock size={14} className="shrink-0" /> <span className="hidden sm:inline">今日 </span>{todayMinutes}m
-            </button>
-            <button onClick={handleExportIG} className="flex items-center justify-center p-2 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl active:scale-95 transition-all shadow-sm border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-200 dark:hover:bg-emerald-500/20" title="分享至 IG 限時動態">
-              <Share2 size={16} />
-            </button>
-
-            <button onClick={() => setIsDebugMode(!isDebugMode)} className={`hidden sm:block p-2 rounded-xl transition-all ${isDebugMode ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500'}`} title="切換偵錯模式"><Bug size={16} /></button>
-          </div>
-        </div>
-
-        {/* 錯誤提示 (Sticky Notice) */}
-        {dbError && (
-          <div className="mt-2 p-3 bg-red-100/80 dark:bg-red-900/40 backdrop-blur-lg border border-red-200 dark:border-red-800/50 rounded-2xl flex items-center gap-3 animate-slide-up-fade shadow-lg mx-1">
-            <AlertCircle size={18} className="text-red-500 shrink-0" />
-            <span className="text-[13px] font-black text-red-700 dark:text-red-300 min-w-0 break-words leading-tight">{dbError}</span>
-            <button onClick={() => setDbError('')} className="ml-auto p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors">
-              <X size={14} className="text-red-400" />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Sub-tabs */}
-      <div className="px-1 mb-2">
-        <div
-          ref={scrollRefTabs}
-          onMouseDown={e => onDragStart(e, scrollRefTabs)} onMouseLeave={() => setDragState({ ...dragState, isDragging: false })} onMouseUp={() => setDragState({ ...dragState, isDragging: false })} onMouseMove={onDragMove}
-          className={`relative flex gap-2 overflow-x-auto scrollbar-hide bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-[24px] backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-inner select-none ${dragState.isDragging && dragState.ref === scrollRefTabs ? 'cursor-grabbing' : 'cursor-grab'}`}
-        >
-          {/* 魔術背景膠囊 */}
-          <div
-            className="absolute top-1.5 bottom-1.5 bg-white dark:bg-slate-700 rounded-[20px] shadow-sm border border-slate-100 dark:border-slate-600 transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
-            style={{
-              width: `calc((100% - 12px) / ${SUB_TABS.length})`,
-              transform: `translateX(calc(${SUB_TABS.findIndex(t => t.id === subTab)} * 100%))`
-            }}
-          />
-          {SUB_TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setSubTab(tab.id)}
-              className={`relative z-10 flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-3 rounded-[20px] font-black text-[12px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] ${subTab === tab.id
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-white/5'
-                }`}
-            >
-              <tab.icon size={16} className={subTab === tab.id ? 'animate-bounce-soft' : ''} />
-              {tab.label}
-              {tab.id === 'review' && todayReview.length > 0 && (
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ml-1 transition-colors ${subTab === tab.id ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20' : 'bg-slate-300/50 text-slate-600'}`}>{todayReview.length}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div key={subTab} className="animate-tab-enter flex-1 overflow-y-auto overflow-x-hidden" onScroll={(e) => {
-
-        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-        if (scrollHeight - scrollTop <= clientHeight + 100) {
-          loadMoreWords();
-        }
-      }}>
-        {subTab === 'bank' && (
-          <WordBank
-            words={mergedWords}
-            search={search}
-            setSearch={setSearch}
-            updateWord={updateWord}
-            deleteWord={deleteWord}
-            addWords={addWords}
-            currentSet={currentSet}
-            setCurrentSet={setCurrentSet}
-            isAdmin={isAdmin}
-            handleExportIG={handleExportIG}
-            detailedWordId={detailedWordId}
-            setDetailedWordId={setDetailedWordId}
-            analyzingIds={analyzingIds}
-            aiAnalysisData={aiAnalysisData}
-            setAiAnalysisData={setAiAnalysisData}
-            setAnalyzingIds={setAnalyzingIds}
-            filterPos={filterPos}
-            setFilterPos={setFilterPos}
-            filterLearned={filterLearned}
-            setFilterLearned={setFilterLearned}
-            filterLevel={filterLevel}
-            setFilterLevel={setFilterLevel}
-            isLoading={isLoading}
-            sourcesVisibility={sourcesVisibility}
-            triggerNotification={triggerNotification}
-            playVoice={playVoice}
-            accent={accent}
-            setAccent={setAccent}
-            dbError={dbError}
-            campusGrade={campusGrade}
-            setCampusGrade={setCampusGrade}
-            campusSemester={campusSemester}
-            setCampusSemester={setCampusSemester}
-            campusStage={campusStage}
-            setCampusStage={setCampusStage}
-
-            user={user}
-            schoolId={schoolId}
-            gradeId={gradeId}
-            logDebug={logDebug}
-          />
-        )}
-        {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} commonalityMap={commonalityMap} />}
-        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} addWords={addWords} triggerNotification={triggerNotification} commonalityMap={commonalityMap} />}
-        {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} currentSet={currentSet} />}
-      </div>
-
-      {/* Debug Panel (Fixed to bottom if active) */}
-      {isDebugMode && (
-        <div className="fixed bottom-0 left-0 right-0 bg-slate-900 text-green-400 font-mono text-xs z-50 shadow-2xl border-t border-slate-700 max-h-[50vh] flex flex-col">
-          <div className="flex items-center justify-between p-2 bg-slate-800 border-b border-slate-700 cursor-pointer" onClick={() => setIsLogOpen(!isLogOpen)}>
-            <div className="flex items-center gap-2 text-slate-300 font-bold">
-              <Terminal size={14} /> 系統偵錯日誌 (Debug Logs)
-            </div>
+          <div>
+            <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">單字特訓</h2>
             <div className="flex items-center gap-2">
-              <button onClick={(e) => { e.stopPropagation(); setDebugLogs([]); }} className="text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-700 text-[10px]">清空</button>
-              {isLogOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronUp size={16} className="text-slate-400" />}
+              <p className="text-[11px] font-bold text-slate-400">{mergedWords.length} 個單字 · {todayReview.length} 個待複習</p>
             </div>
           </div>
-          {isLogOpen && (
-            <div className="p-2 overflow-y-auto flex-1 space-y-2 bg-slate-950/50 p-3">
-              {debugLogs.length === 0 ? (
-                <p className="text-slate-500 italic">等待操作中...</p>
-              ) : (
-                debugLogs.map((log, idx) => (
-                  <div key={idx} className="border-b border-slate-800 pb-2">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-slate-500">[{log.time}]</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${log.type === 'ERROR' ? 'bg-rose-500/20 text-rose-400' :
-                        log.type === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' :
-                          log.type === 'FETCH' ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-slate-700 text-slate-300'
-                        }`}>{log.type}</span>
-                      <span className="font-bold text-slate-200">{log.title}</span>
-                    </div>
-                    {log.data && (
-                      <pre className="text-[10px] text-green-300 overflow-x-auto whitespace-pre-wrap bg-slate-900 p-2 rounded">
-                        {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* 學習時數膠囊按鈕 */}
+          <button onClick={() => setShowStatsModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-[12px] active:scale-95 transition-all border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm">
+            <Clock size={14} className="shrink-0" /> <span className="hidden sm:inline">今日 </span>{todayMinutes}m
+          </button>
+          <button onClick={handleExportIG} className="flex items-center justify-center p-2 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl active:scale-95 transition-all shadow-sm border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-200 dark:hover:bg-emerald-500/20" title="分享至 IG 限時動態">
+            <Share2 size={16} />
+          </button>
+
+          <button onClick={() => setIsDebugMode(!isDebugMode)} className={`hidden sm:block p-2 rounded-xl transition-all ${isDebugMode ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500'}`} title="切換偵錯模式"><Bug size={16} /></button>
+        </div>
+      </div>
+
+      {/* 錯誤提示 (Sticky Notice) */}
+      {dbError && (
+        <div className="mt-2 p-3 bg-red-100/80 dark:bg-red-900/40 backdrop-blur-lg border border-red-200 dark:border-red-800/50 rounded-2xl flex items-center gap-3 animate-slide-up-fade shadow-lg mx-1">
+          <AlertCircle size={18} className="text-red-500 shrink-0" />
+          <span className="text-[13px] font-black text-red-700 dark:text-red-300 min-w-0 break-words leading-tight">{dbError}</span>
+          <button onClick={() => setDbError('')} className="ml-auto p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors">
+            <X size={14} className="text-red-400" />
+          </button>
         </div>
       )}
+    </div>
 
-      {/* 🚀 頂級通知元件 (Premium Toast Notification) - Portal 至 Root 確保定位準確 */}
-      {notification && createPortal(
-        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[9999] animate-toast-pop-up filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.15)] select-none pointer-events-none w-[90%] max-w-md">
-          <div className={`
+    {/* Sub-tabs */}
+    <div className="px-1 mb-2">
+      <div
+        ref={scrollRefTabs}
+        onMouseDown={e => onDragStart(e, scrollRefTabs)} onMouseLeave={() => setDragState({ ...dragState, isDragging: false })} onMouseUp={() => setDragState({ ...dragState, isDragging: false })} onMouseMove={onDragMove}
+        className={`relative flex gap-2 overflow-x-auto scrollbar-hide bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-[24px] backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-inner select-none ${dragState.isDragging && dragState.ref === scrollRefTabs ? 'cursor-grabbing' : 'cursor-grab'}`}
+      >
+        {/* 魔術背景膠囊 */}
+        <div
+          className="absolute top-1.5 bottom-1.5 bg-white dark:bg-slate-700 rounded-[20px] shadow-sm border border-slate-100 dark:border-slate-600 transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
+          style={{
+            width: `calc((100% - 12px) / ${SUB_TABS.length})`,
+            transform: `translateX(calc(${SUB_TABS.findIndex(t => t.id === subTab)} * 100%))`
+          }}
+        />
+        {SUB_TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setSubTab(tab.id)}
+            className={`relative z-10 flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-3 rounded-[20px] font-black text-[12px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] ${subTab === tab.id
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-white/5'
+              }`}
+          >
+            <tab.icon size={16} className={subTab === tab.id ? 'animate-bounce-soft' : ''} />
+            {tab.label}
+            {tab.id === 'review' && todayReview.length > 0 && (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full ml-1 transition-colors ${subTab === tab.id ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20' : 'bg-slate-300/50 text-slate-600'}`}>{todayReview.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {/* Content */}
+    <div key={subTab} className="animate-tab-enter flex-1 overflow-y-auto overflow-x-hidden" onScroll={(e) => {
+
+      const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+      if (scrollHeight - scrollTop <= clientHeight + 100) {
+        loadMoreWords();
+      }
+    }}>
+      {subTab === 'bank' && (
+        <WordBank
+          words={mergedWords}
+          search={search}
+          setSearch={setSearch}
+          updateWord={updateWord}
+          deleteWord={deleteWord}
+          addWords={addWords}
+          currentSet={currentSet}
+          setCurrentSet={setCurrentSet}
+          isAdmin={isAdmin}
+          handleExportIG={handleExportIG}
+          detailedWordId={detailedWordId}
+          setDetailedWordId={setDetailedWordId}
+          analyzingIds={analyzingIds}
+          aiAnalysisData={aiAnalysisData}
+          setAiAnalysisData={setAiAnalysisData}
+          setAnalyzingIds={setAnalyzingIds}
+          filterPos={filterPos}
+          setFilterPos={setFilterPos}
+          filterLearned={filterLearned}
+          setFilterLearned={setFilterLearned}
+          filterLevel={filterLevel}
+          setFilterLevel={setFilterLevel}
+          isLoading={isLoading}
+          sourcesVisibility={sourcesVisibility}
+          triggerNotification={triggerNotification}
+          playVoice={playVoice}
+          accent={accent}
+          setAccent={setAccent}
+          dbError={dbError}
+          campusGrade={campusGrade}
+          setCampusGrade={setCampusGrade}
+          campusSemester={campusSemester}
+          setCampusSemester={setCampusSemester}
+          campusStage={campusStage}
+          setCampusStage={setCampusStage}
+
+          user={user}
+          schoolId={schoolId}
+          gradeId={gradeId}
+          logDebug={logDebug}
+        />
+      )}
+      {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} commonalityMap={commonalityMap} />}
+      {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} addWords={addWords} triggerNotification={triggerNotification} commonalityMap={commonalityMap} />}
+      {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} currentSet={currentSet} />}
+    </div>
+
+    {/* Debug Panel (Fixed to bottom if active) */}
+    {isDebugMode && (
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-900 text-green-400 font-mono text-xs z-50 shadow-2xl border-t border-slate-700 max-h-[50vh] flex flex-col">
+        <div className="flex items-center justify-between p-2 bg-slate-800 border-b border-slate-700 cursor-pointer" onClick={() => setIsLogOpen(!isLogOpen)}>
+          <div className="flex items-center gap-2 text-slate-300 font-bold">
+            <Terminal size={14} /> 系統偵錯日誌 (Debug Logs)
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={(e) => { e.stopPropagation(); setDebugLogs([]); }} className="text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-700 text-[10px]">清空</button>
+            {isLogOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronUp size={16} className="text-slate-400" />}
+          </div>
+        </div>
+        {isLogOpen && (
+          <div className="p-2 overflow-y-auto flex-1 space-y-2 bg-slate-950/50 p-3">
+            {debugLogs.length === 0 ? (
+              <p className="text-slate-500 italic">等待操作中...</p>
+            ) : (
+              debugLogs.map((log, idx) => (
+                <div key={idx} className="border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-slate-500">[{log.time}]</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${log.type === 'ERROR' ? 'bg-rose-500/20 text-rose-400' :
+                      log.type === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' :
+                        log.type === 'FETCH' ? 'bg-blue-500/20 text-blue-400' :
+                          'bg-slate-700 text-slate-300'
+                      }`}>{log.type}</span>
+                    <span className="font-bold text-slate-200">{log.title}</span>
+                  </div>
+                  {log.data && (
+                    <pre className="text-[10px] text-green-300 overflow-x-auto whitespace-pre-wrap bg-slate-900 p-2 rounded">
+                      {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* 🚀 頂級通知元件 (Premium Toast Notification) - Portal 至 Root 確保定位準確 */}
+    {notification && createPortal(
+      <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[9999] animate-toast-pop-up filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.15)] select-none pointer-events-none w-[90%] max-w-md">
+        <div className={`
             relative px-5 py-4 md:px-8 md:py-5 rounded-[32px] 
             border backdrop-blur-2xl flex items-center gap-4 md:gap-6
             ${notification.type === 'error'
-              ? 'bg-rose-50/90 border-rose-200/50 text-rose-700 dark:bg-rose-950/80 dark:border-rose-500/30'
-              : 'bg-white/90 border-emerald-200/50 text-emerald-800 dark:bg-zinc-900/90 dark:border-emerald-500/30'
-            }
+            ? 'bg-rose-50/90 border-rose-200/50 text-rose-700 dark:bg-rose-950/80 dark:border-rose-500/30'
+            : 'bg-white/90 border-emerald-200/50 text-emerald-800 dark:bg-zinc-900/90 dark:border-emerald-500/30'
+          }
             shadow-2xl
           `}>
-            {/* 動態發光背景 */}
-            <div className={`absolute -inset-4 rounded-[40px] opacity-20 blur-2xl -z-10 ${notification.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+          {/* 動態發光背景 */}
+          <div className={`absolute -inset-4 rounded-[40px] opacity-20 blur-2xl -z-10 ${notification.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
 
-            <div className={`
+          <div className={`
               flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-2xl shadow-inner shrink-0
               ${notification.type === 'error' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-500' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500'}
             `}>
-              {notification.type === 'error' ? <XCircle size={24} /> : <CheckCircle2 size={24} className="animate-bounce-soft" />}
-            </div>
+            {notification.type === 'error' ? <XCircle size={24} /> : <CheckCircle2 size={24} className="animate-bounce-soft" />}
+          </div>
 
-            <div className="flex flex-col min-w-0">
-              <div className="text-[15px] md:text-[17px] font-black tracking-tight leading-none mb-1 text-slate-900 dark:text-white truncate">
-                {notification.title}
-              </div>
-              <div className="text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 opacity-90 leading-tight">
-                {notification.message}
-              </div>
+          <div className="flex flex-col min-w-0">
+            <div className="text-[15px] md:text-[17px] font-black tracking-tight leading-none mb-1 text-slate-900 dark:text-white truncate">
+              {notification.title}
             </div>
-
-            {/* 隱藏裝飾用的底端進度條 */}
-            <div className="absolute bottom-0 left-8 right-8 h-1 bg-slate-100/50 dark:bg-white/5 rounded-full overflow-hidden mb-[-2px]">
-              <div className={`h-full animate-progress-shrink ${notification.type === 'error' ? 'bg-rose-400' : 'bg-emerald-400'}`}></div>
+            <div className="text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 opacity-90 leading-tight">
+              {notification.message}
             </div>
           </div>
-        </div>,
-        document.body
-      )}
+
+          {/* 隱藏裝飾用的底端進度條 */}
+          <div className="absolute bottom-0 left-8 right-8 h-1 bg-slate-100/50 dark:bg-white/5 rounded-full overflow-hidden mb-[-2px]">
+            <div className={`h-full animate-progress-shrink ${notification.type === 'error' ? 'bg-rose-400' : 'bg-emerald-400'}`}></div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+  </div>
+);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WORD CARD (Optimized for Mobile Performance)
+// ═══════════════════════════════════════════════════════════════════════════════
+const WordCard = React.memo(({
+  word, idx, currentSet, savedWords, setSavedWords, addWords,
+  setDetailedWordId, handleSpeak, playVoice, accent, posColors,
+  isBatchMode, selectedBatch, setSelectedBatch, deleteWord, isAdmin
+}) => {
+  const currentMeanings = getMeanings(word);
+  const safeId = word.id;
+
+  return (
+    <div
+      style={{ animationDelay: `${Math.min(idx * 40, 600)}ms` }}
+      className="group flex flex-col bg-white/50 dark:bg-zinc-900/40 backdrop-blur-md border border-white/60 dark:border-white/10 rounded-[32px] overflow-hidden transition-all duration-500 shadow-sm hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.97] animate-fadeIn transform-gpu"
+    >
+      <div
+        className="flex items-center gap-5 px-6 py-[22px] cursor-pointer relative"
+        onClick={() => {
+          handleSpeak(null, word.word);
+          setDetailedWordId(word.id);
+        }}
+      >
+        {isBatchMode && (
+          <div className="shrink-0 mr-1 animate-pop-in">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const next = new Set(selectedBatch);
+                if (next.has(safeId)) next.delete(safeId);
+                else next.add(safeId);
+                setSelectedBatch(next);
+              }}
+              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedBatch.has(safeId) ? 'bg-indigo-500 border-indigo-500 text-white scale-110 shadow-lg' : 'border-slate-300 dark:border-slate-600'}`}
+            >
+              {selectedBatch.has(safeId) && <Check size={14} strokeWidth={3} />}
+            </button>
+          </div>
+        )}
+        <div className="flex-1 min-w-0 relative z-10 space-y-2">
+          {/* Header: Word + Favorite */}
+          <div className="flex items-center justify-between">
+            <span className="text-[24px] font-black text-slate-900 dark:text-white tracking-tight">
+              {word.word}
+            </span>
+            <div className="flex items-center gap-1 sm:gap-2 text-slate-300">
+              {currentSet !== 'Personal' ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (savedWords.has(safeId)) return;
+                    setSavedWords(prev => new Set(prev).add(safeId));
+                    addWords([word], 'Personal', false);
+                  }}
+                  className={`p-2 rounded-full transition-all active:scale-90 ${savedWords.has(safeId) ? 'text-rose-500 bg-rose-50 dark:bg-rose-500/10' : 'text-slate-300 hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-white/10'}`}
+                >
+                  <Heart size={22} className={savedWords.has(safeId) ? 'fill-current animate-heart-burst' : ''} />
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`確定要刪除「${word.word}」嗎？`)) {
+                      deleteWord(safeId);
+                    }
+                  }}
+                  className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-full transition-all active:scale-90"
+                >
+                  <Trash2 size={20} />
+                </button>
+              )}
+              <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+
+          {/* Badges: Tags + Audio */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border flex items-center gap-1 ${word.learned ? 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10' : 'text-rose-600 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-500/10'}`}>
+              {word.learned ? <CheckCircle2 size={11} strokeWidth={2.5} /> : <BookOpen size={11} strokeWidth={2.5} />}
+              {word.learned ? '已學' : '未學'}
+            </span>
+            {Array.from(new Set(currentMeanings.flatMap(m => (m.pos || '').split(/[,/、\s]+/).map(p => p.trim().toLowerCase()).filter(Boolean)))).map((pos, i) => (
+              <span key={i} className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none ${posColors[pos] || 'text-gray-500 bg-gray-500/10 border-gray-100'}`}>
+                {pos}
+              </span>
+            ))}
+            {word.tags?.map(t => (
+              <span key={t} className="text-[10px] font-black px-2 py-0.5 rounded-lg border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">#{t}</span>
+            ))}
+            <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, accent); }} className="p-1.5 text-slate-400 hover:text-emerald-500 bg-slate-100 dark:bg-white/5 rounded-xl transition-all">
+              <Volume2 size={16} />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); playVoice(word.word, accent, 0.4); }} className="p-1.5 bg-amber-50 dark:bg-amber-500/10 rounded-xl transition-all active:scale-90">🐢</button>
+          </div>
+
+          {/* Meanings - Polysemy Display */}
+          <div className="space-y-1.5 mt-2">
+            {Object.entries(currentMeanings.reduce((acc, current) => {
+              const { pos, meaning } = current;
+              const key = pos || 'n.';
+              if (!acc[key]) acc[key] = [];
+              if (meaning) acc[key].push(meaning);
+              return acc;
+            }, {})).map(([posStr, meanings], i) => (
+              <div key={posStr} className="flex items-baseline gap-2 pl-1 group/meaning">
+                <div className="flex items-baseline shrink-0 w-max min-w-[32px]">
+                  {posStr.split(/[,/、\s]+/).filter(Boolean).map((p, idx, arr) => {
+                    const normPos = normalizePOS(p);
+                    return (
+                      <React.Fragment key={idx}>
+                        <span className={`text-[11px] font-black uppercase ${posColors[normPos]?.split(' ')[0] || 'text-slate-400'}`}>
+                          {p}
+                        </span>
+                        {idx < arr.length - 1 && <span className="text-[11px] font-black text-slate-300 mx-0.5">/</span>}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+                <p className="text-[14px] font-bold text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                  {meanings.join(', ')}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Meta */}
+          <div className="flex items-center gap-3 pt-3 mt-1 text-[10px] font-bold text-slate-400 border-t border-slate-100/50 dark:border-white/5">
+            <span className="flex items-center gap-1"><Tag size={10} /> {word.level || '1'} 級</span>
+            {word.serialNumber && <span>#{word.serialNumber}</span>}
+            {word.updatedAt && (
+              <span className="ml-auto opacity-60">
+                {new Date(word.updatedAt?.seconds * 1000 || word.updatedAt).toLocaleDateString('zh-TW')}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // WORD BANK
@@ -2303,345 +2470,116 @@ const WordBank = ({
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-zinc-900" />
           )}
         </button>
-      </div>
-
-      {/* 啟用中的篩選摘要 */}
-      {(filterPos !== 'all' || filterLearned !== 'all' || filterLevel !== 'all') && !showFilters && (
-        <div className="flex items-center gap-1.5 px-2 animate-fadeIn">
-          <span className="text-[10px] font-black text-slate-400">篩選中：</span>
-          {filterPos !== 'all' && <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-md text-[10px] font-black">{filterPos}</span>}
-          {filterLearned !== 'all' && <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-black">{filterLearned === 'learned' ? '已學' : '未學'}</span>}
-          {filterLevel !== 'all' && <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-black">L{filterLevel}</span>}
-          <button onClick={() => { setFilterPos('all'); setFilterLearned('all'); setFilterLevel('all'); }}
-            className="ml-auto text-[10px] font-black text-rose-400 hover:text-rose-500 transition-colors active:scale-95">清除全部</button>
-        </div>
-      )}
-
-      {/* 新增單字表單 */}
-      {showAdd && (
-        <div className="bg-white/40 dark:bg-white/5 backdrop-blur-[24px] px-6 py-7 rounded-[32px] border border-emerald-500/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(16,185,129,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] mx-1 animate-slide-up-fade relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-          <div className="flex items-center justify-between mb-5 relative z-10">
-            <h3 className="text-[16px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-2 uppercase tracking-widest">
-              <Sparkles size={18} /> 新增單字
-            </h3>
-          </div>
-          <div className="space-y-4 relative z-10">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <input type="text" placeholder="輸入英文單字..." value={newWord} onChange={e => setNewWord(e.target.value)}
-                  className="w-full bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all text-[var(--text-primary)] pr-[110px]" />
-                <button onClick={handleAiAutoFill} disabled={isAutoFilling || !newWord.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 rounded-[16px] text-[12px] font-black active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5 hover:bg-emerald-100">
-                  {isAutoFilling ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} />} AI 填入
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-col gap-3">
-              {newMeanings.map((m, idx) => (
-                <div key={idx} className="flex flex-col sm:flex-row gap-3 relative">
-                  <div className="w-full sm:w-[140px] shrink-0 relative">
-                    <select value={m.pos} onChange={e => { const arr = [...newMeanings]; arr[idx].pos = e.target.value; setNewMeanings(arr); }}
-                      className="w-full h-full bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all appearance-none text-[var(--text-primary)]">
-                      <option value="n.">n. 名詞</option><option value="v.">v. 動詞</option><option value="adj.">adj. 形容詞</option><option value="adv.">adv. 副詞</option><option value="prep.">prep. 介系</option><option value="conj.">conj. 連接</option><option value="phr.">phr. 片語</option>
-                    </select>
-                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  </div>
-                  <div className="flex-1 flex gap-2">
-                    <input type="text" placeholder="輸入中文解釋..." value={m.meaning} onChange={e => { const arr = [...newMeanings]; arr[idx].meaning = e.target.value; setNewMeanings(arr); }}
-                      className="flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
-                    {newMeanings.length > 1 && (
-                      <button onClick={() => setNewMeanings(newMeanings.filter((_, i) => i !== idx))} className="p-4 bg-red-50 text-red-500 rounded-[24px] hover:bg-red-100 transition-colors"><Trash2 size={18} /></button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <div className="flex flex-col sm:flex-row gap-3 items-center">
-                <button onClick={() => setNewMeanings([...newMeanings, { pos: 'n.', meaning: '' }])} className="text-emerald-500 bg-emerald-50 dark:bg-white/5 hover:bg-emerald-100 font-bold text-sm self-start px-4 py-2 rounded-xl transition-colors">+ 新增其他詞性解釋</button>
-                <input type="text" placeholder="自訂標籤 (用空格分隔，例: 段考 L1)" value={newTags} onChange={e => setNewTags(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleManualAdd()}
-                  className="w-full sm:flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[14px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
-              </div>
-              <button onClick={handleManualAdd} className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[24px] font-black text-[16px] shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 whitespace-nowrap">
-                <Check size={20} /> 儲存至 {currentSet === 'Personal' ? '個人收藏' : '公用單字庫 (共編)'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 可摺疊篩選面板 */}
-      {showFilters && (
-        <div className="flex flex-col gap-2 px-1 animate-slide-up-fade relative z-10">
-          <div className="bg-white/50 dark:bg-zinc-900/50 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-white/5 p-3 space-y-2.5">
-            {/* 詞性快速標籤 (動態生成) */}
-            <div>
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">詞性</span>
-              <div className="flex flex-wrap gap-1.5">
-                {posList.map(pos => (
-                  <button key={pos} onClick={() => setFilterPos(pos)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all ${filterPos === pos ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white/60 dark:bg-zinc-800/60 text-slate-400 border border-white/40 dark:border-white/5 hover:bg-white dark:hover:bg-zinc-700'}`}>
-                    {pos === 'all' ? '全部' : pos}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 學習狀態 + 級別 */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">狀態</span>
-                <div className="flex bg-slate-100 dark:bg-zinc-900/80 rounded-[12px] p-0.5 shadow-inner border border-slate-200/50 dark:border-white/5">
-                  {['unlearned', 'learned'].map(status => (
-                    <button key={status} onClick={() => setFilterLearned(filterLearned === status ? 'all' : status)}
-                      className={`flex-1 py-1.5 rounded-[10px] text-[10px] font-black transition-all duration-300 active:scale-95 ${filterLearned === status ? 'bg-white dark:bg-zinc-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-500'}`}>
-                      {status === 'learned' ? '已學' : '未學'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">級別</span>
-                <div className="flex bg-slate-100 dark:bg-zinc-900/80 rounded-[12px] p-0.5 shadow-inner border border-slate-200/50 dark:border-white/5">
-                  {[1, 2, 3, 4].map(l => (
-                    <button key={l} onClick={() => setFilterLevel(filterLevel === String(l) ? 'all' : String(l))}
-                      className={`flex-1 py-1.5 rounded-[10px] text-[10px] font-black transition-all duration-300 active:scale-95 ${filterLevel === String(l) ? 'bg-white dark:bg-zinc-700 text-amber-500 shadow-sm' : 'text-slate-400 hover:text-slate-500'}`}>
-                      L{l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-      }
-      {/* 批次管理工具列 */}
-      {isBatchMode && (
-        <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 p-3 mx-1 rounded-[20px] border border-indigo-200 dark:border-indigo-500/30 animate-slide-up-fade">
-          <span className="text-indigo-600 dark:text-indigo-400 font-black text-[13px] ml-2">已選取 {selectedBatch.size} 項</span>
-          <div className="flex gap-2">
-            {currentSet === 'Personal' || isAdmin ? (
-              <button onClick={handleBatchDelete} disabled={selectedBatch.size === 0} className="px-4 py-2 bg-rose-500 disabled:opacity-50 text-white rounded-xl text-[12px] font-black shadow-sm active:scale-95 transition-all">刪除</button>
-            ) : null}
-            {currentSet !== 'Personal' && (
-              <button onClick={handleBatchSave} disabled={selectedBatch.size === 0} className="px-4 py-2 bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-[12px] font-black shadow-sm active:scale-95 transition-all">加入收藏</button>
-            )}
-          </div>
-        </div>
-      )}
-
-
-
-
-      {/* 🚀 新增：樂高字根家族 (專項學習) 狀態與返回橫幅 */}
-      {filterTag !== 'all' && filterTag.includes(':') && (() => {
-        const currentMeaning = tagMeaningMap.get(filterTag) || filterTagMeaning;
-        const tagsGroup = currentMeaning && meaningToTagsMap.has(currentMeaning)
-          ? Array.from(meaningToTagsMap.get(currentMeaning))
-          : [filterTag];
-
-        return (
-          <div className="mx-1 mb-3 p-4 sm:p-5 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-[24px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-slide-up-fade relative overflow-hidden group">
-            <div className="absolute -right-10 -top-10 w-40 h-40 bg-indigo-400/10 blur-[40px] rounded-full pointer-events-none transition-transform group-hover:scale-150"></div>
-            <div className="flex items-start gap-4 min-w-0 flex-1 relative z-10">
-              <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0 rotate-3 group-hover:-rotate-3 transition-transform mt-1 md:block hidden">
-                <Brain size={24} className="animate-pulse-slow" />
-              </div>
-              <div className="flex flex-col gap-1 min-w-0 pr-4">
-                <p className="text-[12px] font-black text-indigo-500 dark:text-indigo-400 mb-0.5 uppercase tracking-widest flex items-center gap-1.5"><span className="md:hidden">🧩</span>同源字族研習 (Families)</p>
-                <div className="text-[16px] sm:text-[18px] font-black text-slate-800 dark:text-white flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span>{filterTag.startsWith('prefix') ? `字首` : filterTag.startsWith('root') ? `字根` : `字尾`} :</span>
-                  {tagsGroup.map(t => (
-                    <span key={t} className="text-indigo-600 dark:text-indigo-400 text-xl font-mono bg-white/60 dark:bg-indigo-500/10 px-2 py-0.5 rounded-lg shadow-sm border border-indigo-100/50 dark:border-indigo-500/20">
-                      "{t.split(':')[1]}"
-                    </span>
-                  ))}
-                </div>
-                {currentMeaning && (
-                  <div className="mt-1.5 p-3 sm:px-4 sm:py-2.5 bg-white/70 dark:bg-black/20 backdrop-blur-sm border border-indigo-200/50 dark:border-indigo-500/20 rounded-xl shadow-sm max-w-2xl">
-                    <p className="text-slate-600 dark:text-slate-300 text-[14px] sm:text-[15px] font-bold leading-relaxed break-words">
-                      {currentMeaning}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setFilterTag('all');
-                setFilterTagMeaning('');
-              }}
-              className="w-full sm:w-auto shrink-0 px-5 py-3 bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl font-black text-[13px] transition-all shadow-sm border border-slate-200 dark:border-white/10 active:scale-95 relative z-10"
-            >
-              清除並返回總覽
-            </button>
-          </div>
-        )
-      })()}
-
-      {/* 單字列表 - 響應式網格排版 (加上過渡動畫與最低高度防止跳動) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20 pt-2 px-1 min-h-[500px] transition-all duration-500">
-        {isLoading && words.length === 0 ? (
-          /* 骨架屏載入狀態 */
-          Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-md border border-white/60 dark:border-white/10 rounded-[32px] p-6 space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="w-24 h-8 skeleton rounded-xl"></div>
-                <div className="w-6 h-6 skeleton rounded-full"></div>
-              </div>
-              <div className="flex gap-2">
-                <div className="w-12 h-4 skeleton rounded-lg"></div>
-                <div className="w-12 h-4 skeleton rounded-lg"></div>
-              </div>
-              <div className="w-full h-4 skeleton rounded-lg"></div>
-              <div className="w-2/3 h-4 skeleton rounded-lg"></div>
-            </div>
-          ))
-        ) : words.length === 0 ? (
-          <div className="flex flex-col items-center py-10 opacity-50">
-            <BookOpen size={40} className="mb-2 text-slate-300" />
-            <p className="font-bold text-slate-400 text-sm">搜尋不到相關單字</p>
-          </div>
-        ) : (
-          filtered.map((w, idx) => {
-            const currentMeanings = getMeanings(w);
-            return (
-              <div
-                key={w.id}
-                style={{ animationDelay: `${Math.min(idx * 40, 600)}ms` }}
-                className="group flex flex-col bg-white/50 dark:bg-zinc-900/40 backdrop-blur-md border border-white/60 dark:border-white/10 rounded-[32px] overflow-hidden transition-all duration-500 ease-spring shadow-[0_8px_20px_rgba(0,0,0,0.03)] dark:shadow-none transform-gpu will-change-transform hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.97] animate-fadeIn"
-              >
-                <div
-                  className="flex items-center gap-5 px-6 py-[22px] cursor-pointer relative overflow-hidden"
-                  onClick={() => {
-                    handleSpeak(null, w.word);
-                    setDetailedWordId(w.id);
-                  }}
-                >
-                  {/* 批次選取 Checkbox */}
-                  {isBatchMode && (
-                    <div className="shrink-0 mr-1 animate-pop-in">
-                      <button onClick={(e) => {
-                        e.stopPropagation();
-                        const next = new Set(selectedBatch);
-                        if (next.has(w.id)) next.delete(w.id);
-                        else next.add(w.id);
-                        setSelectedBatch(next);
-                      }} className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedBatch.has(w.id) ? 'bg-indigo-500 border-indigo-500 text-white scale-110' : 'border-slate-300 dark:border-slate-600'}`}>
-                        {selectedBatch.has(w.id) && <Check size={14} strokeWidth={3} />}
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0 relative z-10 space-y-2">
-                    {/* 第一行：單字 */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[24px] font-black tracking-tighter transition-all duration-500 text-slate-900 dark:text-white">
-                        {w.word}
-                      </span>
-                      <div className="flex items-center gap-1 sm:gap-2 transition-all duration-500 text-slate-300">
-                        {currentSet !== 'Personal' && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (savedWords.has(w.id)) return;
-                              setSavedWords(prev => new Set(prev).add(w.id));
-                              addWords([w], 'Personal', false);
-                            }}
-                            className={`p-2 rounded-full transition-all active:scale-90 ${savedWords.has(w.id) ? 'text-rose-500 bg-rose-50 dark:bg-rose-500/10' : 'text-slate-300 hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-white/10'}`}
-                            title="加入個人收藏"
-                          >
-                            <Heart size={22} className={savedWords.has(w.id) ? 'fill-current animate-heart-burst' : ''} />
-                          </button>
-                        )}
-                        <ChevronRight size={22} className="group-hover:translate-x-1" />
-                      </div>
-                    </div>
-
-                    {/* 第二行：詞性 + 發音 */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* 🚀 新增：單字卡上的已學/未學狀態標示 */}
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none transition-all flex items-center gap-1 ${w.learned ? 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20' : 'text-rose-600 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-500/10 dark:border-rose-500/20'}`}>
-                        {w.learned ? <CheckCircle2 size={11} strokeWidth={2.5} /> : <BookOpen size={11} strokeWidth={2.5} />}
-                        {w.learned ? '已學' : '未學'}
-                      </span>
-                      {Array.from(new Set(currentMeanings.flatMap(m => (m.pos || '').split(/[,/、\s]+/).map(p => p.trim().toLowerCase()).filter(Boolean)))).map((pos, i) => (
-                        <span key={i} className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none transition-all ${posColors[pos] || 'text-gray-500 bg-gray-500/10 border-gray-100'}`}>
-                          {pos}
-                        </span>
-                      ))}
-                      {w.tags && w.tags.map(t => (
-                        <span key={t} className="text-[10px] font-black px-2 py-0.5 rounded-lg border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 leading-none">
-                          #{t}
-                        </span>
-                      ))}
-                      <button
-                        onClick={(e) => handleSpeak(e, w.word)}
-                        className="ripple-btn p-1.5 text-slate-400 hover:text-emerald-500 bg-slate-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 rounded-xl transition-all active:scale-90"
-                        title="發音"
-                      >
-                        <Volume2 size={16} />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); playVoice(w.word, accent, 0.4); }}
-                        className="p-1.5 text-amber-500 hover:text-amber-600 bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/20 rounded-xl transition-all active:scale-90"
-                        title="慢速發音"
-                      >
-                        🐢
-                      </button>
-                    </div>
-
-                    {/* 第三行：中文意思 (按詞性分組合併) */}
-                    <div className="space-y-1 mt-1">
-                      {Object.entries(currentMeanings.reduce((acc, current) => {
-                        const { pos, meaning } = current;
-                        const key = pos || 'n.';
-                        if (!acc[key]) acc[key] = [];
-                        if (meaning) acc[key].push(meaning);
-                        return acc;
-                      }, {})).map(([posStr, meanings], i) => {
-                        const parts = posStr.split(/[,/、\s]+/).filter(Boolean);
-                        return (
-                          <div key={posStr} className="flex items-baseline gap-2 pl-1">
-                            <div className="flex items-baseline shrink-0 w-max min-w-[32px]">
-                              {parts.map((p, idx) => {
-                                const normPos = normalizePOS(p);
-                                return (
-                                  <React.Fragment key={idx}>
-                                    <span className={`text-[11px] font-black uppercase ${posColors[normPos]?.split(' ')[0] || 'text-slate-400'}`}>
-                                      {p}
-                                    </span>
-                                    {idx < parts.length - 1 && <span className="text-[11px] font-black text-slate-300 mx-0.5">/</span>}
-                                  </React.Fragment>
-                                );
-                              })}
-                            </div>
-                            <p className="text-[14px] font-bold text-slate-600 dark:text-slate-400 line-clamp-2">
-                              {meanings.join(', ')}
-                            </p>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    {/* 第四行：Meta 資訊 (級別/序號/時間) */}
-                    <div className="flex items-center gap-3 pt-2 text-[10px] font-bold text-slate-400 border-t border-slate-100/50 dark:border-white/5">
-                      <span className="flex items-center gap-1"><Tag size={10} /> {w.level || '1'} 級</span>
-                      {w.serialNumber && <span>#{w.serialNumber}</span>}
-                      {w.updatedAt && (
-                        <span className="ml-auto opacity-60">
-                          {new Date(w.updatedAt?.seconds * 1000 || w.updatedAt).toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })
+        {isBatchMode && (
+          <button onClick={() => {
+            if (selectedBatch.size === filtered.length) {
+              setSelectedBatch(new Set());
+            } else {
+              setSelectedBatch(new Set(filtered.map(w => w.id)));
+            }
+          }} className="px-5 py-2.5 rounded-full text-[13px] font-black transition-all bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 border border-indigo-200 dark:border-indigo-500/20 active:scale-95 shadow-sm">
+            {selectedBatch.size === filtered.length ? '取消全選' : '全選'}
+          </button>
         )}
       </div>
 
-      {/* 詳情全屏視窗 */}
+      {/* 啟用中的篩選摘要 */}
+      {(filterPos !== 'all' || filterLearned !== 'all' || filterLevel !== 'all') && (
+        <div className="flex items-center gap-1.5 px-2 animate-fadeIn mb-2">
+          <span className="text-[10px] font-black text-slate-400">篩選作用中：</span>
+          <div className="flex flex-wrap gap-1.5">
+            {filterPos !== 'all' && <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-md text-[10px] font-black">{filterPos}</span>}
+            {filterLearned !== 'all' && <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-black">{filterLearned === 'learned' ? '已學' : '未學'}</span>}
+            {filterLevel !== 'all' && <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-black">L{filterLevel}</span>}
+          </div>
+          <button onClick={() => { setFilterPos('all'); setFilterLearned('all'); setFilterLevel('all'); }}
+            className="ml-auto text-[10px] font-black text-rose-400 hover:text-rose-500 transition-colors active:scale-95 px-2 py-1">清除</button>
+        </div>
+      )}
+
+      {/* 手動新增表單 */}
+      {showAdd && (
+        <div className="mx-1 p-6 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl rounded-[32px] border border-emerald-200 dark:border-emerald-500/20 shadow-xl animate-slide-up-fade">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2"><div className="w-2 h-6 bg-emerald-500 rounded-full" /> 手動新增單字</h3>
+            <button onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+          </div>
+          <div className="space-y-4">
+            <div className="relative">
+              <input type="text" placeholder="單字 (例: perspective)" value={newWord} onChange={e => setNewWord(e.target.value)}
+                className="w-full bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[18px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)] pr-[110px]" />
+              <button onClick={handleAiAutoFill} disabled={isAutoFilling || !newWord.trim()}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 rounded-[16px] text-[12px] font-black disabled:opacity-50">
+                {isAutoFilling ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} />} AI 填寫
+              </button>
+            </div>
+            <div className="space-y-3">
+              {newMeanings.map((m, idx) => (
+                <div key={idx} className="flex flex-col sm:flex-row gap-3">
+                  <select value={m.pos} onChange={e => { const arr = [...newMeanings]; arr[idx].pos = e.target.value; setNewMeanings(arr); }}
+                    className="w-full sm:w-[120px] bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[20px] px-4 py-3 font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]">
+                    <option value="n.">n. 名詞</option><option value="v.">v. 動詞</option><option value="adj.">adj. 形容詞</option><option value="adv.">adv. 副詞</option><option value="prep.">prep. 介系</option><option value="phr.">phr. 片語</option>
+                  </select>
+                  <div className="flex-1 flex gap-2">
+                    <input type="text" placeholder="中文解釋" value={m.meaning} onChange={e => { const arr = [...newMeanings]; arr[idx].meaning = e.target.value; setNewMeanings(arr); }}
+                      className="flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[20px] px-6 py-3 font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
+                    {newMeanings.length > 1 && <button onClick={() => setNewMeanings(newMeanings.filter((_, i) => i !== idx))} className="shrink-0 p-3 bg-rose-50 text-rose-500 rounded-xl"><Trash2 size={18} /></button>}
+                  </div>
+                </div>
+              ))}
+              <button onClick={() => setNewMeanings([...newMeanings, { pos: 'n.', meaning: '' }])} className="text-emerald-500 font-bold text-[13px] self-start px-2 py-1">+ 新增詞性解釋</button>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <input type="text" placeholder="標籤 (用空格分隔，例: L1 必修)" value={newTags} onChange={e => setNewTags(e.target.value)}
+                className="flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 font-black text-[14px] outline-none transition-all text-[var(--text-primary)]" />
+              <button onClick={handleManualAdd} className="px-10 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[24px] font-black shadow-lg shadow-emerald-500/20 active:scale-95 transition-all">確認儲存</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 單字卡片列表網格 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-24 pt-2 px-1 min-h-[400px]">
+        {isLoading && filtered.length === 0 ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-white/50 dark:bg-zinc-900/40 border border-white/60 dark:border-white/10 rounded-[32px] p-6 space-y-4 animate-pulse">
+              <div className="w-1/2 h-8 bg-slate-100 dark:bg-zinc-800 rounded-xl" />
+              <div className="flex gap-2"><div className="w-12 h-4 bg-slate-100 dark:bg-zinc-800 rounded-lg" /><div className="w-12 h-4 bg-slate-100 dark:bg-zinc-800 rounded-lg" /></div>
+              <div className="space-y-2"><div className="w-full h-4 bg-slate-100 dark:bg-zinc-800 rounded-lg" /><div className="w-3/4 h-4 bg-slate-100 dark:bg-zinc-800 rounded-lg" /></div>
+            </div>
+          ))
+        ) : filtered.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center py-24 opacity-50 text-center px-6 animate-fadeIn">
+            <div className="w-24 h-24 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-6"><Search size={48} className="text-slate-300" /></div>
+            <p className="font-black text-slate-500 dark:text-slate-400 text-lg mb-2">找不到相關單字</p>
+            <p className="text-sm font-bold text-slate-400">目前設定的標籤或搜尋關鍵字無相符內容</p>
+            <button onClick={() => { setSearch(''); setFilterTag('all'); setFilterPos('all'); setFilterLearned('all'); setFilterLevel('all'); }} className="mt-8 px-8 py-3 bg-indigo-500 text-white rounded-[22px] font-black text-sm active:scale-95 transition-all shadow-xl shadow-indigo-500/20">清除所有條件</button>
+          </div>
+        ) : (
+          filtered.map((w, idx) => (
+            <WordCard
+              key={w.id}
+              word={w}
+              idx={idx}
+              currentSet={currentSet}
+              savedWords={savedWords}
+              setSavedWords={setSavedWords}
+              addWords={addWords}
+              setDetailedWordId={setDetailedWordId}
+              handleSpeak={handleSpeak}
+              playVoice={playVoice}
+              accent={accent}
+              posColors={posColors}
+              isBatchMode={isBatchMode}
+              selectedBatch={selectedBatch}
+              setSelectedBatch={setSelectedBatch}
+              deleteWord={deleteWord}
+              isAdmin={isAdmin}
+            />
+          ))
+        )}
+      </div>
+
+      {/* 單字詳情彈窗 */}
       {detailedWordId && (
         <WordDetailOverlay
           word={filtered.find(w => w.id === detailedWordId) || words.find(w => w.id === detailedWordId)}
