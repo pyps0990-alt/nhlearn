@@ -42,7 +42,7 @@ export const getBookDocId = (gradeRaw, semester) => {
 export const getStageStr = (sNum) => {
   if (Number(sNum) === 1) return '第1次段考';
   if (Number(sNum) === 2) return '第2次段考';
-  return '期末考';
+  return '第三次段考';
 };
 
 // ─── 形態解析助手 (Morphology Parser) ───────────────────────────────────────
@@ -1410,189 +1410,189 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
   }, [user?.uid, isAdmin, mergedWords, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
 
 
-const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush = true) => {
-  if (!db) return;
-  const isGuest = !user?.uid;
+  const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush = true) => {
+    if (!db) return;
+    const isGuest = !user?.uid;
 
-  if (isGuest && targetSet === 'Personal') {
-    const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
-    const updated = [...localData];
-    newWords.forEach(w => {
-      const wordVal = (w.word || '').trim();
+    if (isGuest && targetSet === 'Personal') {
+      const localData = JSON.parse(localStorage.getItem('gsat_local_vocab')) || [];
+      const updated = [...localData];
+      newWords.forEach(w => {
+        const wordVal = (w.word || '').trim();
+        if (!wordVal) return;
+        if (!updated.some(x => x.word.toLowerCase() === wordVal.toLowerCase())) {
+          updated.push({
+            id: 'local_' + Date.now() + Math.random(),
+            ...w,
+            createdAt: Date.now(),
+            source: 'Personal'
+          });
+        }
+      });
+      localStorage.setItem('gsat_local_vocab', JSON.stringify(updated));
+      if (currentSet === 'Personal') setWords(updated);
+      logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至本地收藏 (訪客)`);
+      return;
+    }
+
+    if (targetSet === 'Teacher Picks' && !schoolId) { triggerNotification('錯誤', '請先設定學校', 'error'); return; }
+    if (targetSet === 'Campus' && (!schoolId || !gradeId)) { triggerNotification('錯誤', '請先設定學校與年級', 'error'); return; }
+    if (targetSet === 'Campus' && !isAdmin && !user?.email?.endsWith('.edu.tw')) {
+      triggerNotification('權限不足', '校務單字僅限教職員或校務帳號新增喔！', 'error');
+      return;
+    }
+
+    // 🚀 群組化同一個單字，合併成陣列
+    const grouped = {};
+    newWords.forEach((w) => {
+      const wordVal = String(w.word || '').trim();
       if (!wordVal) return;
-      if (!updated.some(x => x.word.toLowerCase() === wordVal.toLowerCase())) {
-        updated.push({
-          id: 'local_' + Date.now() + Math.random(),
-          ...w,
-          createdAt: Date.now(),
-          source: 'Personal'
-        });
+      const lower = wordVal.toLowerCase();
+      if (!grouped[lower]) {
+        grouped[lower] = { ...w, word: wordVal, meanings: [], originalW: w };
       }
+      if (w.meanings && Array.isArray(w.meanings)) grouped[lower].meanings.push(...w.meanings);
+      else if (w.meaning || w.chinese) grouped[lower].meanings.push({ pos: String(w.partOfSpeech || w.pos || 'n.').trim(), meaning: String(w.meaning || w.chinese || '').trim() });
     });
-    localStorage.setItem('gsat_local_vocab', JSON.stringify(updated));
-    if (currentSet === 'Personal') setWords(updated);
-    logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至本地收藏 (訪客)`);
-    return;
-  }
 
-  if (targetSet === 'Teacher Picks' && !schoolId) { triggerNotification('錯誤', '請先設定學校', 'error'); return; }
-  if (targetSet === 'Campus' && (!schoolId || !gradeId)) { triggerNotification('錯誤', '請先設定學校與年級', 'error'); return; }
-  if (targetSet === 'Campus' && !isAdmin && !user?.email?.endsWith('.edu.tw')) {
-    triggerNotification('權限不足', '校務單字僅限教職員或校務帳號新增喔！', 'error');
-    return;
-  }
-
-  // 🚀 群組化同一個單字，合併成陣列
-  const grouped = {};
-  newWords.forEach((w) => {
-    const wordVal = String(w.word || '').trim();
-    if (!wordVal) return;
-    const lower = wordVal.toLowerCase();
-    if (!grouped[lower]) {
-      grouped[lower] = { ...w, word: wordVal, meanings: [], originalW: w };
+    const finalData = Object.values(grouped);
+    // 🚀 大量上傳分批保護機制
+    const chunks = [];
+    for (let i = 0; i < finalData.length; i += 400) {
+      chunks.push(finalData.slice(i, i + 400));
     }
-    if (w.meanings && Array.isArray(w.meanings)) grouped[lower].meanings.push(...w.meanings);
-    else if (w.meaning || w.chinese) grouped[lower].meanings.push({ pos: String(w.partOfSpeech || w.pos || 'n.').trim(), meaning: String(w.meaning || w.chinese || '').trim() });
-  });
 
-  const finalData = Object.values(grouped);
-  // 🚀 大量上傳分批保護機制
-  const chunks = [];
-  for (let i = 0; i < finalData.length; i += 400) {
-    chunks.push(finalData.slice(i, i + 400));
-  }
+    for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+      const chunk = chunks[chunkIdx];
+      const batch = writeBatch(db);
+      chunk.forEach((wObj, i) => {
+        const wordVal = wObj.word;
+        const safeDocId = String(wordVal).toLowerCase().replace(/\//g, '_'); // 防呆
 
-  for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
-    const chunk = chunks[chunkIdx];
-    const batch = writeBatch(db);
-    chunk.forEach((wObj, i) => {
-      const wordVal = wObj.word;
-      const safeDocId = String(wordVal).toLowerCase().replace(/\//g, '_'); // 防呆
+        const ref = targetSet === 'Personal'
+          ? doc(db, 'Users', user.uid, 'PersonalVocab', safeDocId)
+          : targetSet === 'Campus'
+            ? (() => {
+              const bookId = getBookDocId(campusGrade, campusSemester);
+              return doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', bookId, 'Vocab', safeDocId);
+            })()
+            : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeDocId);
 
-      const ref = targetSet === 'Personal'
-        ? doc(db, 'Users', user.uid, 'PersonalVocab', safeDocId)
-        : targetSet === 'Campus'
-          ? (() => {
-            const bookId = getBookDocId(campusGrade, campusSemester);
-            return doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', bookId, 'Vocab', safeDocId);
-          })()
-          : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeDocId);
+        const sn = Date.now() + (chunkIdx * 400) + i;
 
-      const sn = Date.now() + (chunkIdx * 400) + i;
+        const uniqueMeanings = []; const seen = new Set();
+        wObj.meanings.forEach(m => { const key = `${m.pos}-${m.meaning}`; if (!seen.has(key)) { seen.add(key); uniqueMeanings.push(m); } });
 
-      const uniqueMeanings = []; const seen = new Set();
-      wObj.meanings.forEach(m => { const key = `${m.pos}-${m.meaning}`; if (!seen.has(key)) { seen.add(key); uniqueMeanings.push(m); } });
+        batch.set(ref, {
+          word: wordVal,
+          level: Number(wObj.level) || 1,
+          type: targetSet === 'Personal' ? '個人' : (wObj.source || '社群貢獻'),
+          shared: targetSet !== 'Personal',
+          serialNumber: sn,
+          tags: wObj.tags || [],
+          meanings: uniqueMeanings,
+          semester: targetSet === 'Campus' ? campusSemester : null,
+          examStage: targetSet === 'Campus' ? getStageStr(campusStage.replace('stage_', '')) : null,
+          userEmail: user.email || '',
+          updatedAt: serverTimestamp(),
+          createdAt: wObj.createdAt || serverTimestamp() // 保留舊有創建時間
+        }, { merge: true });
 
-      batch.set(ref, {
-        word: wordVal,
-        level: Number(wObj.level) || 1,
-        type: targetSet === 'Personal' ? '個人' : (wObj.source || '社群貢獻'),
-        shared: targetSet !== 'Personal',
-        serialNumber: sn,
-        tags: wObj.tags || [],
-        meanings: uniqueMeanings,
-        semester: targetSet === 'Campus' ? campusSemester : null,
-        examStage: targetSet === 'Campus' ? getStageStr(campusStage.replace('stage_', '')) : null,
-        userEmail: user.email || '',
-        updatedAt: serverTimestamp(),
-        createdAt: wObj.createdAt || serverTimestamp() // 保留舊有創建時間
-      }, { merge: true });
-
-      if (shouldPush && targetSet !== 'Personal') pushToGAS(wObj.originalW);
-    });
-    await batch.commit();
-  }
-  logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至 ${targetSet}`);
-}, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
+        if (shouldPush && targetSet !== 'Personal') pushToGAS(wObj.originalW);
+      });
+      await batch.commit();
+    }
+    logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至 ${targetSet}`);
+  }, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
 
 
-const todayStr = new Date().toISOString().split('T')[0];
-const todayMinutes = Math.floor((stats[todayStr]?.time || 0) / 60);
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayMinutes = Math.floor((stats[todayStr]?.time || 0) / 60);
 
-// IG 限動小卡匯出功能：改為匯出「今日學習數據」
-const handleExportIG = useCallback(async () => {
-  let currentStreak = 0;
-  try {
-    const statsData = JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {};
-    const tStr = new Date().toISOString().split('T')[0];
-    let tempDate = new Date();
-    while (true) {
-      const dStr = tempDate.toISOString().split('T')[0];
-      const s = statsData[dStr];
-      if (s && (s.words > 0 || s.time > 0)) {
-        currentStreak++;
-        tempDate.setDate(tempDate.getDate() - 1);
-      } else {
-        if (dStr === tStr) tempDate.setDate(tempDate.getDate() - 1);
-        else break;
+  // IG 限動小卡匯出功能：改為匯出「今日學習數據」
+  const handleExportIG = useCallback(async () => {
+    let currentStreak = 0;
+    try {
+      const statsData = JSON.parse(localStorage.getItem('gsat_vocab_stats')) || {};
+      const tStr = new Date().toISOString().split('T')[0];
+      let tempDate = new Date();
+      while (true) {
+        const dStr = tempDate.toISOString().split('T')[0];
+        const s = statsData[dStr];
+        if (s && (s.words > 0 || s.time > 0)) {
+          currentStreak++;
+          tempDate.setDate(tempDate.getDate() - 1);
+        } else {
+          if (dStr === tStr) tempDate.setDate(tempDate.getDate() - 1);
+          else break;
+        }
       }
-    }
-  } catch (e) { }
+    } catch (e) { }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = 1080;
-  canvas.height = 1920;
-  const ctx = canvas.getContext('2d');
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const ctx = canvas.getContext('2d');
 
-  const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
-  grad.addColorStop(0, '#0f172a');
-  grad.addColorStop(1, '#064e3b');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 1080, 1920);
+    const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(1, '#064e3b');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1080, 1920);
 
-  ctx.beginPath(); ctx.arc(200, 300, 500, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(16, 185, 129, 0.15)'; ctx.fill();
-  ctx.beginPath(); ctx.arc(900, 1500, 600, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(200, 300, 500, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(16, 185, 129, 0.15)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(900, 1500, 600, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.15)'; ctx.fill();
 
-  ctx.beginPath();
-  ctx.roundRect(90, 400, 900, 1120, 60);
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-  ctx.stroke();
+    ctx.beginPath();
+    ctx.roundRect(90, 400, 900, 1120, 60);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.stroke();
 
-  ctx.textAlign = 'center';
-  ctx.font = 'bold 40px sans-serif';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.fillText(`GSAT PRO • 學習紀錄`, 540, 520);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 40px sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.fillText(`GSAT PRO • 學習紀錄`, 540, 520);
 
-  ctx.font = 'bold 160px sans-serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(`${currentStreak}`, 540, 780);
-  ctx.font = 'bold 50px sans-serif';
-  ctx.fillStyle = '#34d399';
-  ctx.fillText(`🔥 連續打卡天數`, 540, 880);
+    ctx.font = 'bold 160px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${currentStreak}`, 540, 780);
+    ctx.font = 'bold 50px sans-serif';
+    ctx.fillStyle = '#34d399';
+    ctx.fillText(`🔥 連續打卡天數`, 540, 880);
 
-  const todayMin = Math.floor((stats[todayStr]?.time || 0) / 60);
-  ctx.font = 'bold 160px sans-serif';
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(`${todayMin}`, 540, 1150);
-  ctx.font = 'bold 50px sans-serif';
-  ctx.fillStyle = '#60a5fa';
-  ctx.fillText(`⏱️ 今日專注時數 (分鐘)`, 540, 1250);
+    const todayMin = Math.floor((stats[todayStr]?.time || 0) / 60);
+    ctx.font = 'bold 160px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`${todayMin}`, 540, 1150);
+    ctx.font = 'bold 50px sans-serif';
+    ctx.fillStyle = '#60a5fa';
+    ctx.fillText(`⏱️ 今日專注時數 (分鐘)`, 540, 1250);
 
-  ctx.font = 'bold 36px sans-serif';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.fillText('持續累積，突破自我 🚀', 540, 1420);
+    ctx.font = 'bold 36px sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillText('持續累積，突破自我 🚀', 540, 1420);
 
-  const link = document.createElement('a');
-  link.download = `GSAT-Pro-Stats.jpg`;
-  link.href = canvas.toDataURL('image/jpeg', 0.95);
-  link.click();
-}, []);
+    const link = document.createElement('a');
+    link.download = `GSAT-Pro-Stats.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    link.click();
+  }, []);
 
-return (
-  <div className="flex flex-col w-full h-full animate-fadeIn pb-8 space-y-4 relative overflow-x-hidden">
-    {/* 利用 createPortal 將 Modal 抽離，避免受父層 transform 動畫影響導致版面錯位 */}
-    {showStatsModal && createPortal(
-      <StatsModal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} stats={stats} />,
-      document.body
-    )}
+  return (
+    <div className="flex flex-col w-full h-full animate-fadeIn pb-8 space-y-4 relative overflow-x-hidden">
+      {/* 利用 createPortal 將 Modal 抽離，避免受父層 transform 動畫影響導致版面錯位 */}
+      {showStatsModal && createPortal(
+        <StatsModal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} stats={stats} />,
+        document.body
+      )}
 
-    {/* 注入答錯時的微震動動畫 */}
-    <style>{`
+      {/* 注入答錯時的微震動動畫 */}
+      <style>{`
         @keyframes vocab-shake {
           0%, 100% { transform: translateX(0); }
           20%, 60% { transform: translateX(-6px); }
@@ -1689,219 +1689,219 @@ return (
           transition: 0s;
         }
       `}</style>
-    {/* Header (Sticky) */}
-    <div className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md pt-2 px-1">
-      <div className="flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl shrink-0">
-            <BookOpen size={24} className="shrink-0" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">單字特訓</h2>
-            <div className="flex items-center gap-2">
-              <p className="text-[11px] font-bold text-slate-400">{mergedWords.length} 個單字 · {todayReview.length} 個待複習</p>
+      {/* Header (Sticky) */}
+      <div className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md pt-2 px-1">
+        <div className="flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl shrink-0">
+              <BookOpen size={24} className="shrink-0" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">單字特訓</h2>
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] font-bold text-slate-400">{mergedWords.length} 個單字 · {todayReview.length} 個待複習</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {/* 學習時數膠囊按鈕 */}
-          <button onClick={() => setShowStatsModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-[12px] active:scale-95 transition-all border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm">
-            <Clock size={14} className="shrink-0" /> <span className="hidden sm:inline">今日 </span>{todayMinutes}m
-          </button>
-          <button onClick={handleExportIG} className="flex items-center justify-center p-2 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl active:scale-95 transition-all shadow-sm border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-200 dark:hover:bg-emerald-500/20" title="分享至 IG 限時動態">
-            <Share2 size={16} />
-          </button>
-
-          <button onClick={() => setIsDebugMode(!isDebugMode)} className={`hidden sm:block p-2 rounded-xl transition-all ${isDebugMode ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500'}`} title="切換偵錯模式"><Bug size={16} /></button>
-        </div>
-      </div>
-
-      {/* 錯誤提示 (Sticky Notice) */}
-      {dbError && (
-        <div className="mt-2 p-3 bg-red-100/80 dark:bg-red-900/40 backdrop-blur-lg border border-red-200 dark:border-red-800/50 rounded-2xl flex items-center gap-3 animate-slide-up-fade shadow-lg mx-1">
-          <AlertCircle size={18} className="text-red-500 shrink-0" />
-          <span className="text-[13px] font-black text-red-700 dark:text-red-300 min-w-0 break-words leading-tight">{dbError}</span>
-          <button onClick={() => setDbError('')} className="ml-auto p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors">
-            <X size={14} className="text-red-400" />
-          </button>
-        </div>
-      )}
-    </div>
-
-    {/* Sub-tabs */}
-    <div className="px-1 mb-2">
-      <div
-        ref={scrollRefTabs}
-        onMouseDown={e => onDragStart(e, scrollRefTabs)} onMouseLeave={() => setDragState({ ...dragState, isDragging: false })} onMouseUp={() => setDragState({ ...dragState, isDragging: false })} onMouseMove={onDragMove}
-        className={`relative flex gap-2 overflow-x-auto scrollbar-hide bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-[24px] backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-inner select-none ${dragState.isDragging && dragState.ref === scrollRefTabs ? 'cursor-grabbing' : 'cursor-grab'}`}
-      >
-        {/* 魔術背景膠囊 */}
-        <div
-          className="absolute top-1.5 bottom-1.5 bg-white dark:bg-slate-700 rounded-[20px] shadow-sm border border-slate-100 dark:border-slate-600 transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
-          style={{
-            width: `calc((100% - 12px) / ${SUB_TABS.length})`,
-            transform: `translateX(calc(${SUB_TABS.findIndex(t => t.id === subTab)} * 100%))`
-          }}
-        />
-        {SUB_TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setSubTab(tab.id)}
-            className={`relative z-10 flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-3 rounded-[20px] font-black text-[12px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] ${subTab === tab.id
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-white/5'
-              }`}
-          >
-            <tab.icon size={16} className={subTab === tab.id ? 'animate-bounce-soft' : ''} />
-            {tab.label}
-            {tab.id === 'review' && todayReview.length > 0 && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-full ml-1 transition-colors ${subTab === tab.id ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20' : 'bg-slate-300/50 text-slate-600'}`}>{todayReview.length}</span>
-            )}
-          </button>
-        ))}
-      </div>
-    </div>
-
-    {/* Content */}
-    <div key={subTab} className="animate-tab-enter flex-1 overflow-y-auto overflow-x-hidden" onScroll={(e) => {
-
-      const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-      if (scrollHeight - scrollTop <= clientHeight + 100) {
-        loadMoreWords();
-      }
-    }}>
-      {subTab === 'bank' && (
-        <WordBank
-          words={mergedWords}
-          search={search}
-          setSearch={setSearch}
-          updateWord={updateWord}
-          deleteWord={deleteWord}
-          addWords={addWords}
-          currentSet={currentSet}
-          setCurrentSet={setCurrentSet}
-          isAdmin={isAdmin}
-          handleExportIG={handleExportIG}
-          detailedWordId={detailedWordId}
-          setDetailedWordId={setDetailedWordId}
-          analyzingIds={analyzingIds}
-          aiAnalysisData={aiAnalysisData}
-          setAiAnalysisData={setAiAnalysisData}
-          setAnalyzingIds={setAnalyzingIds}
-          filterPos={filterPos}
-          setFilterPos={setFilterPos}
-          filterLearned={filterLearned}
-          setFilterLearned={setFilterLearned}
-          filterLevel={filterLevel}
-          setFilterLevel={setFilterLevel}
-          isLoading={isLoading}
-          sourcesVisibility={sourcesVisibility}
-          triggerNotification={triggerNotification}
-          playVoice={playVoice}
-          accent={accent}
-          setAccent={setAccent}
-          dbError={dbError}
-          campusGrade={campusGrade}
-          setCampusGrade={setCampusGrade}
-          campusSemester={campusSemester}
-          setCampusSemester={setCampusSemester}
-          campusStage={campusStage}
-          setCampusStage={setCampusStage}
-
-          user={user}
-          schoolId={schoolId}
-          gradeId={gradeId}
-          logDebug={logDebug}
-        />
-      )}
-      {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} commonalityMap={commonalityMap} />}
-      {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} addWords={addWords} triggerNotification={triggerNotification} commonalityMap={commonalityMap} />}
-      {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} currentSet={currentSet} />}
-    </div>
-
-    {/* Debug Panel (Fixed to bottom if active) */}
-    {isDebugMode && (
-      <div className="fixed bottom-0 left-0 right-0 bg-slate-900 text-green-400 font-mono text-xs z-50 shadow-2xl border-t border-slate-700 max-h-[50vh] flex flex-col">
-        <div className="flex items-center justify-between p-2 bg-slate-800 border-b border-slate-700 cursor-pointer" onClick={() => setIsLogOpen(!isLogOpen)}>
-          <div className="flex items-center gap-2 text-slate-300 font-bold">
-            <Terminal size={14} /> 系統偵錯日誌 (Debug Logs)
-          </div>
           <div className="flex items-center gap-2">
-            <button onClick={(e) => { e.stopPropagation(); setDebugLogs([]); }} className="text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-700 text-[10px]">清空</button>
-            {isLogOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronUp size={16} className="text-slate-400" />}
+            {/* 學習時數膠囊按鈕 */}
+            <button onClick={() => setShowStatsModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-[12px] active:scale-95 transition-all border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm">
+              <Clock size={14} className="shrink-0" /> <span className="hidden sm:inline">今日 </span>{todayMinutes}m
+            </button>
+            <button onClick={handleExportIG} className="flex items-center justify-center p-2 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl active:scale-95 transition-all shadow-sm border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-200 dark:hover:bg-emerald-500/20" title="分享至 IG 限時動態">
+              <Share2 size={16} />
+            </button>
+
+            <button onClick={() => setIsDebugMode(!isDebugMode)} className={`hidden sm:block p-2 rounded-xl transition-all ${isDebugMode ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500'}`} title="切換偵錯模式"><Bug size={16} /></button>
           </div>
         </div>
-        {isLogOpen && (
-          <div className="p-2 overflow-y-auto flex-1 space-y-2 bg-slate-950/50 p-3">
-            {debugLogs.length === 0 ? (
-              <p className="text-slate-500 italic">等待操作中...</p>
-            ) : (
-              debugLogs.map((log, idx) => (
-                <div key={idx} className="border-b border-slate-800 pb-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-slate-500">[{log.time}]</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${log.type === 'ERROR' ? 'bg-rose-500/20 text-rose-400' :
-                      log.type === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' :
-                        log.type === 'FETCH' ? 'bg-blue-500/20 text-blue-400' :
-                          'bg-slate-700 text-slate-300'
-                      }`}>{log.type}</span>
-                    <span className="font-bold text-slate-200">{log.title}</span>
-                  </div>
-                  {log.data && (
-                    <pre className="text-[10px] text-green-300 overflow-x-auto whitespace-pre-wrap bg-slate-900 p-2 rounded">
-                      {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              ))
-            )}
+
+        {/* 錯誤提示 (Sticky Notice) */}
+        {dbError && (
+          <div className="mt-2 p-3 bg-red-100/80 dark:bg-red-900/40 backdrop-blur-lg border border-red-200 dark:border-red-800/50 rounded-2xl flex items-center gap-3 animate-slide-up-fade shadow-lg mx-1">
+            <AlertCircle size={18} className="text-red-500 shrink-0" />
+            <span className="text-[13px] font-black text-red-700 dark:text-red-300 min-w-0 break-words leading-tight">{dbError}</span>
+            <button onClick={() => setDbError('')} className="ml-auto p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors">
+              <X size={14} className="text-red-400" />
+            </button>
           </div>
         )}
       </div>
-    )}
 
-    {/* 🚀 頂級通知元件 (Premium Toast Notification) - Portal 至 Root 確保定位準確 */}
-    {notification && createPortal(
-      <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[9999] animate-toast-pop-up filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.15)] select-none pointer-events-none w-[90%] max-w-md">
-        <div className={`
+      {/* Sub-tabs */}
+      <div className="px-1 mb-2">
+        <div
+          ref={scrollRefTabs}
+          onMouseDown={e => onDragStart(e, scrollRefTabs)} onMouseLeave={() => setDragState({ ...dragState, isDragging: false })} onMouseUp={() => setDragState({ ...dragState, isDragging: false })} onMouseMove={onDragMove}
+          className={`relative flex gap-2 overflow-x-auto scrollbar-hide bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-[24px] backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-inner select-none ${dragState.isDragging && dragState.ref === scrollRefTabs ? 'cursor-grabbing' : 'cursor-grab'}`}
+        >
+          {/* 魔術背景膠囊 */}
+          <div
+            className="absolute top-1.5 bottom-1.5 bg-white dark:bg-slate-700 rounded-[20px] shadow-sm border border-slate-100 dark:border-slate-600 transition-all duration-[500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
+            style={{
+              width: `calc((100% - 12px) / ${SUB_TABS.length})`,
+              transform: `translateX(calc(${SUB_TABS.findIndex(t => t.id === subTab)} * 100%))`
+            }}
+          />
+          {SUB_TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setSubTab(tab.id)}
+              className={`relative z-10 flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-3 rounded-[20px] font-black text-[12px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] ${subTab === tab.id
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-white/5'
+                }`}
+            >
+              <tab.icon size={16} className={subTab === tab.id ? 'animate-bounce-soft' : ''} />
+              {tab.label}
+              {tab.id === 'review' && todayReview.length > 0 && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ml-1 transition-colors ${subTab === tab.id ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20' : 'bg-slate-300/50 text-slate-600'}`}>{todayReview.length}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div key={subTab} className="animate-tab-enter flex-1 overflow-y-auto overflow-x-hidden" onScroll={(e) => {
+
+        const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop <= clientHeight + 100) {
+          loadMoreWords();
+        }
+      }}>
+        {subTab === 'bank' && (
+          <WordBank
+            words={mergedWords}
+            search={search}
+            setSearch={setSearch}
+            updateWord={updateWord}
+            deleteWord={deleteWord}
+            addWords={addWords}
+            currentSet={currentSet}
+            setCurrentSet={setCurrentSet}
+            isAdmin={isAdmin}
+            handleExportIG={handleExportIG}
+            detailedWordId={detailedWordId}
+            setDetailedWordId={setDetailedWordId}
+            analyzingIds={analyzingIds}
+            aiAnalysisData={aiAnalysisData}
+            setAiAnalysisData={setAiAnalysisData}
+            setAnalyzingIds={setAnalyzingIds}
+            filterPos={filterPos}
+            setFilterPos={setFilterPos}
+            filterLearned={filterLearned}
+            setFilterLearned={setFilterLearned}
+            filterLevel={filterLevel}
+            setFilterLevel={setFilterLevel}
+            isLoading={isLoading}
+            sourcesVisibility={sourcesVisibility}
+            triggerNotification={triggerNotification}
+            playVoice={playVoice}
+            accent={accent}
+            setAccent={setAccent}
+            dbError={dbError}
+            campusGrade={campusGrade}
+            setCampusGrade={setCampusGrade}
+            campusSemester={campusSemester}
+            setCampusSemester={setCampusSemester}
+            campusStage={campusStage}
+            setCampusStage={setCampusStage}
+
+            user={user}
+            schoolId={schoolId}
+            gradeId={gradeId}
+            logDebug={logDebug}
+          />
+        )}
+        {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} commonalityMap={commonalityMap} />}
+        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} addWords={addWords} triggerNotification={triggerNotification} commonalityMap={commonalityMap} />}
+        {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} currentSet={currentSet} />}
+      </div>
+
+      {/* Debug Panel (Fixed to bottom if active) */}
+      {isDebugMode && (
+        <div className="fixed bottom-0 left-0 right-0 bg-slate-900 text-green-400 font-mono text-xs z-50 shadow-2xl border-t border-slate-700 max-h-[50vh] flex flex-col">
+          <div className="flex items-center justify-between p-2 bg-slate-800 border-b border-slate-700 cursor-pointer" onClick={() => setIsLogOpen(!isLogOpen)}>
+            <div className="flex items-center gap-2 text-slate-300 font-bold">
+              <Terminal size={14} /> 系統偵錯日誌 (Debug Logs)
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={(e) => { e.stopPropagation(); setDebugLogs([]); }} className="text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-700 text-[10px]">清空</button>
+              {isLogOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronUp size={16} className="text-slate-400" />}
+            </div>
+          </div>
+          {isLogOpen && (
+            <div className="p-2 overflow-y-auto flex-1 space-y-2 bg-slate-950/50 p-3">
+              {debugLogs.length === 0 ? (
+                <p className="text-slate-500 italic">等待操作中...</p>
+              ) : (
+                debugLogs.map((log, idx) => (
+                  <div key={idx} className="border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-slate-500">[{log.time}]</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${log.type === 'ERROR' ? 'bg-rose-500/20 text-rose-400' :
+                        log.type === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-400' :
+                          log.type === 'FETCH' ? 'bg-blue-500/20 text-blue-400' :
+                            'bg-slate-700 text-slate-300'
+                        }`}>{log.type}</span>
+                      <span className="font-bold text-slate-200">{log.title}</span>
+                    </div>
+                    {log.data && (
+                      <pre className="text-[10px] text-green-300 overflow-x-auto whitespace-pre-wrap bg-slate-900 p-2 rounded">
+                        {typeof log.data === 'string' ? log.data : JSON.stringify(log.data, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 🚀 頂級通知元件 (Premium Toast Notification) - Portal 至 Root 確保定位準確 */}
+      {notification && createPortal(
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[9999] animate-toast-pop-up filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.15)] select-none pointer-events-none w-[90%] max-w-md">
+          <div className={`
             relative px-5 py-4 md:px-8 md:py-5 rounded-[32px] 
             border backdrop-blur-2xl flex items-center gap-4 md:gap-6
             ${notification.type === 'error'
-            ? 'bg-rose-50/90 border-rose-200/50 text-rose-700 dark:bg-rose-950/80 dark:border-rose-500/30'
-            : 'bg-white/90 border-emerald-200/50 text-emerald-800 dark:bg-zinc-900/90 dark:border-emerald-500/30'
-          }
+              ? 'bg-rose-50/90 border-rose-200/50 text-rose-700 dark:bg-rose-950/80 dark:border-rose-500/30'
+              : 'bg-white/90 border-emerald-200/50 text-emerald-800 dark:bg-zinc-900/90 dark:border-emerald-500/30'
+            }
             shadow-2xl
           `}>
-          {/* 動態發光背景 */}
-          <div className={`absolute -inset-4 rounded-[40px] opacity-20 blur-2xl -z-10 ${notification.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+            {/* 動態發光背景 */}
+            <div className={`absolute -inset-4 rounded-[40px] opacity-20 blur-2xl -z-10 ${notification.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
 
-          <div className={`
+            <div className={`
               flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-2xl shadow-inner shrink-0
               ${notification.type === 'error' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-500' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500'}
             `}>
-            {notification.type === 'error' ? <XCircle size={24} /> : <CheckCircle2 size={24} className="animate-bounce-soft" />}
-          </div>
-
-          <div className="flex flex-col min-w-0">
-            <div className="text-[15px] md:text-[17px] font-black tracking-tight leading-none mb-1 text-slate-900 dark:text-white truncate">
-              {notification.title}
+              {notification.type === 'error' ? <XCircle size={24} /> : <CheckCircle2 size={24} className="animate-bounce-soft" />}
             </div>
-            <div className="text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 opacity-90 leading-tight">
-              {notification.message}
+
+            <div className="flex flex-col min-w-0">
+              <div className="text-[15px] md:text-[17px] font-black tracking-tight leading-none mb-1 text-slate-900 dark:text-white truncate">
+                {notification.title}
+              </div>
+              <div className="text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 opacity-90 leading-tight">
+                {notification.message}
+              </div>
+            </div>
+
+            {/* 隱藏裝飾用的底端進度條 */}
+            <div className="absolute bottom-0 left-8 right-8 h-1 bg-slate-100/50 dark:bg-white/5 rounded-full overflow-hidden mb-[-2px]">
+              <div className={`h-full animate-progress-shrink ${notification.type === 'error' ? 'bg-rose-400' : 'bg-emerald-400'}`}></div>
             </div>
           </div>
-
-          {/* 隱藏裝飾用的底端進度條 */}
-          <div className="absolute bottom-0 left-8 right-8 h-1 bg-slate-100/50 dark:bg-white/5 rounded-full overflow-hidden mb-[-2px]">
-            <div className={`h-full animate-progress-shrink ${notification.type === 'error' ? 'bg-rose-400' : 'bg-emerald-400'}`}></div>
-          </div>
-        </div>
-      </div>,
-      document.body
-    )}
-  </div>
-);
+        </div>,
+        document.body
+      )}
+    </div>
+  );
 }
 
 
