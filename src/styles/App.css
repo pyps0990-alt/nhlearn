@@ -184,5 +184,22 @@ input, textarea { font-size: 16px !important; }
 }
 
 .shadow-float {
-  shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Toast notification animation - 保留 translateX(-50%) 不被覆蓋 */
+@keyframes toast-pop-up {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px) scale(0.95);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+.animate-toast-pop-up {
+  animation: toast-pop-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

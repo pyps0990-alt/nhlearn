@@ -4,7 +4,7 @@ import {
   BookOpen, Plus, Upload, Brain, Trophy, Search, Trash2, Check, X,
   RefreshCw, Sparkles, Shuffle, PenTool, CheckCircle2, XCircle, Heart, School,
   FileSpreadsheet, Bug, Terminal, ChevronDown, ChevronUp, ChevronRight, Wand2, Volume2,
-  FileText, BarChart2, Flame, Clock, TrendingUp, Share2, Book, Zap, AlertCircle, Tag, Frown, Meh, Smile, Award, Globe
+  FileText, BarChart2, Flame, Clock, TrendingUp, Share2, Book, Zap, AlertCircle, Tag, Frown, Meh, Smile, Award, Globe, Lock, SlidersHorizontal
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -112,7 +112,7 @@ const calculateNextReview = (word, quality, weight = 1.0) => {
     if (repetitions === 0) interval = 1;
     else if (repetitions === 1) interval = 3;
     else interval = Math.round(interval * easeFactor);
-    
+
     // 🚀 權重調整：字根越罕見，權重越高，間隔越短 (複習頻率增加)
     interval = Math.max(1, Math.round(interval / weight));
     repetitions += 1;
@@ -457,8 +457,8 @@ const WordDetailOverlay = ({
         <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-[calc(3rem+env(safe-area-inset-bottom))] space-y-8 custom-scrollbar">
           {/* 1. 視覺化拆解圖 (支援 Prefix, Root, Suffix, Connector) */}
           {decomposition && (
-            <div className="p-6 md:p-8 bg-gradient-to-br from-slate-50 to-white dark:from-white/5 dark:to-transparent rounded-[32px] md:rounded-[40px] border border-slate-100 dark:border-white/5 relative overflow-hidden group shadow-sm">
-              <div className="relative z-10 flex flex-wrap items-center justify-center gap-1.5 md:gap-6 pt-2">
+            <div className="p-4 md:p-8 bg-gradient-to-br from-slate-50 to-white dark:from-white/5 dark:to-transparent rounded-[24px] md:rounded-[40px] border border-slate-100 dark:border-white/5 relative overflow-hidden group shadow-sm">
+              <div className="relative z-10 flex flex-wrap items-center justify-center gap-1 md:gap-6 pt-2">
                 {decomposition.length > 0 ? (
                   decomposition.map((p, i) => {
                     let colorConfig = {
@@ -499,8 +499,8 @@ const WordDetailOverlay = ({
                             {p.type || 'Part'}
                           </span>
 
-                          {/* 🌟 3D Lego Brick (加入高度限制，防止內容過長撐破版面) */}
-                          <div className={`relative px-5 py-3 md:px-8 md:py-5 rounded-xl md:rounded-2xl border-x-2 border-t-2 border-b-[6px] md:border-b-[10px] bg-gradient-to-b ${colorConfig.gradient} ${colorConfig.border} border-b-${colorConfig.borderB} shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_8px_16px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),0_8px_16px_rgba(0,0,0,0.3)] active:border-b-2 active:translate-y-[4px] md:active:translate-y-[8px] transition-all duration-200 group-hover/part:rotate-[2deg] group-hover/part:scale-105 flex items-center justify-center min-w-[60px] md:min-w-[90px] h-12 md:h-16 shrink-0`}>
+                          {/* 3D Lego Brick */}
+                          <div className={`relative px-3 py-2 md:px-8 md:py-5 rounded-lg md:rounded-2xl border-x-2 border-t-2 border-b-4 md:border-b-[10px] bg-gradient-to-b ${colorConfig.gradient} ${colorConfig.border} border-b-${colorConfig.borderB} shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_8px_16px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),0_8px_16px_rgba(0,0,0,0.3)] active:border-b-2 active:translate-y-[2px] md:active:translate-y-[8px] transition-all duration-200 group-hover/part:rotate-[2deg] group-hover/part:scale-105 flex items-center justify-center min-w-[48px] md:min-w-[90px] h-10 md:h-16 shrink-0 max-w-[120px] md:max-w-none`}>
 
                             {/* 🌟 Lego Studs (凸起) - 呈現立體塑膠感 */}
                             <div className="absolute -top-[5px] md:-top-[7px] left-1/2 -translate-x-1/2 flex gap-3 md:gap-5">
@@ -512,7 +512,7 @@ const WordDetailOverlay = ({
                             <div className="absolute inset-x-0 top-0 h-1/2 bg-white/20 dark:bg-white/5 rounded-t-xl pointer-events-none"></div>
 
                             {/* 文字發光/清晰度處理 */}
-                            <span className={`relative z-10 text-[18px] md:text-[32px] font-black tracking-wider ${colorConfig.text} drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)]`}>
+                            <span className={`relative z-10 text-[14px] md:text-[28px] font-black tracking-wider ${colorConfig.text} drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)] truncate`}>
                               {p.text}
                             </span>
                           </div>
@@ -522,7 +522,7 @@ const WordDetailOverlay = ({
 
                         {/* 連接加號 */}
                         {i < decomposition.length - 1 && (
-                          <span className="text-xl md:text-3xl font-black text-slate-300 dark:text-white/20 mt-6 md:mt-10 shrink-0 transform transition-transform group-hover/part:scale-110 drop-shadow-sm">+</span>
+                          <span className="text-lg md:text-3xl font-black text-slate-300 dark:text-white/20 mt-4 md:mt-10 shrink-0">+</span>
                         )}
                       </div>
                     );
@@ -734,13 +734,26 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [userWords, setUserWords] = useState([]); // 個人學習進度
   const [currentSet, setCurrentSet] = useState('6000_words'); // 目前選擇的單字庫來源
-  const [teacherGrade, setTeacherGrade] = useState(() => {
-    // 預設與使用者的 gradeId 同步，並保證有底線格式
-    let g = gradeId || localStorage.getItem('gsat_grade_id') || 'grade_2';
+  const [campusGrade, setCampusGrade] = useState(() => {
+    let g = gradeId || localStorage.getItem('gsat_grade_id') || 'grade_1';
     if (g && !g.includes('_') && g.startsWith('grade')) g = g.replace('grade', 'grade_');
     return g;
-  }); // 教師推薦的年級選擇
-  const [teacherStage, setTeacherStage] = useState('stage_1'); // 教師推薦的階段選擇
+  });
+
+  // 🚀 自動同步：當使用者設定變更時，自動更新單字庫年級
+  useEffect(() => {
+    if (gradeId) {
+      let normalized = gradeId;
+      if (normalized && !normalized.includes('_') && normalized.startsWith('grade')) {
+        normalized = normalized.replace('grade', 'grade_');
+      }
+      setCampusGrade(normalized);
+    }
+  }, [gradeId]);
+
+  const [campusSemester, setCampusSemester] = useState('up');
+  const [campusStage, setCampusStage] = useState('stage_1');
+
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [detailedWordId, setDetailedWordId] = useState(null);
   const [analyzingIds, setAnalyzingIds] = useState(new Set());
@@ -779,28 +792,17 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
 
     const checkSources = async () => {
       try {
-        let g = gradeId || 'grade_2';
-        if (g && !g.includes('_') && g.startsWith('grade')) g = g.replace('grade', 'grade_');
-
-        // 檢查學校單字
-        const schoolVocabQuery = query(collection(db, 'Schools', schoolId, 'Grades', g, 'SchoolVocab'), limit(1));
-        const schoolVocabSnap = await getDocs(schoolVocabQuery);
-
-        // 檢查教師推薦 (檢查第一個段考範圍即可)
-        const teacherVocabQuery = query(collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'TeacherVocab', `init_${teacherGrade}_vocab`, 'Stages', 'stage_1', 'Words'), limit(1));
-        const teacherVocabSnap = await getDocs(teacherVocabQuery);
-
-        setSourcesVisibility({
-          school: !schoolVocabSnap.empty,
-          teacher: !teacherVocabSnap.empty
-        });
+        const campusPath = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words');
+        const campusSnap = await getDocs(query(campusPath, limit(1)));
+        setSourcesVisibility(prev => ({ ...prev, school: !campusSnap.empty }));
       } catch (e) {
         console.error("Check sources error:", e);
       }
     };
 
     checkSources();
-  }, [db, schoolId, gradeId, teacherGrade]);
+  }, [db, schoolId, campusGrade, campusSemester, campusStage]);
+
 
   // --- 通知系統 ---
   const triggerNotification = useCallback((title, message, type = 'success') => {
@@ -928,26 +930,22 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     let vocabRef;
     if (currentSet === 'Personal') {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
-    } else if (currentSet === 'Teacher Picks') {
+    } else if (currentSet === 'Campus') {
+      if (!user) {
+        setDbError('「校園單字」功能僅限登入使用者，請先登入。');
+        setWords([]);
+        setIsLoading(false);
+        return;
+      }
       if (!schoolId) {
         setDbError('請先至設定頁面選擇您的學校');
         setWords([]);
+        setIsLoading(false);
         return;
       }
-      // 🚀 修復：直接指向 TeacherVocab，簡化結構並與實際可能相符
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'TeacherVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
-    } else if (currentSet === 'school_vocab') {
-      // 🏫 學校年級專屬單字庫
-      if (!schoolId || !gradeId) {
-        setDbError('請先至設定頁面選擇您的學校與年級');
-        setWords([]);
-        return;
-      }
-      // 🚀 加入 gradeId 防呆
-      let g = gradeId;
-      if (g && !g.includes('_') && g.startsWith('grade')) g = g.replace('grade', 'grade_');
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', g, 'SchoolVocab');
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words');
     } else {
+
       // 🌍 6000 核心單字庫 (改存放於 Schools/taiwan/FreeVocab)
       vocabRef = collection(db, 'Schools', 'taiwan', 'FreeVocab');
     }
@@ -1015,7 +1013,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     });
 
     return () => unsub();
-  }, [debouncedSearch, currentSet, filterLevel, teacherGrade, teacherStage, logDebug, user?.uid]);
+  }, [debouncedSearch, currentSet, filterLevel, campusGrade, campusSemester, campusStage, logDebug, user?.uid]);
+
 
   // 加載更多 (效能優化)
   const loadMoreWords = useCallback(async () => {
@@ -1025,15 +1024,11 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     let vocabRef;
     if (currentSet === 'Personal') {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
-    } else if (currentSet === 'Teacher Picks') {
+    } else if (currentSet === 'Campus') {
       if (!schoolId) return;
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', teacherGrade, 'TeacherVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words');
-    } else if (currentSet === 'school_vocab') {
-      if (!schoolId || !gradeId) return;
-      let g = gradeId;
-      if (g && !g.includes('_') && g.startsWith('grade')) g = g.replace('grade', 'grade_');
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', g, 'SchoolVocab');
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words');
     } else {
+
       vocabRef = collection(db, 'Schools', 'taiwan', 'FreeVocab');
     }
 
@@ -1067,7 +1062,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     } catch (error) {
       logDebug('ERROR', '載入更多單字失敗', error.message);
     }
-  }, [lastVisible, debouncedSearch, currentSet, teacherGrade, teacherStage, logDebug, user?.uid]);
+  }, [lastVisible, debouncedSearch, currentSet, campusGrade, campusSemester, campusStage, logDebug, user?.uid]);
+
 
   // 🚀 智慧合併單字與個人進度 (防止舊版個人資料覆蓋全域最新解析)
   const mergedWords = useMemo(() => {
@@ -1259,13 +1255,12 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     if (isGlobalUpdate) {
       // 🌍 全域更新：所有使用者(含訪客)的 AI 解析、例句、詞性解釋，直接寫入公用資料庫
       let ref;
-      if (currentSet === 'Teacher Picks') {
-        ref = doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', safeId);
-      } else if (currentSet === 'school_vocab') {
-        ref = doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', safeId);
+      if (currentSet === 'Campus') {
+        ref = doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words', safeId);
       } else {
         ref = doc(db, 'Schools', 'taiwan', 'FreeVocab', safeId);
       }
+
 
       await setDoc(ref, {
         ...updates,
@@ -1316,7 +1311,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         console.warn("個人備份失敗:", e.message);
       }
     }
-  }, [user?.uid, mergedWords, logDebug, currentSet, schoolId, gradeId, teacherGrade, teacherStage]);
+  }, [user?.uid, user?.email, isAdmin, currentSet, schoolId, campusGrade, campusSemester, campusStage, mergedWords, logDebug]);
+
   const deleteWord = useCallback(async (id) => {
     if (!user?.uid || !isAdmin) return;
     try {
@@ -1335,24 +1331,23 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           alert("您只能刪除「個人收藏」中的單字喔！");
           return;
         }
+        if (currentSet === 'Campus' && !schoolId) return;
 
-        if ((currentSet === 'Teacher Picks' || currentSet === 'school_vocab') && !schoolId) return;
 
         const safeId = String(id).replace(/\//g, '_');
         const ref = currentSet === 'Personal'
           ? doc(db, 'Users', user.uid, 'PersonalVocab', safeId)
-          : currentSet === 'Teacher Picks'
-            ? doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', safeId)
-            : currentSet === 'school_vocab'
-              ? doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', safeId)
-              : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeId);
+          : currentSet === 'Campus'
+            ? doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words', safeId)
+            : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeId);
         await deleteDoc(ref);
         logDebug('SUCCESS', '已從雲端刪除單字', { word: wordObj.word, set: currentSet });
       }
     } catch (e) {
       logDebug('ERROR', '刪除失敗', e.message);
     }
-  }, [user?.uid, isAdmin, mergedWords, logDebug, currentSet]);
+  }, [user?.uid, isAdmin, mergedWords, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
+
 
   const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush = true) => {
     if (!db) return;
@@ -1411,11 +1406,10 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
 
         const ref = targetSet === 'Personal'
           ? doc(db, 'Users', user.uid, 'PersonalVocab', safeDocId)
-          : targetSet === 'Teacher Picks'
-            ? doc(db, 'Schools', schoolId, 'Grades', teacherGrade, 'GradeVocab', `init_${teacherGrade}_vocab`, 'Stages', teacherStage, 'Words', safeDocId)
-            : targetSet === 'school_vocab'
-              ? doc(db, 'Schools', schoolId, 'Grades', gradeId, 'SchoolVocab', safeDocId)
-              : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeDocId);
+          : targetSet === 'Campus'
+            ? doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'Semesters', campusSemester, 'Stages', campusStage, 'Words', safeDocId)
+            : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeDocId);
+
         const sn = Date.now() + (chunkIdx * 400) + i;
 
         const uniqueMeanings = []; const seen = new Set();
@@ -1439,7 +1433,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       await batch.commit();
     }
     logDebug('SUCCESS', `已新增 ${newWords.length} 筆單字至 ${targetSet}`);
-  }, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet]);
+  }, [user?.uid, user?.email, isAdmin, pushToGAS, logDebug, currentSet, schoolId, campusGrade, campusSemester, campusStage]);
+
 
   const todayStr = new Date().toISOString().split('T')[0];
   const todayMinutes = Math.floor((stats[todayStr]?.time || 0) / 60);
@@ -1519,7 +1514,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
   }, []);
 
   return (
-    <div className="flex flex-col w-full h-full animate-fadeIn pb-8 space-y-4 relative">
+    <div className="flex flex-col w-full h-full animate-fadeIn pb-8 space-y-4 relative overflow-x-hidden">
       {/* 利用 createPortal 將 Modal 抽離，避免受父層 transform 動畫影響導致版面錯位 */}
       {showStatsModal && createPortal(
         <StatsModal isOpen={showStatsModal} onClose={() => setShowStatsModal(false)} stats={stats} />,
@@ -1570,6 +1565,33 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           background-size: 200% 100%;
         }
 
+        /* 🚀 頂級通知專用動畫 */
+        @keyframes progress-shrink {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+        .animate-progress-shrink { animation: progress-shrink 3s linear forwards; }
+
+        @keyframes bounce-soft {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+        }
+        .animate-bounce-soft { animation: bounce-soft 0.8s ease-in-out infinite; }
+
+        @keyframes slide-up-fade {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up-fade { animation: slide-up-fade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        @keyframes slide-up-fade-center {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .animate-slide-up-fade-center { animation: slide-up-fade-center 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+
+
         /* 波紋效果 (Ripple Effect) */
         .ripple-btn {
           position: relative;
@@ -1597,31 +1619,44 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           transition: 0s;
         }
       `}</style>
-      {/* Header */}
-      <div className="flex justify-between items-center px-1 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl shrink-0">
-            <BookOpen size={24} className="shrink-0" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">單字特訓</h2>
-            <div className="flex items-center gap-2">
-              <p className="text-[11px] font-bold text-slate-400">{mergedWords.length} 個單字 · {todayReview.length} 個待複習</p>
+      {/* Header (Sticky) */}
+      <div className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md pt-2 px-1">
+        <div className="flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl shrink-0">
+              <BookOpen size={24} className="shrink-0" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">單字特訓</h2>
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] font-bold text-slate-400">{mergedWords.length} 個單字 · {todayReview.length} 個待複習</p>
+              </div>
             </div>
           </div>
+
+          <div className="flex items-center gap-2">
+            {/* 學習時數膠囊按鈕 */}
+            <button onClick={() => setShowStatsModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-[12px] active:scale-95 transition-all border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm">
+              <Clock size={14} className="shrink-0" /> <span className="hidden sm:inline">今日 </span>{todayMinutes}m
+            </button>
+            <button onClick={handleExportIG} className="flex items-center justify-center p-2 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl active:scale-95 transition-all shadow-sm border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-200 dark:hover:bg-emerald-500/20" title="分享至 IG 限時動態">
+              <Share2 size={16} />
+            </button>
+
+            <button onClick={() => setIsDebugMode(!isDebugMode)} className={`hidden sm:block p-2 rounded-xl transition-all ${isDebugMode ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500'}`} title="切換偵錯模式"><Bug size={16} /></button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* 學習時數膠囊按鈕 */}
-          <button onClick={() => setShowStatsModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl font-black text-[12px] active:scale-95 transition-all border border-emerald-200/50 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm">
-            <Clock size={14} className="shrink-0" /> <span className="hidden sm:inline">今日 </span>{todayMinutes}m
-          </button>
-          <button onClick={handleExportIG} className="flex items-center justify-center p-2 bg-gradient-to-br from-pink-500 to-orange-400 text-white rounded-xl active:scale-95 transition-all shadow-sm" title="分享至 IG 限時動態">
-            <Share2 size={16} />
-          </button>
-
-          <button onClick={() => setIsDebugMode(!isDebugMode)} className={`hidden sm:block p-2 rounded-xl transition-all ${isDebugMode ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-slate-500'}`} title="切換偵錯模式"><Bug size={16} /></button>
-        </div>
+        {/* 錯誤提示 (Sticky Notice) */}
+        {dbError && (
+          <div className="mt-2 p-3 bg-red-100/80 dark:bg-red-900/40 backdrop-blur-lg border border-red-200 dark:border-red-800/50 rounded-2xl flex items-center gap-3 animate-slide-up-fade shadow-lg mx-1">
+            <AlertCircle size={18} className="text-red-500 shrink-0" />
+            <span className="text-[13px] font-black text-red-700 dark:text-red-300 min-w-0 break-words leading-tight">{dbError}</span>
+            <button onClick={() => setDbError('')} className="ml-auto p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors">
+              <X size={14} className="text-red-400" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Sub-tabs */}
@@ -1643,7 +1678,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
             <button
               key={tab.id}
               onClick={() => setSubTab(tab.id)}
-              className={`relative z-10 flex-1 min-w-[80px] flex items-center justify-center gap-2 px-4 py-3 rounded-[20px] font-black text-[13px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] ${subTab === tab.id
+              className={`relative z-10 flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 py-3 rounded-[20px] font-black text-[12px] whitespace-nowrap transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] ${subTab === tab.id
                 ? 'text-emerald-600 dark:text-emerald-400'
                 : 'text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-white/5'
                 }`}
@@ -1659,7 +1694,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       </div>
 
       {/* Content */}
-      <div key={subTab} className="animate-tab-enter flex-1 overflow-y-auto" onScroll={(e) => {
+      <div key={subTab} className="animate-tab-enter flex-1 overflow-y-auto overflow-x-hidden" onScroll={(e) => {
+
         const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
         if (scrollHeight - scrollTop <= clientHeight + 100) {
           loadMoreWords();
@@ -1696,10 +1732,13 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
             accent={accent}
             setAccent={setAccent}
             dbError={dbError}
-            teacherGrade={teacherGrade}
-            setTeacherGrade={setTeacherGrade}
-            teacherStage={teacherStage}
-            setTeacherStage={setTeacherStage}
+            campusGrade={campusGrade}
+            setCampusGrade={setCampusGrade}
+            campusSemester={campusSemester}
+            setCampusSemester={setCampusSemester}
+            campusStage={campusStage}
+            setCampusStage={setCampusStage}
+
             user={user}
             schoolId={schoolId}
             gradeId={gradeId}
@@ -1708,7 +1747,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         )}
         {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} commonalityMap={commonalityMap} />}
         {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} addWords={addWords} triggerNotification={triggerNotification} commonalityMap={commonalityMap} />}
-        {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} />}
+        {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} currentSet={currentSet} />}
       </div>
 
       {/* Debug Panel (Fixed to bottom if active) */}
@@ -1752,20 +1791,44 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         </div>
       )}
 
-      {/* 全局通知元件 */}
-      {notification && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] animate-slide-up-fade">
-          <div className={`px-6 py-4 rounded-[24px] border shadow-2xl backdrop-blur-xl flex items-center gap-4 ${notification.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-600 dark:bg-rose-500/20' : 'bg-emerald-50/90 border-emerald-200 text-emerald-600 dark:bg-emerald-500/20'
-            }`}>
-            <div className={`p-2 rounded-xl ${notification.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}>
-              {notification.type === 'error' ? <XCircle size={20} /> : <CheckCircle2 size={20} />}
+      {/* 🚀 頂級通知元件 (Premium Toast Notification) - Portal 至 Root 確保定位準確 */}
+      {notification && createPortal(
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[9999] animate-toast-pop-up filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.15)] select-none pointer-events-none w-[90%] max-w-md">
+          <div className={`
+            relative px-5 py-4 md:px-8 md:py-5 rounded-[32px] 
+            border backdrop-blur-2xl flex items-center gap-4 md:gap-6
+            ${notification.type === 'error'
+              ? 'bg-rose-50/90 border-rose-200/50 text-rose-700 dark:bg-rose-950/80 dark:border-rose-500/30'
+              : 'bg-white/90 border-emerald-200/50 text-emerald-800 dark:bg-zinc-900/90 dark:border-emerald-500/30'
+            }
+            shadow-2xl
+          `}>
+            {/* 動態發光背景 */}
+            <div className={`absolute -inset-4 rounded-[40px] opacity-20 blur-2xl -z-10 ${notification.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+
+            <div className={`
+              flex items-center justify-center w-10 h-10 md:w-12 md:h-12 rounded-2xl shadow-inner shrink-0
+              ${notification.type === 'error' ? 'bg-rose-100 dark:bg-rose-500/20 text-rose-500' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-500'}
+            `}>
+              {notification.type === 'error' ? <XCircle size={24} /> : <CheckCircle2 size={24} className="animate-bounce-soft" />}
             </div>
-            <div>
-              <div className="text-[14px] font-black leading-none mb-1">{notification.title}</div>
-              <div className="text-[12px] font-bold opacity-80">{notification.message}</div>
+
+            <div className="flex flex-col min-w-0">
+              <div className="text-[15px] md:text-[17px] font-black tracking-tight leading-none mb-1 text-slate-900 dark:text-white truncate">
+                {notification.title}
+              </div>
+              <div className="text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 opacity-90 leading-tight">
+                {notification.message}
+              </div>
+            </div>
+
+            {/* 隱藏裝飾用的底端進度條 */}
+            <div className="absolute bottom-0 left-8 right-8 h-1 bg-slate-100/50 dark:bg-white/5 rounded-full overflow-hidden mb-[-2px]">
+              <div className={`h-full animate-progress-shrink ${notification.type === 'error' ? 'bg-rose-400' : 'bg-emerald-400'}`}></div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -1781,8 +1844,10 @@ const WordBank = ({
   setAiAnalysisData, setAnalyzingIds, filterPos, setFilterPos,
   filterLearned, setFilterLearned,
   triggerNotification, playVoice, accent, setAccent, dbError,
-  teacherGrade, setTeacherGrade,
-  teacherStage, setTeacherStage,
+  campusGrade, setCampusGrade,
+  campusSemester, setCampusSemester,
+  campusStage, setCampusStage,
+
   user, schoolId, gradeId,
   filterLevel, setFilterLevel,
   isLoading, sourcesVisibility,
@@ -1798,6 +1863,7 @@ const WordBank = ({
   const [filterTagMeaning, setFilterTagMeaning] = useState('');
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState(new Set());
+  const [showFilters, setShowFilters] = useState(true);
 
   // 記錄本次 session 已經點擊加入收藏的單字 ID，用於即時顯示動畫與狀態
   const [savedWords, setSavedWords] = useState(new Set());
@@ -2057,77 +2123,199 @@ const WordBank = ({
     'abbr.': 'text-gray-600 bg-gray-50 dark:text-gray-400 dark:bg-gray-500/10 border-gray-100 dark:border-gray-500/20',
   };
 
+  const posList = useMemo(() => {
+    const posSet = new Set(['all']);
+    words.forEach(w => getMeanings(w).forEach(m => {
+      if (m.pos) {
+        m.pos.split(/[,/、\s]+/).forEach(p => {
+          let pt = p.trim().toLowerCase();
+          if (pt && !pt.endsWith('.')) pt += '.';
+          if (pt) posSet.add(pt);
+        });
+      }
+    }));
+    return Array.from(posSet).sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
+  }, [words]);
+
   return (
     <div className="space-y-4">
       {/* 1. 單字來源切換 (精簡佈局 & 動態顯示) */}
       <div className="flex flex-wrap gap-2 px-1">
         {[
           { id: '6000_words', label: '6000字庫', icon: <BookOpen size={14} /> },
-          { id: 'school_vocab', label: '學校單字', icon: <School size={14} />, visible: sourcesVisibility?.school },
-          { id: 'Teacher Picks', label: '教師推薦', icon: <Sparkles size={14} />, visible: sourcesVisibility?.teacher },
+          { id: 'Campus', label: '校務單字', icon: <School size={14} /> },
           { id: 'Personal', label: '個人收藏', icon: <Heart size={14} /> }
-        ].filter(s => s.visible !== false).map(set => (
-          <button key={set.id} onClick={() => setCurrentSet(set.id)}
-            className={`flex-1 min-w-[80px] sm:min-w-[120px] flex items-center justify-center gap-2 px-4 py-3 rounded-[20px] font-black text-[12px] transition-all duration-500 ease-spring-smooth active:scale-90 shadow-sm border ${currentSet === set.id ? 'bg-slate-900 dark:bg-zinc-800 text-white border-transparent shadow-lg shadow-slate-900/20' : 'bg-white/40 dark:bg-zinc-900/40 text-slate-500 dark:text-gray-400 border-white/60 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 hover:translate-y-[-1px]'}`}>
-            <span className={`transition-transform duration-500 ${currentSet === set.id ? 'scale-110 rotate-12' : ''}`}>{set.icon}</span> {set.label}
+        ].map(set => (
+          <button key={set.id}
+            onClick={() => {
+              if (set.id === 'Campus' && !user) {
+                triggerNotification('權限受限', '「校園單字」僅限登入使用者，請先登入。', 'error');
+                return;
+              }
+              setCurrentSet(set.id);
+            }}
+            className={`flex-1 min-w-[80px] sm:min-w-[120px] flex items-center justify-center gap-2 px-4 py-3 rounded-[20px] font-black text-[12px] transition-all duration-500 ease-spring-smooth active:scale-90 shadow-sm border ${currentSet === set.id ? 'bg-slate-900 dark:bg-zinc-800 text-white border-transparent shadow-lg shadow-slate-900/20' : 'bg-white/40 dark:bg-zinc-900/40 text-slate-500 dark:text-gray-400 border-white/60 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 hover:translate-y-[-1px]'} ${(set.id === 'Campus' && !user) ? 'opacity-70 grayscale-[0.5]' : ''}`}>
+            <span className={`transition-transform duration-500 ${currentSet === set.id ? 'scale-110 rotate-12' : ''}`}>{set.icon}</span>
+            {set.label}
+            {set.id === 'Campus' && !user && <Lock size={12} className="ml-0.5 text-slate-400 dark:text-slate-500" />}
           </button>
         ))}
       </div>
 
-      {/* 教師推薦的細分選擇 (僅在切換到 Teacher Picks 時顯示) */}
-      {currentSet === 'Teacher Picks' && (
-        <div className="space-y-2 animate-fadeIn px-1">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1">
-            {[1, 2, 3].map(g => (
-              <button key={g} onClick={() => setTeacherGrade(`grade_${g}`)}
-                className={`px-3 py-1.5 rounded-full text-[11px] font-black whitespace-nowrap transition-all ${teacherGrade === `grade_${g}` ? 'bg-purple-500 text-white shadow-md' : 'bg-white/40 dark:bg-white/5 text-slate-500 border border-white/60 dark:border-white/10'}`}>
-                高{g === 1 ? '一' : g === 2 ? '二' : '三'}推薦
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-            {[1, 2, 3].map(s => (
-              <button key={s} onClick={() => setTeacherStage(`stage_${s}`)}
-                className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all ${teacherStage === `stage_${s}` ? 'bg-indigo-500 text-white shadow-sm' : 'bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20'}`}>
-                第 {s === 1 ? '一' : s === 2 ? '二' : '三'} 段考
-              </button>
-            ))}
-          </div>
+      {/* 校務/校園單字的細分選擇 (段考、學期) */}
+      {currentSet === 'Campus' && (
+        <div className="animate-fadeIn px-1 mt-1">
+          {!user ? (
+            <div className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl rounded-2xl border border-dashed border-slate-300 dark:border-white/10 p-6 flex flex-col items-center justify-center gap-2 text-center">
+              <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-400">
+                <Lock size={20} />
+              </div>
+              <p className="text-[13px] font-black text-slate-500 dark:text-slate-400">內容已鎖定</p>
+              <p className="text-[11px] font-bold text-slate-400">請先登入後方可切換年級與範圍</p>
+            </div>
+          ) : (
+            <div className="bg-white/50 dark:bg-zinc-900/50 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-white/5 p-2.5 space-y-2">
+              {/* 第一排：年級 + 學期 */}
+              <div className="flex items-center gap-2">
+                <div className="flex flex-1 bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl">
+                  {[1, 2, 3].map(g => (
+                    <button key={g} onClick={() => setCampusGrade(`grade_${g}`)}
+                      className={`flex-1 py-1.5 rounded-lg text-[11px] font-black text-center transition-all ${campusGrade === `grade_${g}` ? 'bg-white dark:bg-zinc-700 text-emerald-600 shadow-sm' : 'text-slate-400'}`}>
+                      高{g === 1 ? '一' : g === 2 ? '二' : '三'}
+                    </button>
+                  ))}
+                </div>
+                <div className="w-px h-5 bg-slate-200 dark:bg-white/10 shrink-0" />
+                <div className="flex bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl">
+                  {['up', 'down'].map(s => (
+                    <button key={s} onClick={() => setCampusSemester(s)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-black whitespace-nowrap transition-all ${campusSemester === s ? 'bg-white dark:bg-zinc-700 text-blue-600 shadow-sm' : 'text-slate-400'}`}>
+                      {s === 'up' ? '上學期' : '下學期'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* 第二排：段考 */}
+              <div className="flex gap-1.5">
+                {[1, 2, 3].map(s => (
+                  <button key={s} onClick={() => setCampusStage(`stage_${s}`)}
+                    className={`flex-1 py-2 rounded-xl text-[11px] font-black text-center transition-all ${campusStage === `stage_${s}` ? 'bg-indigo-500 text-white shadow-sm' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}>
+                    {s === 1 ? '第一段' : s === 2 ? '第二段' : '期末考'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* 2. 搜尋與動作區域 (響應式分行) */}
-      <div className="flex flex-col gap-2 px-1">
-        <div className="flex items-center gap-3 bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl border border-white/40 dark:border-white/10 rounded-[20px] px-4 py-3 shadow-inner focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
-          <Search size={16} className="text-slate-400 shrink-0" />
+
+
+      {/* 2. 搜尋 + 動作合併列 */}
+      <div className="flex items-center gap-1.5 px-1 relative z-20">
+        <div className="flex-1 flex items-center gap-1.5 flex-wrap bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl border border-white/40 dark:border-white/10 rounded-[18px] px-2.5 py-1.5 shadow-inner focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+          {/* 隨機按鈕 */}
+          <button onClick={() => { if (words.length === 0) return; const randomWord = words[Math.floor(Math.random() * words.length)]; setSearch(randomWord.word); }}
+            className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all active:scale-90 shrink-0" title="隨機單字">
+            <Shuffle size={15} />
+          </button>
+
+          {/* 字根/標籤過濾 Chip (內嵌在搜尋框內) */}
+          {filterTag !== 'all' && (
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black whitespace-nowrap shrink-0 ${filterTag.startsWith('prefix') ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400'
+              : filterTag.startsWith('root') ? 'bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400'
+                : filterTag.startsWith('suffix') ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400'
+                  : 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400'
+              }`}>
+              {filterTag.includes(':') ? (() => {
+                const [type, val] = filterTag.split(':');
+                return `${type === 'prefix' ? '前綴' : type === 'root' ? '字根' : '後綴'}: ${val}`;
+              })() : filterTag}
+              <button onClick={() => { setFilterTag('all'); setFilterTagMeaning(''); }} className="ml-0.5 hover:text-red-500 transition-colors">
+                <X size={10} />
+              </button>
+            </span>
+          )}
+
           <input
             type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="搜尋單字..."
-            className="flex-1 bg-transparent text-[14px] font-bold text-[var(--text-primary)] outline-none placeholder:text-slate-400"
+            placeholder={filterTag !== 'all' ? '在篩選結果中搜尋...' : '搜尋單字...'}
+            className="flex-1 min-w-[60px] bg-transparent text-[13px] font-bold text-[var(--text-primary)] outline-none placeholder:text-slate-400 py-0.5"
           />
-        </div>
-        <div className="flex gap-2">
-          {[
-            {
-              icon: Shuffle,
-              color: 'text-emerald-500',
-              onClick: () => {
-                if (words.length === 0) return;
-                const randomWord = words[Math.floor(Math.random() * words.length)];
-                setSearch(randomWord.word);
-              }
-            },
-            { label: accent === 'US' ? '🇺🇸' : '🇬🇧', onClick: () => setAccent(a => a === 'US' ? 'UK' : 'US') },
-            { icon: Plus, color: showAdd ? 'text-slate-400 rotate-45' : 'text-emerald-500', onClick: () => setShowAdd(!showAdd) },
-            { icon: CheckCircle2, color: isBatchMode ? 'text-indigo-500' : 'text-slate-400', onClick: () => { setIsBatchMode(!isBatchMode); setSelectedBatch(new Set()); } }
-          ].map((btn, i) => (
-            <button key={i} onClick={btn.onClick}
-              className="flex-1 flex items-center justify-center p-3 rounded-[18px] bg-white/40 dark:bg-zinc-900/40 border border-white/60 dark:border-white/10 active:scale-90 transition-all font-black">
-              {btn.icon ? <btn.icon size={18} className={btn.color} /> : <span className="text-[16px]">{btn.label}</span>}
-            </button>
-          ))}
+
+          {/* 字根標籤下拉 */}
+          {availableTags.length > 0 && (
+            <div className="relative group">
+              <button className={`p-1.5 rounded-lg transition-all ${filterTag !== 'all' ? 'bg-indigo-100 text-indigo-500 dark:bg-indigo-500/20' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/5'}`}>
+                <Tag size={13} />
+              </button>
+              <div className="absolute right-0 top-full mt-1 w-[280px] max-h-[240px] overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl p-2 z-50 hidden group-focus-within:block hover:block">
+                <button onClick={() => { setFilterTag('all'); setFilterTagMeaning(''); }}
+                  className={`w-full text-left px-3 py-2 rounded-xl text-[11px] font-black transition-all mb-0.5 ${filterTag === 'all' ? 'bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5'}`}>
+                  全部標籤
+                </button>
+                {availableTags.map(t => {
+                  const isMorph = t.includes(':');
+                  const [type, val] = isMorph ? t.split(':') : [null, t];
+                  let label = t;
+                  let dotColor = 'bg-amber-400';
+                  if (isMorph) {
+                    if (type === 'prefix') { label = `前綴: ${val}`; dotColor = 'bg-blue-400'; }
+                    else if (type === 'root') { label = `字根: ${val}`; dotColor = 'bg-rose-400'; }
+                    else if (type === 'suffix') { label = `後綴: ${val}`; dotColor = 'bg-emerald-400'; }
+                  }
+                  return (
+                    <button key={t} onClick={() => setFilterTag(t)}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-[11px] font-black transition-all flex items-center gap-2 ${filterTag === t ? 'bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5'}`}>
+                      <span className={`w-2 h-2 rounded-full ${dotColor} shrink-0`} />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 口音切換 */}
+          <button onClick={() => setAccent(a => a === 'US' ? 'UK' : 'US')}
+            className="p-1 rounded-lg text-[13px] font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5 transition-all active:scale-90 shrink-0" title="切換口音">
+            {accent === 'US' ? '🇺🇸' : '🇬🇧'}
+          </button>
         </div>
       </div>
+
+      {/* 動作按鈕列 */}
+      <div className="flex gap-2 px-1">
+        <button onClick={() => setShowAdd(!showAdd)}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] bg-white/40 dark:bg-zinc-900/40 border border-white/60 dark:border-white/10 active:scale-95 transition-all text-[11px] font-black ${showAdd ? 'text-slate-400' : 'text-emerald-500'}`}>
+          <Plus size={14} className={showAdd ? 'rotate-45 transition-transform' : 'transition-transform'} /> 新增
+        </button>
+        <button onClick={() => { setIsBatchMode(!isBatchMode); setSelectedBatch(new Set()); }}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] bg-white/40 dark:bg-zinc-900/40 border border-white/60 dark:border-white/10 active:scale-95 transition-all text-[11px] font-black ${isBatchMode ? 'text-indigo-500' : 'text-slate-400'}`}>
+          <CheckCircle2 size={14} /> 批次
+        </button>
+        <button onClick={() => setShowFilters(!showFilters)}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] border active:scale-95 transition-all text-[11px] font-black relative ${showFilters || filterPos !== 'all' || filterLearned !== 'all' || filterLevel !== 'all'
+            ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+            : 'bg-white/40 dark:bg-zinc-900/40 border-white/60 dark:border-white/10 text-slate-400'}`}>
+          <SlidersHorizontal size={14} /> {showFilters ? '收合' : '篩選'}
+          {!showFilters && (filterPos !== 'all' || filterLearned !== 'all' || filterLevel !== 'all') && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-zinc-900" />
+          )}
+        </button>
+      </div>
+
+      {/* 啟用中的篩選摘要 */}
+      {(filterPos !== 'all' || filterLearned !== 'all' || filterLevel !== 'all') && !showFilters && (
+        <div className="flex items-center gap-1.5 px-2 animate-fadeIn">
+          <span className="text-[10px] font-black text-slate-400">篩選中：</span>
+          {filterPos !== 'all' && <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-md text-[10px] font-black">{filterPos}</span>}
+          {filterLearned !== 'all' && <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-black">{filterLearned === 'learned' ? '已學' : '未學'}</span>}
+          {filterLevel !== 'all' && <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded-md text-[10px] font-black">L{filterLevel}</span>}
+          <button onClick={() => { setFilterPos('all'); setFilterLearned('all'); setFilterLevel('all'); }}
+            className="ml-auto text-[10px] font-black text-rose-400 hover:text-rose-500 transition-colors active:scale-95">清除全部</button>
+        </div>
+      )}
 
       {/* 新增單字表單 */}
       {showAdd && (
@@ -2138,34 +2326,30 @@ const WordBank = ({
               <Sparkles size={18} /> 新增單字
             </h3>
           </div>
-
           <div className="space-y-4 relative z-10">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
-                <input
-                  type="text" placeholder="輸入英文單字..." value={newWord} onChange={e => setNewWord(e.target.value)}
-                  className="w-full bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all text-[var(--text-primary)] pr-[110px]"
-                />
-                <button
-                  onClick={handleAiAutoFill} disabled={isAutoFilling || !newWord.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 rounded-[16px] text-[12px] font-black active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5 hover:bg-emerald-100"
-                >
+                <input type="text" placeholder="輸入英文單字..." value={newWord} onChange={e => setNewWord(e.target.value)}
+                  className="w-full bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all text-[var(--text-primary)] pr-[110px]" />
+                <button onClick={handleAiAutoFill} disabled={isAutoFilling || !newWord.trim()}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-emerald-50 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 rounded-[16px] text-[12px] font-black active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5 hover:bg-emerald-100">
                   {isAutoFilling ? <RefreshCw size={14} className="animate-spin" /> : <Wand2 size={14} />} AI 填入
                 </button>
               </div>
             </div>
-
             <div className="flex flex-col gap-3">
               {newMeanings.map((m, idx) => (
                 <div key={idx} className="flex flex-col sm:flex-row gap-3 relative">
                   <div className="w-full sm:w-[140px] shrink-0 relative">
-                    <select value={m.pos} onChange={e => { const arr = [...newMeanings]; arr[idx].pos = e.target.value; setNewMeanings(arr); }} className="w-full h-full bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all appearance-none text-[var(--text-primary)]">
+                    <select value={m.pos} onChange={e => { const arr = [...newMeanings]; arr[idx].pos = e.target.value; setNewMeanings(arr); }}
+                      className="w-full h-full bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all appearance-none text-[var(--text-primary)]">
                       <option value="n.">n. 名詞</option><option value="v.">v. 動詞</option><option value="adj.">adj. 形容詞</option><option value="adv.">adv. 副詞</option><option value="prep.">prep. 介系</option><option value="conj.">conj. 連接</option><option value="phr.">phr. 片語</option>
                     </select>
                     <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                   <div className="flex-1 flex gap-2">
-                    <input type="text" placeholder="輸入中文解釋..." value={m.meaning} onChange={e => { const arr = [...newMeanings]; arr[idx].meaning = e.target.value; setNewMeanings(arr); }} className="flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
+                    <input type="text" placeholder="輸入中文解釋..." value={m.meaning} onChange={e => { const arr = [...newMeanings]; arr[idx].meaning = e.target.value; setNewMeanings(arr); }}
+                      className="flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[16px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
                     {newMeanings.length > 1 && (
                       <button onClick={() => setNewMeanings(newMeanings.filter((_, i) => i !== idx))} className="p-4 bg-red-50 text-red-500 rounded-[24px] hover:bg-red-100 transition-colors"><Trash2 size={18} /></button>
                     )}
@@ -2174,7 +2358,8 @@ const WordBank = ({
               ))}
               <div className="flex flex-col sm:flex-row gap-3 items-center">
                 <button onClick={() => setNewMeanings([...newMeanings, { pos: 'n.', meaning: '' }])} className="text-emerald-500 bg-emerald-50 dark:bg-white/5 hover:bg-emerald-100 font-bold text-sm self-start px-4 py-2 rounded-xl transition-colors">+ 新增其他詞性解釋</button>
-                <input type="text" placeholder="自訂標籤 (用空格分隔，例: 段考 L1)" value={newTags} onChange={e => setNewTags(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleManualAdd()} className="w-full sm:flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[14px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
+                <input type="text" placeholder="自訂標籤 (用空格分隔，例: 段考 L1)" value={newTags} onChange={e => setNewTags(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleManualAdd()}
+                  className="w-full sm:flex-1 bg-white dark:bg-black/20 border border-[var(--border-color)] rounded-[24px] px-6 py-4 text-[14px] font-black outline-none focus:border-emerald-400 transition-all text-[var(--text-primary)]" />
               </div>
               <button onClick={handleManualAdd} className="w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[24px] font-black text-[16px] shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 whitespace-nowrap">
                 <Check size={20} /> 儲存至 {currentSet === 'Personal' ? '個人收藏' : '公用單字庫 (共編)'}
@@ -2184,84 +2369,52 @@ const WordBank = ({
         </div>
       )}
 
-      {/* 3. 詞性、狀態與級別 (密集直覺佈局，避免滑動) */}
-      <div className="flex flex-col gap-2 px-1">
-        {/* 詞性快速標籤 (動態生成) */}
-        <div className="flex flex-wrap gap-1.5 py-0.5">
-          {useMemo(() => {
-            const posSet = new Set(['all']);
-            words.forEach(w => getMeanings(w).forEach(m => {
-              if (m.pos) {
-                m.pos.split(/[,/、\s]+/).forEach(p => {
-                  const pt = p.trim().toLowerCase();
-                  if (pt) posSet.add(pt);
-                });
-              }
-            }));
-            // 排序：all 在最前，其餘按字母
-            return Array.from(posSet).sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
-          }, [words]).map(pos => (
-            <button key={pos} onClick={() => setFilterPos(pos)}
-              className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${filterPos === pos ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white/40 dark:bg-zinc-800/60 text-slate-400 border border-white/40 dark:border-white/5'}`}>
-              {pos === 'all' ? '全部詞性' : pos}
-            </button>
-          ))}
-        </div>
+      {/* 可摺疊篩選面板 */}
+      {showFilters && (
+        <div className="flex flex-col gap-2 px-1 animate-slide-up-fade relative z-10">
+          <div className="bg-white/50 dark:bg-zinc-900/50 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-white/5 p-3 space-y-2.5">
+            {/* 詞性快速標籤 (動態生成) */}
+            <div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">詞性</span>
+              <div className="flex flex-wrap gap-1.5">
+                {posList.map(pos => (
+                  <button key={pos} onClick={() => setFilterPos(pos)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all ${filterPos === pos ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white/60 dark:bg-zinc-800/60 text-slate-400 border border-white/40 dark:border-white/5 hover:bg-white dark:hover:bg-zinc-700'}`}>
+                    {pos === 'all' ? '全部' : pos}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {/* 狀態與級別 - 整合式分段控制器 (Segmented Control) */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex bg-slate-100 dark:bg-zinc-900/80 rounded-[14px] p-1 shadow-inner border border-slate-200/50 dark:border-white/5">
-            {['unlearned', 'learned'].map(status => (
-              <button key={status} onClick={() => setFilterLearned(filterLearned === status ? 'all' : status)}
-                className={`flex-1 py-1.5 rounded-[10px] text-[10px] font-black transition-all duration-300 ease-spring-smooth active:scale-95 ${filterLearned === status ? 'bg-white dark:bg-zinc-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-500'}`}>
-                {status === 'learned' ? '已學' : '未學'}
-              </button>
-            ))}
+            {/* 學習狀態 + 級別 */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">狀態</span>
+                <div className="flex bg-slate-100 dark:bg-zinc-900/80 rounded-[12px] p-0.5 shadow-inner border border-slate-200/50 dark:border-white/5">
+                  {['unlearned', 'learned'].map(status => (
+                    <button key={status} onClick={() => setFilterLearned(filterLearned === status ? 'all' : status)}
+                      className={`flex-1 py-1.5 rounded-[10px] text-[10px] font-black transition-all duration-300 active:scale-95 ${filterLearned === status ? 'bg-white dark:bg-zinc-700 text-indigo-500 shadow-sm' : 'text-slate-400 hover:text-slate-500'}`}>
+                      {status === 'learned' ? '已學' : '未學'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">級別</span>
+                <div className="flex bg-slate-100 dark:bg-zinc-900/80 rounded-[12px] p-0.5 shadow-inner border border-slate-200/50 dark:border-white/5">
+                  {[1, 2, 3, 4].map(l => (
+                    <button key={l} onClick={() => setFilterLevel(filterLevel === String(l) ? 'all' : String(l))}
+                      className={`flex-1 py-1.5 rounded-[10px] text-[10px] font-black transition-all duration-300 active:scale-95 ${filterLevel === String(l) ? 'bg-white dark:bg-zinc-700 text-amber-500 shadow-sm' : 'text-slate-400 hover:text-slate-500'}`}>
+                      L{l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex bg-slate-100 dark:bg-zinc-900/80 rounded-[14px] p-1 shadow-inner border border-slate-200/50 dark:border-white/5">
-            {[1, 2, 3, 4].map(l => (
-              <button key={l} onClick={() => setFilterLevel(filterLevel === String(l) ? 'all' : String(l))}
-                className={`flex-1 py-1.5 rounded-[10px] text-[10px] font-black transition-all duration-300 ease-spring-smooth active:scale-95 ${filterLevel === String(l) ? 'bg-white dark:bg-zinc-700 text-amber-500 shadow-sm' : 'text-slate-400 hover:text-slate-500'}`}>
-                L{l}
-              </button>
-            ))}
-          </div>
         </div>
-      </div>
-
-      {/* 4. 動態標籤與語源過濾 (含字根字首) */}
-      {availableTags.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-1 pb-1">
-          <button
-            onClick={() => setFilterTag('all')}
-            className={`px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all ${filterTag === 'all' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900' : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 border border-white/60 dark:border-white/10'}`}
-          >
-            全部標籤
-          </button>
-          {availableTags.map(t => {
-            const isMorph = t.includes(':');
-            const [type, val] = isMorph ? t.split(':') : [null, t];
-            let label = t;
-            let colorBase = 'bg-white/40 dark:bg-slate-900/40 text-slate-500 border border-white/60 dark:border-white/10';
-            if (isMorph) {
-              if (type === 'prefix') { label = `前綴: ${val}`; colorBase = filterTag === t ? 'bg-blue-500 text-white' : 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-500/20'; }
-              else if (type === 'root') { label = `字根: ${val}`; colorBase = filterTag === t ? 'bg-rose-500 text-white' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'; }
-              else if (type === 'suffix') { label = `後綴: ${val}`; colorBase = filterTag === t ? 'bg-emerald-500 text-white' : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'; }
-            } else {
-              colorBase = filterTag === t ? 'bg-amber-500 text-white' : 'bg-white/40 dark:bg-slate-900/40 text-slate-500 border border-white/60 dark:border-white/10';
-            }
-
-            return (
-              <button key={t} onClick={() => setFilterTag(t)}
-                className={`px-4 py-2 rounded-full text-[11px] font-black whitespace-nowrap transition-all ${colorBase} ${filterTag === t ? 'shadow-md scale-105' : 'opacity-80 hover:opacity-100'}`}>
-                {isMorph ? null : <Tag size={10} className="inline mr-1 opacity-60" />}
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
+      )
+      }
       {/* 批次管理工具列 */}
       {isBatchMode && (
         <div className="flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/30 p-3 mx-1 rounded-[20px] border border-indigo-200 dark:border-indigo-500/30 animate-slide-up-fade">
@@ -2277,13 +2430,8 @@ const WordBank = ({
         </div>
       )}
 
-      {/* 錯誤提示 */}
-      {dbError && (
-        <div className="mx-1 mb-2 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-[20px] flex items-center gap-3 animate-slide-up-fade">
-          <AlertCircle size={20} className="text-red-500 shrink-0" />
-          <span className="text-sm font-bold text-red-600 dark:text-red-400">{dbError}</span>
-        </div>
-      )}
+
+
 
       {/* 🚀 新增：樂高字根家族 (專項學習) 狀態與返回橫幅 */}
       {filterTag !== 'all' && filterTag.includes(':') && (() => {
@@ -3188,7 +3336,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
 // ═══════════════════════════════════════════════════════════════════════════════
 // IMPORT TAB
 // ═══════════════════════════════════════════════════════════════════════════════
-const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin }) => {
+const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin, currentSet }) => {
   const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
