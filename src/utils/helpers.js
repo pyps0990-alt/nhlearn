@@ -95,3 +95,60 @@ export const normalizePOS = (pos) => {
   };
   return map[p] || (pos.endsWith('.') ? pos.toLowerCase() : pos.toLowerCase() + '.');
 };
+
+/**
+ * 🚀 核心需求：邏輯拆解 (Logical Decomposition)
+ * 將單字拆解析為 [字首, 字根, 字尾] 並回傳結構化片斷
+ */
+export const processWordDecomposition = (wordData) => {
+  const word = wordData.word || '';
+  const parts = [];
+  
+  // 清理資料 (移除 AI 可能帶入的連字號)
+  const prefix = (wordData.prefix || '').replace(/-/g, '').toLowerCase();
+  const root = (wordData.root || '').replace(/-/g, '').toLowerCase();
+  const suffix = (wordData.suffix || '').replace(/-/g, '').toLowerCase();
+
+  let remaining = word.toLowerCase();
+  let offset = 0;
+
+  const addPart = (text, type, meaning = '') => {
+    if (!text) return;
+    const startIdx = remaining.indexOf(text);
+    if (startIdx !== -1) {
+      // 如果中間有漏掉的連接字母，先補上
+      if (startIdx > 0) {
+        parts.push({ text: remaining.substring(0, startIdx), type: 'connector', offset: offset });
+      }
+      parts.push({ text, type, meaning, offset: offset + startIdx });
+      remaining = remaining.substring(startIdx + text.length);
+      offset += startIdx + text.length;
+    }
+  };
+
+  addPart(prefix, 'Prefix', wordData.prefixMeaning);
+  addPart(root, 'Root', wordData.rootMeaning);
+  addPart(suffix, 'Suffix', wordData.suffixMeaning);
+
+  if (remaining) {
+    parts.push({ text: remaining, type: 'connector', offset });
+  }
+
+  return parts;
+};
+
+/**
+ * 🚀 複習演算法整合：根據字根罕見度調整複習權重
+ */
+export const calculateSRSWeight = (word, commonalityMap) => {
+  const root = (word.root || '').toLowerCase();
+  if (!root) return 1.0;
+
+  // commonalityMap: { 'act': 15, 'dic': 3, ... }
+  const count = commonalityMap[root] || 1;
+  
+  // 字根越罕見 (count 越小)，權重越高 (Interval 縮短，增加複習頻率)
+  // 基礎 1.0，罕見字根增加 0.2 ~ 0.5 權重
+  const rarirtyBonus = count < 3 ? 0.5 : count < 6 ? 0.3 : 0.1;
+  return 1.0 + rarirtyBonus;
+};

@@ -16,7 +16,7 @@ import {
   getDocs, limit, startAfter
 } from 'firebase/firestore';
 
-import { fetchAI, normalizePOS } from '../../utils/helpers';
+import { fetchAI, normalizePOS, processWordDecomposition, calculateSRSWeight } from '../../utils/helpers';
 
 const GAS_URL = import.meta.env.VITE_GAS_VOCAB_URL;
 
@@ -84,7 +84,7 @@ export const parseMorphology = (analysis) => {
       if (value) {
         const tagValue = value.replace(/[^a-zA-Z]/g, '').toLowerCase();
         if (normLabel !== 'Part' && tagValue) tags.push(`${normLabel.toLowerCase()}:${tagValue}`);
-        
+
         // 存入 Map，同一個 label 只取第一個出現的正則化結果
         if (!breakdownMap.has(normLabel)) {
           breakdownMap.set(normLabel, { label: normLabel, value, meaning });
@@ -94,17 +94,27 @@ export const parseMorphology = (analysis) => {
   });
 
   const finalBreakdown = Array.from(breakdownMap.values());
-  return { breakdown: finalBreakdown.length > 0 ? finalBreakdown : null, tags: Array.from(new Set(tags)) };
+  const extractedFields = {};
+  finalBreakdown.forEach(p => {
+    const key = p.label.toLowerCase();
+    extractedFields[key] = p.value;
+    extractedFields[`${key}Meaning`] = p.meaning;
+  });
+
+  return { breakdown: finalBreakdown.length > 0 ? finalBreakdown : null, tags: Array.from(new Set(tags)), ...extractedFields };
 };
 
 // ─── SRS Algorithm (SM-2 simplified) ────────────────────────────────────────
-const calculateNextReview = (word, quality) => {
+const calculateNextReview = (word, quality, weight = 1.0) => {
   let { interval = 1, easeFactor = 2.5, repetitions = 0 } = word;
 
   if (quality >= 3) {
     if (repetitions === 0) interval = 1;
     else if (repetitions === 1) interval = 3;
     else interval = Math.round(interval * easeFactor);
+    
+    // 🚀 權重調整：字根越罕見，權重越高，間隔越短 (複習頻率增加)
+    interval = Math.max(1, Math.round(interval / weight));
     repetitions += 1;
   } else {
     repetitions = 0;
@@ -214,13 +224,20 @@ const WordDetailOverlay = ({
     setIsClosing(true);
     // 🚀 核心修復：立即恢復背景滾動，不需要等退場動畫結束
     document.body.style.overflow = '';
-    document.body.style.height = ''; 
-    
+    document.body.style.height = '';
+
     if (window.speechSynthesis) window.speechSynthesis.cancel(); // 立即停止發音，不拖泥帶水
     setTimeout(() => {
       onClose();
     }, 200); // 給予 200ms 的退場動畫時間
   }, [isClosing, onClose]);
+
+  // 🚀 核心需求：邏輯拆解渲染 (使用 processWordDecomposition)
+  const decomposition = useMemo(() => {
+    // 確保即時反映正在生成的 AI 解析
+    const morphology = parseMorphology(analysis || word.aiAnalysis);
+    return processWordDecomposition({ ...word, ...morphology });
+  }, [word, analysis]);
 
   // 防呆：鎖定背景滾動、支援 ESC 鍵關閉，避免與底層元件衝突
   useEffect(() => {
@@ -438,79 +455,81 @@ const WordDetailOverlay = ({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-[calc(3rem+env(safe-area-inset-bottom))] space-y-8 custom-scrollbar">
-          {/* 1. 視覺化拆解圖 (有解析時才顯示) */}
-          {analysis && !analysis.startsWith('ERROR:') && (
+          {/* 1. 視覺化拆解圖 (支援 Prefix, Root, Suffix, Connector) */}
+          {decomposition && (
             <div className="p-6 md:p-8 bg-gradient-to-br from-slate-50 to-white dark:from-white/5 dark:to-transparent rounded-[32px] md:rounded-[40px] border border-slate-100 dark:border-white/5 relative overflow-hidden group shadow-sm">
               <div className="relative z-10 flex flex-wrap items-center justify-center gap-1.5 md:gap-6 pt-2">
-                {breakdown ? breakdown.map((p, i) => {
-                  let colorConfig = {
-                    gradient: 'from-slate-200 to-slate-400 dark:from-slate-600 dark:to-slate-800',
-                    border: 'border-slate-300 dark:border-slate-500',
-                    borderB: 'border-slate-400 dark:border-slate-700',
-                    studBg: 'bg-slate-300 dark:bg-slate-600',
-                    text: 'text-slate-700 dark:text-slate-200',
-                    label: 'text-slate-500'
-                  };
+                {decomposition.length > 0 ? (
+                  decomposition.map((p, i) => {
+                    let colorConfig = {
+                      gradient: 'from-slate-200 to-slate-400 dark:from-slate-600 dark:to-slate-800',
+                      border: 'border-slate-300 dark:border-slate-500',
+                      borderB: 'border-slate-400 dark:border-slate-700',
+                      studBg: 'bg-slate-300 dark:bg-slate-600',
+                      text: 'text-slate-700 dark:text-slate-200',
+                      label: 'text-slate-400'
+                    };
 
-                  if (p.label === 'Prefix') {
-                    colorConfig = { gradient: 'from-amber-300 to-amber-500 dark:from-amber-500 dark:to-amber-700', border: 'border-amber-400 dark:border-amber-600', borderB: 'border-amber-600 dark:border-amber-900', studBg: 'bg-amber-400 dark:bg-amber-600', text: 'text-white', label: 'text-amber-600 dark:text-amber-400' };
-                  } else if (p.label === 'Root') {
-                    colorConfig = { gradient: 'from-emerald-400 to-emerald-600 dark:from-emerald-600 dark:to-emerald-800', border: 'border-emerald-500 dark:border-emerald-700', borderB: 'border-emerald-700 dark:border-emerald-900', studBg: 'bg-emerald-500 dark:bg-emerald-700', text: 'text-white', label: 'text-emerald-600 dark:text-emerald-400' };
-                  } else if (p.label === 'Suffix') {
-                    colorConfig = { gradient: 'from-sky-400 to-sky-600 dark:from-sky-600 dark:to-sky-800', border: 'border-sky-500 dark:border-sky-700', borderB: 'border-sky-700 dark:border-sky-900', studBg: 'bg-sky-500 dark:bg-sky-700', text: 'text-white', label: 'text-sky-500 dark:text-sky-400' };
-                  }
+                    if (p.type === 'Prefix') {
+                      colorConfig = { gradient: 'from-amber-300 to-amber-500 dark:from-amber-500 dark:to-amber-700', border: 'border-amber-400 dark:border-amber-600', borderB: 'border-amber-600 dark:border-amber-900', studBg: 'bg-amber-400 dark:bg-amber-600', text: 'text-white', label: 'text-amber-500' };
+                    } else if (p.type === 'Root') {
+                      colorConfig = { gradient: 'from-emerald-400 to-emerald-600 dark:from-emerald-600 dark:to-emerald-800', border: 'border-emerald-500 dark:border-emerald-700', borderB: 'border-emerald-700 dark:border-emerald-900', studBg: 'bg-emerald-500 dark:bg-emerald-700', text: 'text-white', label: 'text-emerald-500' };
+                    } else if (p.type === 'Suffix') {
+                      colorConfig = { gradient: 'from-sky-400 to-sky-600 dark:from-sky-600 dark:to-sky-800', border: 'border-sky-500 dark:border-sky-700', borderB: 'border-sky-700 dark:border-sky-900', studBg: 'bg-sky-500 dark:bg-sky-700', text: 'text-white', label: 'text-sky-500' };
+                    }
 
-                  return (
-                    <div key={i} className="flex items-center gap-1.5 md:gap-4 group/part relative z-10 w-fit">
-                      <button
-                        onClick={() => {
-                          const cleanValue = p.value.replace(/[^a-zA-Z]/g, '').toLowerCase();
-                          if (!cleanValue) return;
-                          const tag = `${p.label.toLowerCase()}:${cleanValue}`;
-                          setFilterTag(tag);
-                          setFilterTagMeaning(p.meaning || '');
-                          setFilterPos('all');
-                          setSearch('');
-                          triggerNotification('字根家族', `尋找包含 "${cleanValue}" 的所有單字`);
-                          handleClose();
-                        }}
-                        className="flex flex-col items-center group-hover/part:-translate-y-2 transition-transform duration-300 mt-3"
-                        title={`點擊查看 "${p.value}" 家族單字`}
-                      >
-                        <span className={`text-[10px] md:text-[12px] font-black uppercase tracking-[0.2em] mb-2 md:mb-3 transition-all group-hover/part:scale-110 drop-shadow-sm ${colorConfig.label}`}>
-                          {p.label || 'Part'}
-                        </span>
-                        
-                        {/* 🌟 3D Lego Brick (加入高度限制，防止內容過長撐破版面) */}
-                        <div className={`relative px-5 py-3 md:px-8 md:py-5 rounded-xl md:rounded-2xl border-x-2 border-t-2 border-b-[6px] md:border-b-[10px] bg-gradient-to-b ${colorConfig.gradient} ${colorConfig.border} border-b-${colorConfig.borderB} shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_8px_16px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),0_8px_16px_rgba(0,0,0,0.3)] active:border-b-2 active:translate-y-[4px] md:active:translate-y-[8px] transition-all duration-200 group-hover/part:rotate-[2deg] group-hover/part:scale-105 flex items-center justify-center min-w-[60px] md:min-w-[90px] h-12 md:h-16 shrink-0`}>
-                          
-                          {/* 🌟 Lego Studs (凸起) - 呈現立體塑膠感 */}
-                          <div className="absolute -top-[5px] md:-top-[7px] left-1/2 -translate-x-1/2 flex gap-3 md:gap-5">
-                            <div className={`w-3.5 md:w-5 h-1.5 md:h-2 rounded-t-sm md:rounded-t-md ${colorConfig.studBg} border-x-2 border-t-2 border-b-0 ${colorConfig.border} shadow-[inset_0_2px_1px_rgba(255,255,255,0.6)] dark:shadow-[inset_0_2px_1px_rgba(255,255,255,0.2)]`}></div>
-                            <div className={`w-3.5 md:w-5 h-1.5 md:h-2 rounded-t-sm md:rounded-t-md ${colorConfig.studBg} border-x-2 border-t-2 border-b-0 ${colorConfig.border} shadow-[inset_0_2px_1px_rgba(255,255,255,0.6)] dark:shadow-[inset_0_2px_1px_rgba(255,255,255,0.2)]`}></div>
+                    return (
+                      <div key={i} className="flex items-center gap-1.5 md:gap-4 group/part relative z-10 w-fit">
+                        <button
+                          onClick={() => {
+                            const cleanValue = p.text.replace(/[^a-zA-Z]/g, '').toLowerCase();
+                            if (!cleanValue || p.type === 'connector') return;
+                            const tag = `${p.type.toLowerCase()}:${cleanValue}`;
+                            setFilterTag(tag);
+                            setFilterTagMeaning(p.meaning || '');
+                            setFilterPos('all');
+                            setSearch('');
+                            triggerNotification('字根家族', `尋找包含 "${cleanValue}" 的所有單字`);
+                            handleClose();
+                          }}
+                          className="flex flex-col items-center group-hover/part:-translate-y-2 transition-transform duration-300 mt-3"
+                          title={p.type !== 'connector' ? `點擊查看 "${p.text}" 家族單字` : ''}
+                        >
+                          <span className={`text-[10px] md:text-[12px] font-black uppercase tracking-[0.2em] mb-2 md:mb-3 transition-all group-hover/part:scale-110 drop-shadow-sm ${colorConfig.label}`}>
+                            {p.type || 'Part'}
+                          </span>
+
+                          {/* 🌟 3D Lego Brick (加入高度限制，防止內容過長撐破版面) */}
+                          <div className={`relative px-5 py-3 md:px-8 md:py-5 rounded-xl md:rounded-2xl border-x-2 border-t-2 border-b-[6px] md:border-b-[10px] bg-gradient-to-b ${colorConfig.gradient} ${colorConfig.border} border-b-${colorConfig.borderB} shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_8px_16px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),0_8px_16px_rgba(0,0,0,0.3)] active:border-b-2 active:translate-y-[4px] md:active:translate-y-[8px] transition-all duration-200 group-hover/part:rotate-[2deg] group-hover/part:scale-105 flex items-center justify-center min-w-[60px] md:min-w-[90px] h-12 md:h-16 shrink-0`}>
+
+                            {/* 🌟 Lego Studs (凸起) - 呈現立體塑膠感 */}
+                            <div className="absolute -top-[5px] md:-top-[7px] left-1/2 -translate-x-1/2 flex gap-3 md:gap-5">
+                              <div className={`w-3.5 md:w-5 h-1.5 md:h-2 rounded-t-sm md:rounded-t-md ${colorConfig.studBg} border-x-2 border-t-2 border-b-0 ${colorConfig.border} shadow-[inset_0_2px_1px_rgba(255,255,255,0.6)] dark:shadow-[inset_0_2px_1px_rgba(255,255,255,0.2)]`}></div>
+                              <div className={`w-3.5 md:w-5 h-1.5 md:h-2 rounded-t-sm md:rounded-t-md ${colorConfig.studBg} border-x-2 border-t-2 border-b-0 ${colorConfig.border} shadow-[inset_0_2px_1px_rgba(255,255,255,0.6)] dark:shadow-[inset_0_2px_1px_rgba(255,255,255,0.2)]`}></div>
+                            </div>
+
+                            {/* 白色高光遮罩 (提升塑膠立體感) */}
+                            <div className="absolute inset-x-0 top-0 h-1/2 bg-white/20 dark:bg-white/5 rounded-t-xl pointer-events-none"></div>
+
+                            {/* 文字發光/清晰度處理 */}
+                            <span className={`relative z-10 text-[18px] md:text-[32px] font-black tracking-wider ${colorConfig.text} drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)]`}>
+                              {p.text}
+                            </span>
                           </div>
 
-                          {/* 白色高光遮罩 (提升塑膠立體感) */}
-                          <div className="absolute inset-x-0 top-0 h-1/2 bg-white/20 dark:bg-white/5 rounded-t-xl pointer-events-none"></div>
+                          {/* 下方中文註解 (根據要求移除，移至專屬頁面標頭) */}
+                        </button>
 
-                          {/* 文字發光/清晰度處理 */}
-                          <span className={`relative z-10 text-[18px] md:text-[32px] font-black tracking-wider ${colorConfig.text} drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)]`}>
-                            {p.value}
-                          </span>
-                        </div>
-
-                        {/* 下方中文註解 (根據要求移除，移至專屬頁面標頭) */}
-                      </button>
-                      
-                      {/* 連接加號 */}
-                      {i < breakdown.length - 1 && (
-                        <span className="text-xl md:text-3xl font-black text-slate-300 dark:text-white/20 mt-6 md:mt-10 shrink-0 transform transition-transform group-hover/part:scale-110 drop-shadow-sm">+</span>
-                      )}
-                    </div>
-                  );
-                }) : (
-                  <div className="py-4 text-center">
-                    <p className="text-slate-400 font-bold italic">無法產生拆解視圖，請確認解析格式 🚀</p>
+                        {/* 連接加號 */}
+                        {i < decomposition.length - 1 && (
+                          <span className="text-xl md:text-3xl font-black text-slate-300 dark:text-white/20 mt-6 md:mt-10 shrink-0 transform transition-transform group-hover/part:scale-110 drop-shadow-sm">+</span>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-4 text-center w-full">
+                    <p className="text-slate-400 font-bold italic">尚無拆解資訊，點擊右上角 ✨ 生成 🚀</p>
                   </div>
                 )}
               </div>
@@ -1036,7 +1055,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           const moreData = snapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(w => !existingIds.has(w.id));
-          
+
           if (moreData.length > 0) {
             logDebug('INFO', '已加載更多單字', { count: moreData.length });
             return [...prev, ...moreData];
@@ -1087,7 +1106,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           mergedObj.aiAnalysisAuthor = progress.aiAnalysisAuthor;
         }
       }
-      
+
       // 🚀 終極去重：如果 resultMap 已經有這個字了，就跳過（以先出現的為準，通常是 Words 裡的）
       if (!resultMap.has(wordKey)) {
         resultMap.set(wordKey, mergedObj);
@@ -1105,6 +1124,18 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
 
     return Array.from(resultMap.values());
   }, [words, userWords, currentSet]);
+
+  // 🚀 字根出現頻率統計 (用於 SRS 智慧權重)
+  const commonalityMap = useMemo(() => {
+    const map = {};
+    mergedWords.forEach(w => {
+      if (w.root) {
+        const root = w.root.toLowerCase();
+        map[root] = (map[root] || 0) + 1;
+      }
+    });
+    return map;
+  }, [mergedWords]);
 
   const pushToGAS = useCallback(async (newWord) => {
     const payload = {
@@ -1675,8 +1706,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
             logDebug={logDebug}
           />
         )}
-        {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} />}
-        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} addWords={addWords} triggerNotification={triggerNotification} />}
+        {subTab === 'review' && <ReviewMode words={todayReview} updateWord={updateWord} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} commonalityMap={commonalityMap} />}
+        {subTab === 'quiz' && <QuizMode words={mergedWords} updateWord={updateWord} setWords={setWords} incrementWordCount={incrementWordCount} playVoice={playVoice} accent={accent} addWords={addWords} triggerNotification={triggerNotification} commonalityMap={commonalityMap} />}
         {subTab === 'import' && <ImportTab addWords={addWords} syncFromGAS={syncFromGAS} isSyncing={isSyncing} isAdmin={isAdmin} />}
       </div>
 
@@ -1791,27 +1822,27 @@ const WordBank = ({
 
     words.forEach(w => {
       if (w.tags && Array.isArray(w.tags)) w.tags.forEach(t => tagsSet.add(t));
-      
+
       // 若單字已存在 AI 解析，從中萃取字首/字根/字尾的意思
       if (w.aiAnalysis && !w.aiAnalysis.startsWith('ERROR')) {
-         const { breakdown } = parseMorphology(w.aiAnalysis);
-         if (breakdown) {
-            breakdown.forEach(p => {
-               const cleanValue = p.value.replace(/[^a-zA-Z]/g, '').toLowerCase();
-               const tag = `${p.label.toLowerCase()}:${cleanValue}`;
-               if (p.meaning) {
-                  // 清理多餘的括號以便精準分組 (例如: "前/預先")
-                  const m = p.meaning.replace(/[(（].*?[)）]/g, '').trim(); 
-                  if (!tag2Meaning.has(tag)) tag2Meaning.set(tag, m);
-                  if (!meaning2Tags.has(m)) meaning2Tags.set(m, new Set());
-                  meaning2Tags.get(m).add(tag);
-               }
-            });
-         }
+        const { breakdown } = parseMorphology(w.aiAnalysis);
+        if (breakdown) {
+          breakdown.forEach(p => {
+            const cleanValue = p.value.replace(/[^a-zA-Z]/g, '').toLowerCase();
+            const tag = `${p.label.toLowerCase()}:${cleanValue}`;
+            if (p.meaning) {
+              // 清理多餘的括號以便精準分組 (例如: "前/預先")
+              const m = p.meaning.replace(/[(（].*?[)）]/g, '').trim();
+              if (!tag2Meaning.has(tag)) tag2Meaning.set(tag, m);
+              if (!meaning2Tags.has(m)) meaning2Tags.set(m, new Set());
+              meaning2Tags.get(m).add(tag);
+            }
+          });
+        }
       }
     });
-    return { 
-      availableTags: Array.from(tagsSet).sort(), 
+    return {
+      availableTags: Array.from(tagsSet).sort(),
       tagMeaningMap: tag2Meaning,
       meaningToTagsMap: meaning2Tags
     };
@@ -1822,25 +1853,25 @@ const WordBank = ({
   const filtered = useMemo(() => {
     let list = words;
     const searchStr = search.trim().toLowerCase();
-    
+
     // 🚀 本地搜尋增強：同時比對英文單字與中文含意
     if (searchStr) {
-      list = list.filter(w => 
-        (w.word || '').toLowerCase().includes(searchStr) || 
+      list = list.filter(w =>
+        (w.word || '').toLowerCase().includes(searchStr) ||
         getMeanings(w).some(m => (m.meaning || '').toLowerCase().includes(searchStr))
       );
     }
 
     if (filterPos !== 'all') list = list.filter(w => getMeanings(w).some(m => (m.pos || '').toLowerCase().includes(filterPos.toLowerCase())));
-    
+
     // 🚀 強化版標籤篩選：若點選的字根與其他字根意義相同 (如 dic/dict)，合併顯示與篩選
     if (filterTag !== 'all') {
       const currentMeaning = tagMeaningMap.get(filterTag) || filterTagMeaning;
       // 找出所有意義相同的標籤群組 ( synonyms )
-      const tagsGroup = currentMeaning && meaningToTagsMap.has(currentMeaning) 
-                        ? Array.from(meaningToTagsMap.get(currentMeaning))
-                        : [filterTag];
-                        
+      const tagsGroup = currentMeaning && meaningToTagsMap.has(currentMeaning)
+        ? Array.from(meaningToTagsMap.get(currentMeaning))
+        : [filterTag];
+
       list = list.filter(w => w.tags && tagsGroup.some(t => w.tags.includes(t)));
     }
 
@@ -1862,7 +1893,7 @@ const WordBank = ({
   const handleAiAnalyze = async (id, word) => {
     setAnalyzingIds(prev => new Set(prev).add(id));
     try {
-      const targetWord = mergedWords.find(w => w.id === id); // 改用 mergedWords 確保包含個人收藏
+      const targetWord = words.find(w => w.id === id); // 改用 words (其為傳入的 mergedWords) 確保包含個人收藏
       const meaningsStr = targetWord ? getMeanings(targetWord).map(m => `(${m.pos}) ${m.meaning}`).join(', ') : '';
 
       const prompt = `你是一位專業的英文語源學老師與記憶專家。請針對單字 "${word}" ${meaningsStr ? `(包含常見意思：${meaningsStr}) ` : ''}提供結構化解析。
@@ -1887,7 +1918,7 @@ const WordBank = ({
 
       const response = await fetchAI(prompt);
       if (!response) throw new Error('API 回傳為空');
-      
+
       // 1. 立即更新本地快取 (確保使用者立刻看到內容)
       setAiAnalysisData(prev => ({ ...prev, [id]: response }));
 
@@ -1954,9 +1985,9 @@ const WordBank = ({
         if (match) {
           const parsed = JSON.parse(match[0]);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setNewMeanings(parsed.map(p => ({ 
-              pos: normalizePOS(p.pos), 
-              meaning: p.meaning || '' 
+            setNewMeanings(parsed.map(p => ({
+              pos: normalizePOS(p.pos),
+              meaning: p.meaning || ''
             })));
           }
           triggerNotification('AI 填入成功', '已自動帶入解釋與詞性');
@@ -2257,47 +2288,48 @@ const WordBank = ({
       {/* 🚀 新增：樂高字根家族 (專項學習) 狀態與返回橫幅 */}
       {filterTag !== 'all' && filterTag.includes(':') && (() => {
         const currentMeaning = tagMeaningMap.get(filterTag) || filterTagMeaning;
-        const tagsGroup = currentMeaning && meaningToTagsMap.has(currentMeaning) 
-                          ? Array.from(meaningToTagsMap.get(currentMeaning))
-                          : [filterTag];
-        
+        const tagsGroup = currentMeaning && meaningToTagsMap.has(currentMeaning)
+          ? Array.from(meaningToTagsMap.get(currentMeaning))
+          : [filterTag];
+
         return (
-        <div className="mx-1 mb-3 p-4 sm:p-5 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-[24px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-slide-up-fade relative overflow-hidden group">
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-indigo-400/10 blur-[40px] rounded-full pointer-events-none transition-transform group-hover:scale-150"></div>
-          <div className="flex items-start gap-4 min-w-0 flex-1 relative z-10">
-            <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0 rotate-3 group-hover:-rotate-3 transition-transform mt-1 md:block hidden">
-              <Brain size={24} className="animate-pulse-slow" />
-            </div>
-            <div className="flex flex-col gap-1 min-w-0 pr-4">
-              <p className="text-[12px] font-black text-indigo-500 dark:text-indigo-400 mb-0.5 uppercase tracking-widest flex items-center gap-1.5"><span className="md:hidden">🧩</span>同源字族研習 (Families)</p>
-              <div className="text-[16px] sm:text-[18px] font-black text-slate-800 dark:text-white flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span>{filterTag.startsWith('prefix') ? `字首` : filterTag.startsWith('root') ? `字根` : `字尾`} :</span>
-                {tagsGroup.map(t => (
-                  <span key={t} className="text-indigo-600 dark:text-indigo-400 text-xl font-mono bg-white/60 dark:bg-indigo-500/10 px-2 py-0.5 rounded-lg shadow-sm border border-indigo-100/50 dark:border-indigo-500/20">
-                    "{t.split(':')[1]}"
-                  </span>
-                ))}
+          <div className="mx-1 mb-3 p-4 sm:p-5 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-[24px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-slide-up-fade relative overflow-hidden group">
+            <div className="absolute -right-10 -top-10 w-40 h-40 bg-indigo-400/10 blur-[40px] rounded-full pointer-events-none transition-transform group-hover:scale-150"></div>
+            <div className="flex items-start gap-4 min-w-0 flex-1 relative z-10">
+              <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0 rotate-3 group-hover:-rotate-3 transition-transform mt-1 md:block hidden">
+                <Brain size={24} className="animate-pulse-slow" />
               </div>
-              {currentMeaning && (
-                <div className="mt-1.5 p-3 sm:px-4 sm:py-2.5 bg-white/70 dark:bg-black/20 backdrop-blur-sm border border-indigo-200/50 dark:border-indigo-500/20 rounded-xl shadow-sm max-w-2xl">
-                  <p className="text-slate-600 dark:text-slate-300 text-[14px] sm:text-[15px] font-bold leading-relaxed break-words">
-                    {currentMeaning}
-                  </p>
+              <div className="flex flex-col gap-1 min-w-0 pr-4">
+                <p className="text-[12px] font-black text-indigo-500 dark:text-indigo-400 mb-0.5 uppercase tracking-widest flex items-center gap-1.5"><span className="md:hidden">🧩</span>同源字族研習 (Families)</p>
+                <div className="text-[16px] sm:text-[18px] font-black text-slate-800 dark:text-white flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span>{filterTag.startsWith('prefix') ? `字首` : filterTag.startsWith('root') ? `字根` : `字尾`} :</span>
+                  {tagsGroup.map(t => (
+                    <span key={t} className="text-indigo-600 dark:text-indigo-400 text-xl font-mono bg-white/60 dark:bg-indigo-500/10 px-2 py-0.5 rounded-lg shadow-sm border border-indigo-100/50 dark:border-indigo-500/20">
+                      "{t.split(':')[1]}"
+                    </span>
+                  ))}
                 </div>
-              )}
+                {currentMeaning && (
+                  <div className="mt-1.5 p-3 sm:px-4 sm:py-2.5 bg-white/70 dark:bg-black/20 backdrop-blur-sm border border-indigo-200/50 dark:border-indigo-500/20 rounded-xl shadow-sm max-w-2xl">
+                    <p className="text-slate-600 dark:text-slate-300 text-[14px] sm:text-[15px] font-bold leading-relaxed break-words">
+                      {currentMeaning}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
+            <button
+              onClick={() => {
+                setFilterTag('all');
+                setFilterTagMeaning('');
+              }}
+              className="w-full sm:w-auto shrink-0 px-5 py-3 bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl font-black text-[13px] transition-all shadow-sm border border-slate-200 dark:border-white/10 active:scale-95 relative z-10"
+            >
+              清除並返回總覽
+            </button>
           </div>
-          <button
-            onClick={() => {
-              setFilterTag('all');
-              setFilterTagMeaning('');
-            }}
-            className="w-full sm:w-auto shrink-0 px-5 py-3 bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl font-black text-[13px] transition-all shadow-sm border border-slate-200 dark:border-white/10 active:scale-95 relative z-10"
-          >
-            清除並返回總覽
-          </button>
-        </div>
-      )})()}
+        )
+      })()}
 
       {/* 單字列表 - 響應式網格排版 (加上過渡動畫與最低高度防止跳動) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20 pt-2 px-1 min-h-[500px] transition-all duration-500">
@@ -2421,25 +2453,26 @@ const WordBank = ({
                       }, {})).map(([posStr, meanings], i) => {
                         const parts = posStr.split(/[,/、\s]+/).filter(Boolean);
                         return (
-                        <div key={posStr} className="flex items-baseline gap-2 pl-1">
-                          <div className="flex items-baseline shrink-0 w-max min-w-[32px]">
-                            {parts.map((p, idx) => {
-                              const normPos = normalizePOS(p);
-                              return (
-                                <React.Fragment key={idx}>
-                                  <span className={`text-[11px] font-black uppercase ${posColors[normPos]?.split(' ')[0] || 'text-slate-400'}`}>
-                                    {p}
-                                  </span>
-                                  {idx < parts.length - 1 && <span className="text-[11px] font-black text-slate-300 mx-0.5">/</span>}
-                                </React.Fragment>
-                              );
-                            })}
+                          <div key={posStr} className="flex items-baseline gap-2 pl-1">
+                            <div className="flex items-baseline shrink-0 w-max min-w-[32px]">
+                              {parts.map((p, idx) => {
+                                const normPos = normalizePOS(p);
+                                return (
+                                  <React.Fragment key={idx}>
+                                    <span className={`text-[11px] font-black uppercase ${posColors[normPos]?.split(' ')[0] || 'text-slate-400'}`}>
+                                      {p}
+                                    </span>
+                                    {idx < parts.length - 1 && <span className="text-[11px] font-black text-slate-300 mx-0.5">/</span>}
+                                  </React.Fragment>
+                                );
+                              })}
+                            </div>
+                            <p className="text-[14px] font-bold text-slate-600 dark:text-slate-400 line-clamp-2">
+                              {meanings.join(', ')}
+                            </p>
                           </div>
-                          <p className="text-[14px] font-bold text-slate-600 dark:text-slate-400 line-clamp-2">
-                            {meanings.join(', ')}
-                          </p>
-                        </div>
-                      )})}
+                        )
+                      })}
                     </div>
 
                     {/* 第四行：Meta 資訊 (級別/序號/時間) */}
@@ -2492,7 +2525,7 @@ const WordBank = ({
 // ═══════════════════════════════════════════════════════════════════════════════
 // REVIEW MODE (Flashcards with SRS)
 // ═══════════════════════════════════════════════════════════════════════════════
-const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }) => {
+const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent, commonalityMap }) => {
   const [sessionWords, setSessionWords] = useState([]);
   const [initialized, setInitialized] = useState(false);
   const [idx, setIdx] = useState(0);
@@ -2579,7 +2612,8 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
   const currentMeanings = getMeanings(current);
 
   const handleRate = (quality) => {
-    const updated = calculateNextReview(current, quality);
+    const weight = calculateSRSWeight(current, commonalityMap);
+    const updated = calculateNextReview(current, quality, weight);
     updateWord(current.id, updated);
     setShowAnswer(false);
     incrementWordCount(); // 觸發單字統計
@@ -2797,7 +2831,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent }
 // ═══════════════════════════════════════════════════════════════════════════════
 // QUIZ MODE (Multiple Choice + Spelling + Grammar)
 // ═══════════════════════════════════════════════════════════════════════════════
-const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, accent, addWords, triggerNotification }) => {
+const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, accent, addWords, triggerNotification, commonalityMap }) => {
   const [quizType, setQuizType] = useState(null); // null | 'choice' | 'spell'
   const [questions, setQuestions] = useState([]);
   const [qIdx, setQIdx] = useState(0);
@@ -2932,7 +2966,8 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
     }
     // Update SRS
     if (questions[qIdx].word) {
-      const updated = calculateNextReview(questions[qIdx].word, isCorrect ? 4 : 1);
+      const weight = calculateSRSWeight(questions[qIdx].word, commonalityMap);
+      const updated = calculateNextReview(questions[qIdx].word, isCorrect ? 4 : 1, weight);
       setWords(prev => prev.map(w => w.id === updated.id ? updated : w));
     }
     setTimeout(() => {
@@ -2950,7 +2985,8 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
         setScore(s => s + 1);
         incrementWordCount(); // 只有第一次答對才算單字數
         if (questions[qIdx].word) {
-          const updated = calculateNextReview(questions[qIdx].word, 4);
+          const weight = calculateSRSWeight(questions[qIdx].word, commonalityMap);
+          const updated = calculateNextReview(questions[qIdx].word, 4, weight);
           setWords(prev => prev.map(w => w.id === updated.id ? updated : w));
         }
       }
