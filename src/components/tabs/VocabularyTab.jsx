@@ -71,6 +71,9 @@ export const parseMorphology = (analysis) => {
         value = rest.replace(/[(（].*?[)）]/, '').trim();
       }
 
+      // 嚴格過濾：字根/字首/字尾值只能是英文字母
+      value = value.replace(/[^a-zA-Z\-]/g, '').replace(/-/g, '').toLowerCase();
+
       // 正規化標籤 (Prefix, Root, Suffix)
       let normLabel = 'Suffix';
       if (rawLabel.match(/prefix|字首|前綴/i)) normLabel = 'Prefix';
@@ -186,7 +189,7 @@ const WordDetailOverlay = ({
   word, analysis, isAnalyzing, handleAiAnalyze, onClose, updateWord,
   triggerNotification, currentSet, addWords, isSaved, onSave,
   playVoice, accent, isAdmin, user,
-  setSearch, setFilterPos, setFilterTag, setCurrentSet
+  setSearch, setFilterPos, setFilterTag, setFilterTagMeaning, setCurrentSet
 }) => {
   const [isClosing, setIsClosing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -441,52 +444,68 @@ const WordDetailOverlay = ({
               <div className="relative z-10 flex flex-wrap items-center justify-center gap-1.5 md:gap-6 pt-2">
                 {breakdown ? breakdown.map((p, i) => {
                   let colorConfig = {
-                    bg: 'bg-slate-100 dark:bg-slate-800',
-                    border: 'border-slate-300 dark:border-slate-600',
-                    borderB: 'border-b-slate-400 dark:border-b-slate-700',
+                    gradient: 'from-slate-200 to-slate-400 dark:from-slate-600 dark:to-slate-800',
+                    border: 'border-slate-300 dark:border-slate-500',
+                    borderB: 'border-slate-400 dark:border-slate-700',
+                    studBg: 'bg-slate-300 dark:bg-slate-600',
                     text: 'text-slate-700 dark:text-slate-200',
                     label: 'text-slate-500'
                   };
 
                   if (p.label === 'Prefix') {
-                    colorConfig = { bg: 'bg-amber-400', border: 'border-amber-500', borderB: 'border-b-amber-600', text: 'text-white', label: 'text-amber-600 dark:text-amber-400' };
+                    colorConfig = { gradient: 'from-amber-300 to-amber-500 dark:from-amber-500 dark:to-amber-700', border: 'border-amber-400 dark:border-amber-600', borderB: 'border-amber-600 dark:border-amber-900', studBg: 'bg-amber-400 dark:bg-amber-600', text: 'text-white', label: 'text-amber-600 dark:text-amber-400' };
                   } else if (p.label === 'Root') {
-                    colorConfig = { bg: 'bg-emerald-500', border: 'border-emerald-600', borderB: 'border-b-emerald-700', text: 'text-white', label: 'text-emerald-600 dark:text-emerald-400' };
+                    colorConfig = { gradient: 'from-emerald-400 to-emerald-600 dark:from-emerald-600 dark:to-emerald-800', border: 'border-emerald-500 dark:border-emerald-700', borderB: 'border-emerald-700 dark:border-emerald-900', studBg: 'bg-emerald-500 dark:bg-emerald-700', text: 'text-white', label: 'text-emerald-600 dark:text-emerald-400' };
                   } else if (p.label === 'Suffix') {
-                    colorConfig = { bg: 'bg-sky-400', border: 'border-sky-500', borderB: 'border-b-sky-600', text: 'text-white', label: 'text-sky-500 dark:text-sky-400' };
+                    colorConfig = { gradient: 'from-sky-400 to-sky-600 dark:from-sky-600 dark:to-sky-800', border: 'border-sky-500 dark:border-sky-700', borderB: 'border-sky-700 dark:border-sky-900', studBg: 'bg-sky-500 dark:bg-sky-700', text: 'text-white', label: 'text-sky-500 dark:text-sky-400' };
                   }
 
                   return (
-                    <div key={i} className="flex items-center gap-1.5 md:gap-4 group/part">
+                    <div key={i} className="flex items-center gap-1.5 md:gap-4 group/part relative z-10 w-fit">
                       <button
                         onClick={() => {
                           const cleanValue = p.value.replace(/[^a-zA-Z]/g, '').toLowerCase();
                           if (!cleanValue) return;
                           const tag = `${p.label.toLowerCase()}:${cleanValue}`;
                           setFilterTag(tag);
+                          setFilterTagMeaning(p.meaning || '');
                           setFilterPos('all');
                           setSearch('');
                           triggerNotification('字根家族', `尋找包含 "${cleanValue}" 的所有單字`);
                           handleClose();
                         }}
-                        className="flex flex-col items-center group-hover/part:-translate-y-2 transition-transform duration-300 mt-2"
+                        className="flex flex-col items-center group-hover/part:-translate-y-2 transition-transform duration-300 mt-3"
                         title={`點擊查看 "${p.value}" 家族單字`}
                       >
-                        <span className={`text-[9px] md:text-[11px] font-black uppercase tracking-widest mb-1 md:mb-1.5 transition-all group-hover/part:scale-110 drop-shadow-sm ${colorConfig.label}`}>
+                        <span className={`text-[10px] md:text-[12px] font-black uppercase tracking-[0.2em] mb-2 md:mb-3 transition-all group-hover/part:scale-110 drop-shadow-sm ${colorConfig.label}`}>
                           {p.label || 'Part'}
                         </span>
-                        {/* Lego Brick */}
-                        <div className={`relative px-4 py-2 md:px-8 md:py-5 rounded-xl md:rounded-2xl border-2 border-b-[5px] md:border-b-[8px] active:border-b-2 active:translate-y-[3px] md:active:translate-y-[6px] transition-all duration-150 shadow-sm ${colorConfig.bg} ${colorConfig.border} ${colorConfig.borderB}`}>
-                          {/* Lego Studs (在手機端稍微縮小) */}
-                          <div className="absolute -top-[5px] md:-top-[7px] left-1/2 -translate-x-1/2 flex gap-2 md:gap-3">
-                            <div className={`w-3 md:w-4 h-1 md:h-1.5 rounded-t-sm ${colorConfig.bg} border-2 border-b-0 ${colorConfig.border}`}></div>
-                            <div className={`w-3 md:w-4 h-1 md:h-1.5 rounded-t-sm ${colorConfig.bg} border-2 border-b-0 ${colorConfig.border}`}></div>
+                        
+                        {/* 🌟 3D Lego Brick (加入高度限制，防止內容過長撐破版面) */}
+                        <div className={`relative px-5 py-3 md:px-8 md:py-5 rounded-xl md:rounded-2xl border-x-2 border-t-2 border-b-[6px] md:border-b-[10px] bg-gradient-to-b ${colorConfig.gradient} ${colorConfig.border} border-b-${colorConfig.borderB} shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_8px_16px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),0_8px_16px_rgba(0,0,0,0.3)] active:border-b-2 active:translate-y-[4px] md:active:translate-y-[8px] transition-all duration-200 group-hover/part:rotate-[2deg] group-hover/part:scale-105 flex items-center justify-center min-w-[60px] md:min-w-[90px] h-12 md:h-16 shrink-0`}>
+                          
+                          {/* 🌟 Lego Studs (凸起) - 呈現立體塑膠感 */}
+                          <div className="absolute -top-[5px] md:-top-[7px] left-1/2 -translate-x-1/2 flex gap-3 md:gap-5">
+                            <div className={`w-3.5 md:w-5 h-1.5 md:h-2 rounded-t-sm md:rounded-t-md ${colorConfig.studBg} border-x-2 border-t-2 border-b-0 ${colorConfig.border} shadow-[inset_0_2px_1px_rgba(255,255,255,0.6)] dark:shadow-[inset_0_2px_1px_rgba(255,255,255,0.2)]`}></div>
+                            <div className={`w-3.5 md:w-5 h-1.5 md:h-2 rounded-t-sm md:rounded-t-md ${colorConfig.studBg} border-x-2 border-t-2 border-b-0 ${colorConfig.border} shadow-[inset_0_2px_1px_rgba(255,255,255,0.6)] dark:shadow-[inset_0_2px_1px_rgba(255,255,255,0.2)]`}></div>
                           </div>
-                          <span className={`text-[16px] md:text-[28px] font-black tracking-wide ${colorConfig.text} drop-shadow-sm`}>{p.value}</span>
+
+                          {/* 白色高光遮罩 (提升塑膠立體感) */}
+                          <div className="absolute inset-x-0 top-0 h-1/2 bg-white/20 dark:bg-white/5 rounded-t-xl pointer-events-none"></div>
+
+                          {/* 文字發光/清晰度處理 */}
+                          <span className={`relative z-10 text-[18px] md:text-[32px] font-black tracking-wider ${colorConfig.text} drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)]`}>
+                            {p.value}
+                          </span>
                         </div>
-                        <span className="mt-2 md:mt-4 text-[11px] md:text-[14px] font-black text-slate-500 dark:text-slate-400 text-center max-w-[65px] md:max-w-[120px] leading-tight">{p.meaning}</span>
+
+                        {/* 下方中文註解 (根據要求移除，移至專屬頁面標頭) */}
                       </button>
-                      {i < breakdown.length - 1 && <span className="text-lg md:text-3xl font-black text-slate-300 dark:text-white/20 mt-4 md:mt-8 shrink-0">+</span>}
+                      
+                      {/* 連接加號 */}
+                      {i < breakdown.length - 1 && (
+                        <span className="text-xl md:text-3xl font-black text-slate-300 dark:text-white/20 mt-6 md:mt-10 shrink-0 transform transition-transform group-hover/part:scale-110 drop-shadow-sm">+</span>
+                      )}
                     </div>
                   );
                 }) : (
@@ -1745,6 +1764,7 @@ const WordBank = ({
   const [newTags, setNewTags] = useState(''); // 新增標籤輸入狀態
 
   const [filterTag, setFilterTag] = useState('all');
+  const [filterTagMeaning, setFilterTagMeaning] = useState('');
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState(new Set());
 
@@ -1763,34 +1783,81 @@ const WordBank = ({
     scrollRefSet.current.scrollLeft = dragState.scrollLeft - (e.pageX - scrollRefSet.current.offsetLeft - dragState.startX) * 2;
   };
 
-  // 動態萃取所有不重複的標籤
-  const availableTags = useMemo(() => {
-    const tags = new Set();
+  // 動態萃取所有不重複的標籤及其意義 (從 aiAnalysis 中反查)
+  const ObjectMaps = useMemo(() => {
+    const tagsSet = new Set();
+    const tag2Meaning = new Map();
+    const meaning2Tags = new Map();
+
     words.forEach(w => {
-      if (w.tags && Array.isArray(w.tags)) w.tags.forEach(t => tags.add(t));
+      if (w.tags && Array.isArray(w.tags)) w.tags.forEach(t => tagsSet.add(t));
+      
+      // 若單字已存在 AI 解析，從中萃取字首/字根/字尾的意思
+      if (w.aiAnalysis && !w.aiAnalysis.startsWith('ERROR')) {
+         const { breakdown } = parseMorphology(w.aiAnalysis);
+         if (breakdown) {
+            breakdown.forEach(p => {
+               const cleanValue = p.value.replace(/[^a-zA-Z]/g, '').toLowerCase();
+               const tag = `${p.label.toLowerCase()}:${cleanValue}`;
+               if (p.meaning) {
+                  // 清理多餘的括號以便精準分組 (例如: "前/預先")
+                  const m = p.meaning.replace(/[(（].*?[)）]/g, '').trim(); 
+                  if (!tag2Meaning.has(tag)) tag2Meaning.set(tag, m);
+                  if (!meaning2Tags.has(m)) meaning2Tags.set(m, new Set());
+                  meaning2Tags.get(m).add(tag);
+               }
+            });
+         }
+      }
     });
-    return Array.from(tags).sort();
+    return { 
+      availableTags: Array.from(tagsSet).sort(), 
+      tagMeaningMap: tag2Meaning,
+      meaningToTagsMap: meaning2Tags
+    };
   }, [words]);
+
+  const { availableTags, tagMeaningMap, meaningToTagsMap } = ObjectMaps;
 
   const filtered = useMemo(() => {
     let list = words;
-    if (filterPos !== 'all') list = list.filter(w => getMeanings(w).some(m => m.pos === filterPos));
-    if (filterTag !== 'all') list = list.filter(w => w.tags && w.tags.includes(filterTag));
+    const searchStr = search.trim().toLowerCase();
+    
+    // 🚀 本地搜尋增強：同時比對英文單字與中文含意
+    if (searchStr) {
+      list = list.filter(w => 
+        (w.word || '').toLowerCase().includes(searchStr) || 
+        getMeanings(w).some(m => (m.meaning || '').toLowerCase().includes(searchStr))
+      );
+    }
 
-    // 🚀 新增：已學/未學篩選邏輯
+    if (filterPos !== 'all') list = list.filter(w => getMeanings(w).some(m => (m.pos || '').toLowerCase().includes(filterPos.toLowerCase())));
+    
+    // 🚀 強化版標籤篩選：若點選的字根與其他字根意義相同 (如 dic/dict)，合併顯示與篩選
+    if (filterTag !== 'all') {
+      const currentMeaning = tagMeaningMap.get(filterTag) || filterTagMeaning;
+      // 找出所有意義相同的標籤群組 ( synonyms )
+      const tagsGroup = currentMeaning && meaningToTagsMap.has(currentMeaning) 
+                        ? Array.from(meaningToTagsMap.get(currentMeaning))
+                        : [filterTag];
+                        
+      list = list.filter(w => w.tags && tagsGroup.some(t => w.tags.includes(t)));
+    }
+
+    // 🚀 已學/未學篩選
     if (filterLearned === 'learned') {
       list = list.filter(w => w.learned === true);
     } else if (filterLearned === 'unlearned') {
-      list = list.filter(w => w.learned !== true); // 包含 false 或 undefined
+      list = list.filter(w => w.learned !== true);
     }
 
-    // 🚀 級別篩選邏輯 (支援 String/Number 互轉)
+    // 🚀 級別篩選
     if (filterLevel !== 'all') {
       list = list.filter(w => String(w.level) === filterLevel);
     }
 
     return list;
-  }, [words, filterPos, filterTag, filterLearned, filterLevel]);
+  }, [words, search, filterPos, filterTag, filterLearned, filterLevel]);
 
   const handleAiAnalyze = async (id, word) => {
     setAnalyzingIds(prev => new Set(prev).add(id));
@@ -1953,7 +2020,10 @@ const WordBank = ({
     'adv.': 'text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-500/10 border-purple-100 dark:border-purple-500/20',
     'prep.': 'text-teal-600 bg-teal-50 dark:text-teal-400 dark:bg-teal-500/10 border-teal-100 dark:border-teal-500/20',
     'conj.': 'text-indigo-600 bg-indigo-50 dark:text-indigo-400 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/20',
+    'pron.': 'text-cyan-600 bg-cyan-50 dark:text-cyan-400 dark:bg-cyan-500/10 border-cyan-100 dark:border-cyan-500/20',
+    'int.': 'text-pink-600 bg-pink-50 dark:text-pink-400 dark:bg-pink-500/10 border-pink-100 dark:border-pink-500/20',
     'phr.': 'text-slate-600 bg-slate-50 dark:text-slate-400 dark:bg-slate-500/10 border-slate-100 dark:border-slate-500/20',
+    'abbr.': 'text-gray-600 bg-gray-50 dark:text-gray-400 dark:bg-gray-500/10 border-gray-100 dark:border-gray-500/20',
   };
 
   return (
@@ -2085,9 +2155,21 @@ const WordBank = ({
 
       {/* 3. 詞性、狀態與級別 (密集直覺佈局，避免滑動) */}
       <div className="flex flex-col gap-2 px-1">
-        {/* 詞性快速標籤 (縮小點擊區域，改為緊湊排列) */}
+        {/* 詞性快速標籤 (動態生成) */}
         <div className="flex flex-wrap gap-1.5 py-0.5">
-          {['all', 'n.', 'v.', 'adj.', 'adv.', 'prep.'].map(pos => (
+          {useMemo(() => {
+            const posSet = new Set(['all']);
+            words.forEach(w => getMeanings(w).forEach(m => {
+              if (m.pos) {
+                m.pos.split(/[,/、\s]+/).forEach(p => {
+                  const pt = p.trim().toLowerCase();
+                  if (pt) posSet.add(pt);
+                });
+              }
+            }));
+            // 排序：all 在最前，其餘按字母
+            return Array.from(posSet).sort((a, b) => a === 'all' ? -1 : b === 'all' ? 1 : a.localeCompare(b));
+          }, [words]).map(pos => (
             <button key={pos} onClick={() => setFilterPos(pos)}
               className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${filterPos === pos ? 'bg-emerald-500 text-white shadow-sm' : 'bg-white/40 dark:bg-zinc-800/60 text-slate-400 border border-white/40 dark:border-white/5'}`}>
               {pos === 'all' ? '全部詞性' : pos}
@@ -2173,29 +2255,49 @@ const WordBank = ({
       )}
 
       {/* 🚀 新增：樂高字根家族 (專項學習) 狀態與返回橫幅 */}
-      {filterTag !== 'all' && filterTag.includes(':') && (
+      {filterTag !== 'all' && filterTag.includes(':') && (() => {
+        const currentMeaning = tagMeaningMap.get(filterTag) || filterTagMeaning;
+        const tagsGroup = currentMeaning && meaningToTagsMap.has(currentMeaning) 
+                          ? Array.from(meaningToTagsMap.get(currentMeaning))
+                          : [filterTag];
+        
+        return (
         <div className="mx-1 mb-3 p-4 sm:p-5 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 border border-indigo-200 dark:border-indigo-500/30 rounded-[24px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-slide-up-fade relative overflow-hidden group">
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-indigo-400/10 blur-[40px] rounded-full pointer-events-none transition-transform group-hover:scale-150"></div>
-          <div className="flex items-center gap-4 min-w-0 relative z-10">
-            <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0 rotate-3 group-hover:-rotate-3 transition-transform">
+          <div className="flex items-start gap-4 min-w-0 flex-1 relative z-10">
+            <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0 rotate-3 group-hover:-rotate-3 transition-transform mt-1 md:block hidden">
               <Brain size={24} className="animate-pulse-slow" />
             </div>
-            <div className="truncate">
-              <p className="text-[12px] font-black text-indigo-500 dark:text-indigo-400 mb-0.5 uppercase tracking-widest">🧩 樂高字根家族</p>
-              <p className="text-[16px] sm:text-[18px] font-black text-slate-800 dark:text-white truncate flex items-baseline gap-2">
-                {filterTag.startsWith('prefix') ? `字首 (Prefix): ${filterTag.split(':')[1]}` : filterTag.startsWith('root') ? `字根 (Root): ${filterTag.split(':')[1]}` : `字尾 (Suffix): ${filterTag.split(':')[1]}`}
-                <span className="text-indigo-600 dark:text-indigo-400 text-xl font-mono">"{filterTag.split(':')[1]}"</span>
-              </p>
+            <div className="flex flex-col gap-1 min-w-0 pr-4">
+              <p className="text-[12px] font-black text-indigo-500 dark:text-indigo-400 mb-0.5 uppercase tracking-widest flex items-center gap-1.5"><span className="md:hidden">🧩</span>同源字族研習 (Families)</p>
+              <div className="text-[16px] sm:text-[18px] font-black text-slate-800 dark:text-white flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span>{filterTag.startsWith('prefix') ? `字首` : filterTag.startsWith('root') ? `字根` : `字尾`} :</span>
+                {tagsGroup.map(t => (
+                  <span key={t} className="text-indigo-600 dark:text-indigo-400 text-xl font-mono bg-white/60 dark:bg-indigo-500/10 px-2 py-0.5 rounded-lg shadow-sm border border-indigo-100/50 dark:border-indigo-500/20">
+                    "{t.split(':')[1]}"
+                  </span>
+                ))}
+              </div>
+              {currentMeaning && (
+                <div className="mt-1.5 p-3 sm:px-4 sm:py-2.5 bg-white/70 dark:bg-black/20 backdrop-blur-sm border border-indigo-200/50 dark:border-indigo-500/20 rounded-xl shadow-sm max-w-2xl">
+                  <p className="text-slate-600 dark:text-slate-300 text-[14px] sm:text-[15px] font-bold leading-relaxed break-words">
+                    {currentMeaning}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
           <button
-            onClick={() => setFilterTag('all')}
+            onClick={() => {
+              setFilterTag('all');
+              setFilterTagMeaning('');
+            }}
             className="w-full sm:w-auto shrink-0 px-5 py-3 bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl font-black text-[13px] transition-all shadow-sm border border-slate-200 dark:border-white/10 active:scale-95 relative z-10"
           >
             清除並返回總覽
           </button>
         </div>
-      )}
+      )})()}
 
       {/* 單字列表 - 響應式網格排版 (加上過渡動畫與最低高度防止跳動) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-20 pt-2 px-1 min-h-[500px] transition-all duration-500">
@@ -2282,9 +2384,9 @@ const WordBank = ({
                         {w.learned ? <CheckCircle2 size={11} strokeWidth={2.5} /> : <BookOpen size={11} strokeWidth={2.5} />}
                         {w.learned ? '已學' : '未學'}
                       </span>
-                      {currentMeanings.map((m, i) => (
-                        <span key={i} className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none transition-all ${posColors[m.pos] || 'text-gray-500 bg-gray-500/10 border-gray-100'}`}>
-                          {m.pos}
+                      {Array.from(new Set(currentMeanings.flatMap(m => (m.pos || '').split(/[,/、\s]+/).map(p => p.trim().toLowerCase()).filter(Boolean)))).map((pos, i) => (
+                        <span key={i} className={`text-[10px] font-black px-2 py-0.5 rounded-lg border leading-none transition-all ${posColors[pos] || 'text-gray-500 bg-gray-500/10 border-gray-100'}`}>
+                          {pos}
                         </span>
                       ))}
                       {w.tags && w.tags.map(t => (
@@ -2308,14 +2410,36 @@ const WordBank = ({
                       </button>
                     </div>
 
-                    {/* 第三行：中文意思 (分條列出) */}
+                    {/* 第三行：中文意思 (按詞性分組合併) */}
                     <div className="space-y-1 mt-1">
-                      {currentMeanings.map((m, i) => (
-                        <div key={i} className="flex items-baseline gap-2 pl-1">
-                          <span className={`text-[11px] font-black uppercase shrink-0 ${posColors[m.pos]?.split(' ')[0] || 'text-slate-400'}`}>{m.pos}</span>
-                          <p className="text-[14px] font-bold text-slate-600 dark:text-slate-400 line-clamp-1">{m.meaning}</p>
+                      {Object.entries(currentMeanings.reduce((acc, current) => {
+                        const { pos, meaning } = current;
+                        const key = pos || 'n.';
+                        if (!acc[key]) acc[key] = [];
+                        if (meaning) acc[key].push(meaning);
+                        return acc;
+                      }, {})).map(([posStr, meanings], i) => {
+                        const parts = posStr.split(/[,/、\s]+/).filter(Boolean);
+                        return (
+                        <div key={posStr} className="flex items-baseline gap-2 pl-1">
+                          <div className="flex items-baseline shrink-0 w-max min-w-[32px]">
+                            {parts.map((p, idx) => {
+                              const normPos = normalizePOS(p);
+                              return (
+                                <React.Fragment key={idx}>
+                                  <span className={`text-[11px] font-black uppercase ${posColors[normPos]?.split(' ')[0] || 'text-slate-400'}`}>
+                                    {p}
+                                  </span>
+                                  {idx < parts.length - 1 && <span className="text-[11px] font-black text-slate-300 mx-0.5">/</span>}
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[14px] font-bold text-slate-600 dark:text-slate-400 line-clamp-2">
+                            {meanings.join(', ')}
+                          </p>
                         </div>
-                      ))}
+                      )})}
                     </div>
 
                     {/* 第四行：Meta 資訊 (級別/序號/時間) */}
@@ -2357,6 +2481,7 @@ const WordBank = ({
           setSearch={setSearch}
           setFilterPos={setFilterPos}
           setFilterTag={setFilterTag}
+          setFilterTagMeaning={setFilterTagMeaning}
           setCurrentSet={setCurrentSet}
         />
       )}
