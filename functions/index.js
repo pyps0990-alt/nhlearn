@@ -44,6 +44,34 @@ exports.sendPushNotificationOnNotice = onDocumentCreated("MainNotifications/{not
     return null;
 });
 
+// 1.2 監聽「電子聯絡簿」新增事項，發送即時推播
+exports.notifyNewAssignment = onDocumentCreated("Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/Assignments/{assignmentId}", async (event) => {
+    const notice = event.data.data();
+    const classId = event.params.classId;
+
+    if (notice.silent) return null;
+
+    try {
+        const message = {
+            notification: {
+                title: "聯絡簿新事項 📝",
+                body: `${notice.subject || '新任務'}: ${notice.homework || notice.exam || '請查看詳情'} (期限: ${notice.dueDate || '未定'})`
+            },
+            data: {
+                type: "homework",
+                classId: classId
+            },
+            topic: `class_${classId}`
+        };
+
+        await admin.messaging().send(message);
+        console.log(`[${classId}] 新作業即時推播已發送`);
+    } catch (error) {
+        console.error(`[${classId}] 發送新作業推播失敗:`, error);
+    }
+    return null;
+});
+
 // 1.5 監聽「課表子集合更新」，專準挑出「調課異動」發送通知
 exports.notifyScheduleUpdate = onDocumentUpdated("Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/ClassSchedule/{scheduleId}", async (event) => {
     const beforeData = event.data.before.data();

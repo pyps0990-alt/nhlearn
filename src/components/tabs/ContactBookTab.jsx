@@ -656,23 +656,30 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                               </div>
                             </div>
                           )}
-                          {canEditContactBook && (
-                            <button onClick={() => setDeleteConfirmId(entry.id)} className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/item:opacity-100 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all active:scale-90">
-                              <Trash2 size={18} />
-                            </button>
-                          )}
-                          
-                          {/* 留言討論按鈕與區塊 */}
-                          <div className="ml-5 flex flex-col gap-2">
-                            <button
-                              onClick={() => setOpenCommentId(openCommentId === entry.id ? null : entry.id)}
-                              className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-emerald-500 transition-colors w-fit"
-                            >
-                              <MessageSquare size={13} />
-                              {entry.comments?.length ? `${entry.comments.length} 則討論` : '發起討論 / 提問'}
-                            </button>
+                          {/* 操作按鈕區：留言討論與刪除 (權限控制) */}
+                          <div className="ml-5">
+                            <div className="flex items-center gap-4 mb-2">
+                              <button
+                                onClick={() => setOpenCommentId(openCommentId === entry.id ? null : entry.id)}
+                                className="flex items-center gap-1.5 text-[11px] font-black text-slate-400 hover:text-emerald-500 transition-colors w-fit bg-slate-100 dark:bg-white/5 px-3 py-1.5 rounded-xl active:scale-95"
+                              >
+                                <MessageSquare size={13} strokeWidth={2.5} />
+                                {entry.comments?.length ? `${entry.comments.length} 則討論` : '發起討論'}
+                              </button>
+
+                              {canEditContactBook && (
+                                <button 
+                                  onClick={() => setDeleteConfirmId(entry.id)} 
+                                  className="flex items-center gap-1.5 text-[11px] font-black text-rose-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 px-3 py-1.5 rounded-xl transition-all active:scale-90"
+                                >
+                                  <Trash2 size={13} strokeWidth={2.5} />
+                                  刪除
+                                </button>
+                              )}
+                            </div>
+
                             {openCommentId === entry.id && (
-                              <div className="pl-3 sm:pl-4 space-y-3 border-l-2 border-slate-200 dark:border-white/10 py-1 animate-slide-up-fade">
+                              <div className="pl-3 sm:pl-4 space-y-3 border-l-2 border-slate-200 dark:border-white/10 py-1 animate-slide-up-fade mt-3">
                                 {entry.comments?.map(c => (
                                   <div key={c.id} className="bg-white/60 dark:bg-black/20 p-3 rounded-2xl border border-slate-100 dark:border-white/5 text-[13px] shadow-sm">
                                     <div className="flex items-center gap-2 mb-1">
