@@ -39,6 +39,12 @@ export const getBookDocId = (gradeRaw, semester) => {
   return `B${bNum}_G${gNum}S${sNum}`;
 };
 
+export const getStageStr = (sNum) => {
+  if (Number(sNum) === 1) return '第1次段考';
+  if (Number(sNum) === 2) return '第2次段考';
+  return '期末考';
+};
+
 // ─── 形態解析助手 (Morphology Parser) ───────────────────────────────────────
 // 統一解析 AI 回傳的 [單字構造拆解] 內容，供標籤提取與 UI 渲染共用
 export const parseMorphology = (analysis) => {
@@ -976,7 +982,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
 
       if (currentSet === 'Campus') {
         const stageNum = parseInt(campusStage.replace('stage_', ''), 10);
-        constraints.push(where('examStage', '==', stageNum));
+        constraints.push(where('examStage', '==', getStageStr(stageNum)));
       }
 
       if (filterLevel !== 'all') {
@@ -989,14 +995,21 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     } else {
       if (currentSet === 'Campus') {
         const stageNum = parseInt(campusStage.replace('stage_', ''), 10);
-        q = query(vocabRef, where('examStage', '==', stageNum), orderBy('__name__', 'asc'), limit(20));
+        q = query(vocabRef, where('examStage', '==', getStageStr(stageNum)), orderBy('__name__', 'asc'), limit(20));
       } else {
         q = query(vocabRef, orderBy('__name__', 'asc'), limit(20));
       }
     }
 
     setIsLoading(true);
+    if (currentSet === 'Campus') {
+      const bookId = getBookDocId(campusGrade, campusSemester);
+      logDebug('DEBUG', '校務單字路徑追查', { path: `Schools/${schoolId}/Grades/${campusGrade}/GradeVocab/${bookId}/Vocab`, stage: campusStage, schoolId });
+    }
     const unsub = onSnapshot(q, (snapshot) => {
+      if (currentSet === 'Campus' && snapshot.empty) {
+        logDebug('WARNING', '校務單字：Firestore 回傳為空 (snapshot.empty)');
+      }
       const mainData = snapshot.docs.map(doc => {
         const data = doc.data();
         let word = data.word || doc.id;
@@ -1043,7 +1056,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     });
 
     return () => unsub();
-  }, [debouncedSearch, currentSet, filterLevel, campusGrade, campusSemester, campusStage, logDebug, user?.uid]);
+  }, [debouncedSearch, currentSet, filterLevel, campusGrade, campusSemester, campusStage, logDebug, user?.uid, schoolId]);
 
 
   // 加載更多 (效能優化)
@@ -1074,7 +1087,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     }
     if (currentSet === 'Campus') {
       const stageNum = parseInt(campusStage.replace('stage_', ''), 10);
-      constraints.push(where('examStage', '==', stageNum));
+      constraints.push(where('examStage', '==', getStageStr(stageNum)));
     }
     const q = query(...constraints);
     try {
@@ -1479,7 +1492,7 @@ const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush
         tags: wObj.tags || [],
         meanings: uniqueMeanings,
         semester: targetSet === 'Campus' ? campusSemester : null,
-        examStage: targetSet === 'Campus' ? parseInt(campusStage.replace('stage_', ''), 10) : null,
+        examStage: targetSet === 'Campus' ? getStageStr(campusStage.replace('stage_', '')) : null,
         userEmail: user.email || '',
         updatedAt: serverTimestamp(),
         createdAt: wObj.createdAt || serverTimestamp() // 保留舊有創建時間
