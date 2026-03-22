@@ -31,6 +31,14 @@ export const getMeanings = (w) => {
 };
 export const getPrimaryMeaning = (w) => getMeanings(w).map(m => m.meaning).join(' / ');
 
+// ─── 校務單字結構助手 ──────────────────────────────────────────────────────────
+export const getBookDocId = (gradeRaw, semester) => {
+  const gNum = parseInt(gradeRaw.replace(/\D/g, ''), 10) || 1;
+  const sNum = semester === 'up' ? 1 : 2;
+  const bNum = (gNum - 1) * 2 + sNum;
+  return `B${bNum}_G${gNum}S${sNum}`;
+};
+
 // ─── 形態解析助手 (Morphology Parser) ───────────────────────────────────────
 // 統一解析 AI 回傳的 [單字構造拆解] 內容，供標籤提取與 UI 渲染共用
 export const parseMorphology = (analysis) => {
@@ -794,7 +802,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       // 🚀 優化：若是 .edu.tw 帳號或管理員，不論資料庫是否為空，都應顯示來源按鈕以便管理與新增
       const isPrivileged = isAdmin || user?.email?.endsWith('.edu.tw');
       try {
-        const campusPath = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab');
+        const bookId = getBookDocId(campusGrade, campusSemester);
+        const campusPath = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', bookId, 'Vocab');
         const campusSnap = await getDocs(query(campusPath, limit(1)));
         setSourcesVisibility(prev => ({ ...prev, school: isPrivileged || !campusSnap.empty }));
       } catch (e) {
@@ -947,7 +956,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         setIsLoading(false);
         return;
       }
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab');
+      const bookId = getBookDocId(campusGrade, campusSemester);
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', bookId, 'Vocab');
     } else {
 
       // 🌍 6000 核心單字庫 (改存放於 Schools/taiwan/FreeVocab)
@@ -964,6 +974,11 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         constraints.push(where('word', '<=', searchStr + '\uf8ff'));
       }
 
+      if (currentSet === 'Campus') {
+        const stageNum = parseInt(campusStage.replace('stage_', ''), 10);
+        constraints.push(where('examStage', '==', stageNum));
+      }
+
       if (filterLevel !== 'all') {
         constraints.push(where('level', '==', Number(filterLevel)));
       }
@@ -972,7 +987,12 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       constraints.push(limit(20));
       q = query(...constraints);
     } else {
-      q = query(vocabRef, orderBy('__name__', 'asc'), limit(20));
+      if (currentSet === 'Campus') {
+        const stageNum = parseInt(campusStage.replace('stage_', ''), 10);
+        q = query(vocabRef, where('examStage', '==', stageNum), orderBy('__name__', 'asc'), limit(20));
+      } else {
+        q = query(vocabRef, orderBy('__name__', 'asc'), limit(20));
+      }
     }
 
     setIsLoading(true);
@@ -1036,7 +1056,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       vocabRef = collection(db, 'Users', user.uid, 'PersonalVocab');
     } else if (currentSet === 'Campus') {
       if (!schoolId) return;
-      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab');
+      const bookId = getBookDocId(campusGrade, campusSemester);
+      vocabRef = collection(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', bookId, 'Vocab');
     } else {
 
       vocabRef = collection(db, 'Schools', 'taiwan', 'FreeVocab');
@@ -1050,6 +1071,10 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
     }
     if (filterLevel !== 'all') {
       constraints.push(where('level', '==', Number(filterLevel)));
+    }
+    if (currentSet === 'Campus') {
+      const stageNum = parseInt(campusStage.replace('stage_', ''), 10);
+      constraints.push(where('examStage', '==', stageNum));
     }
     const q = query(...constraints);
     try {
@@ -1266,7 +1291,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       // 🌍 全域更新：所有使用者(含訪客)的 AI 解析、例句、詞性解釋，直接寫入公用資料庫
       let ref;
       if (currentSet === 'Campus') {
-        ref = doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', safeId);
+        const bookId = getBookDocId(campusGrade, campusSemester);
+        ref = doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', bookId, 'Vocab', safeId);
       } else {
         ref = doc(db, 'Schools', 'taiwan', 'FreeVocab', safeId);
       }
@@ -1347,7 +1373,10 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         const ref = currentSet === 'Personal'
           ? doc(db, 'Users', user.uid, 'PersonalVocab', safeId)
           : currentSet === 'Campus'
-            ? doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', safeId)
+            ? (() => {
+              const bookId = getBookDocId(campusGrade, campusSemester);
+              return doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', bookId, 'Vocab', safeId);
+            })()
             : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeId);
 
         await deleteDoc(ref);
@@ -1430,7 +1459,10 @@ const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush
       const ref = targetSet === 'Personal'
         ? doc(db, 'Users', user.uid, 'PersonalVocab', safeDocId)
         : targetSet === 'Campus'
-          ? doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', safeDocId)
+          ? (() => {
+            const bookId = getBookDocId(campusGrade, campusSemester);
+            return doc(db, 'Schools', schoolId, 'Grades', campusGrade, 'GradeVocab', bookId, 'Vocab', safeDocId);
+          })()
           : doc(db, 'Schools', 'taiwan', 'FreeVocab', safeDocId);
 
       const sn = Date.now() + (chunkIdx * 400) + i;
@@ -1447,7 +1479,7 @@ const addWords = useCallback(async (newWords, targetSet = currentSet, shouldPush
         tags: wObj.tags || [],
         meanings: uniqueMeanings,
         semester: targetSet === 'Campus' ? campusSemester : null,
-        stage: targetSet === 'Campus' ? campusStage : null,
+        examStage: targetSet === 'Campus' ? parseInt(campusStage.replace('stage_', ''), 10) : null,
         userEmail: user.email || '',
         updatedAt: serverTimestamp(),
         createdAt: wObj.createdAt || serverTimestamp() // 保留舊有創建時間
