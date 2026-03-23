@@ -1437,28 +1437,70 @@ JSON 結構必須是這樣：
   const widgetCountdowns = customCountdowns?.length > 0 ? (
     <div className={`grid ${customCountdowns.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
       {customCountdowns.map((item, i) => {
-        const days = getDaysLeft(item.date);
+        const daysLeft = getDaysLeft(item.date);
         const style = item.style || 'gradient';
+        
+        // 🚀 高階進度計算邏輯
+        const startDate = item.createdAt ? new Date(item.createdAt) : new Date(new Date(item.date).getTime() - (60 * 24 * 60 * 60 * 1000)); // 若無起始日，預設為 60 天週期
+        const totalDuration = Math.max(1, new Date(item.date).getTime() - startDate.getTime());
+        const elapsed = Math.max(0, new Date().getTime() - startDate.getTime());
+        const progress = Math.min(1, elapsed / totalDuration);
+        
+        // 總共呈現 24 個點 (2 排，每排 12 個)
+        const dotCount = 24;
+        const filledDots = Math.floor(progress * dotCount);
+
         const styles = {
-          simple: "bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] text-slate-800 dark:text-white",
-          gradient: "bg-gradient-to-br from-emerald-500 to-teal-600 text-white",
-          neon: "bg-slate-900 border border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.1)]",
-          sakura: "bg-gradient-to-br from-pink-400 to-rose-300 text-white shadow-lg shadow-pink-500/20",
-          cyber: "bg-slate-900 border border-fuchsia-500/40 text-fuchsia-400 shadow-[0_0_20px_rgba(217,70,239,0.15)]"
+          simple: "bg-white/50 dark:bg-zinc-900/40 border border-white/60 dark:border-white/10 text-slate-800 dark:text-white [---dot-active:#10b981] [---dot-idle:rgba(148,163,184,0.2)]",
+          gradient: "bg-gradient-to-br from-emerald-500 to-teal-600 text-white [---dot-active:#fff] [---dot-idle:rgba(255,255,255,0.2)]",
+          neon: "bg-slate-900 border border-emerald-500/30 text-emerald-400 [---dot-active:#10b981] [---dot-idle:rgba(16,185,129,0.1)]",
+          sakura: "bg-gradient-to-br from-pink-400 to-rose-300 text-white [---dot-active:#fff] [---dot-idle:rgba(255,255,255,0.2)]",
+          cyber: "bg-slate-900 border border-fuchsia-500/40 text-fuchsia-400 [---dot-active:#d946ef] [---dot-idle:rgba(217,70,239,0.15)]"
         };
+
         return (
-          <div key={item.id || i} className={`${styles[style] || styles.gradient} rounded-[32px] p-5 shadow-soft relative overflow-hidden group active:scale-[0.98] transition-all`}>
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg opacity-90">{item.icon || '📅'}</span>
-                <span className="text-[12px] font-black opacity-90 tracking-wider font-sans">{item.title}</span>
+          <div key={item.id || i} className={`${styles[style] || styles.gradient} rounded-[32px] p-6 shadow-soft relative overflow-hidden group active:scale-[0.98] transition-all`}>
+            {/* 裝飾性背景光 */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 dark:bg-white/5 blur-[40px] rounded-full -translate-y-1/2 translate-x-1/2" />
+            
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl filter drop-shadow-sm">{item.icon || '📅'}</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-80">{item.title}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[40px] font-black leading-none tracking-tighter tabular-nums">{Math.max(0, daysLeft)}</span>
+                  <span className="text-[12px] font-black opacity-60 uppercase tracking-widest">Days Left</span>
+                </div>
               </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-[32px] font-black leading-none">{Math.max(0, days)}</span>
-                <span className="text-[12px] font-bold opacity-70">Days</span>
+
+              {/* 🟢 核心需求：點陣進度條 (24 點) */}
+              <div>
+                <div className="flex flex-wrap gap-[6px]">
+                  {Array.from({ length: dotCount }).map((_, dIdx) => {
+                    const isActive = dIdx < filledDots;
+                    return (
+                      <div 
+                        key={dIdx} 
+                        className={`w-[7px] h-[7px] rounded-full transition-all duration-700 ${isActive ? 'scale-110' : 'opacity-40'}`}
+                        style={{ 
+                          backgroundColor: isActive ? 'var(---dot-active)' : 'var(---dot-idle)',
+                          boxShadow: isActive ? `0 0 8px var(---dot-active)` : 'none'
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between items-center mt-3 opacity-60">
+                   <div className="flex items-center gap-1.5">
+                      <div className="w-1 h-1 rounded-full bg-current animate-pulse" />
+                      <span className="text-[9px] font-black uppercase tracking-widest">Progress Trace</span>
+                   </div>
+                   <span className="text-[10px] font-mono font-bold tracking-tighter">{Math.round(progress * 100)}%</span>
+                </div>
               </div>
             </div>
-            <Sparkles className="absolute -right-4 -bottom-4 w-20 h-20 opacity-10 group-hover:scale-125 transition-transform duration-700" />
           </div>
         );
       })}

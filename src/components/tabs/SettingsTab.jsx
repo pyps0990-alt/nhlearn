@@ -86,7 +86,11 @@ const SettingsTab = ({
       triggerNotification('資料不全', '請輸入名稱與日期');
       return;
     }
-    const newList = [...(customCountdowns || []), { ...newCountdown, id: Date.now() }];
+    const newList = [...(customCountdowns || []), { 
+      ...newCountdown, 
+      id: Date.now(),
+      createdAt: new Date().toISOString() // 🚀 紀錄起始日期
+    }];
     setCustomCountdowns(newList);
     setNewCountdown({ title: '', date: '', style: 'gradient' });
     setIsAddingCountdown(false);
