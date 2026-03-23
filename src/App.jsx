@@ -21,7 +21,8 @@ export const DEFAULT_DASHBOARD_LAYOUT = [
   { id: 'schedule', visible: true, label: '今日課表與時間軸' },
   { id: 'links', visible: false, label: '自訂外部連結' },
   { id: 'news', visible: false, label: '校園最新公告' },
-  { id: 'prep', visible: true, label: '明日準備事項' }
+  { id: 'prep', visible: true, label: '明日準備事項' },
+  { id: 'aiAssistant', visible: true, label: 'AI 學習小助手' }
 ];
 import { db, auth, messaging, firebaseError, VAPID_KEY, functions } from './config/firebase';
 import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signInWithCredential, signOut } from 'firebase/auth';
@@ -1254,6 +1255,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
                 saveToFirestore={saveToFirestore}
                 customCountdowns={customCountdowns}
                 dashboardLayout={dashboardLayout}
+                examPeriods={examPeriods}
               />
             )}
             {activeTab === 'english' && (

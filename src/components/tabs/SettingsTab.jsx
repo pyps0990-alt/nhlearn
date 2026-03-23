@@ -37,7 +37,6 @@ const SettingsTab = ({
   const [editingCampus, setEditingCampus] = useState(false);
   const [tempName, setTempName] = useState(campusName);
   const [tempAddr, setTempAddr] = useState(campusAddress);
-  const [tempLat, setTempLat] = useState(campusLat || '25.078410');
   const [tempLng, setTempLng] = useState(campusLng || '121.587152');
 
   const SETTINGS_TABS = [
@@ -312,22 +311,35 @@ const SettingsTab = ({
 
   // --- 段考排程管理 ---
   const [isAddingExam, setIsAddingExam] = useState(false);
-  const [newExam, setNewExam] = useState({ title: '', startDate: '', endDate: '' });
+  const [newExam, setNewExam] = useState({ 
+    title: '', 
+    startDate: '', 
+    startTime: '08:00',
+    endDate: '', 
+    endTime: '17:00',
+    sessions: [] // { id, subject, time, duration }
+  });
+  const [newSession, setNewSession] = useState({ subject: '國文', time: '08:10', duration: 80 });
+  const [examContentText, setExamContentText] = useState('');
 
   const handleAddExam = async () => {
     if (!newExam.title || !newExam.startDate || !newExam.endDate) {
-      triggerNotification('資料不全', '請輸入名稱與起訖日期');
+      triggerNotification('資料不全', '請填寫名稱與起訖日期');
       return;
     }
     if (!classID || !schoolId || !gradeId) return;
 
     try {
       await addDoc(collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ExamPeriods'), {
-        ...newExam,
+        title: newExam.title,
+        startDate: `${newExam.startDate}T${newExam.startTime}`,
+        endDate: `${newExam.endDate}T${newExam.endTime}`,
+        sessions: newExam.sessions,
         createdAt: Date.now()
       });
       setIsAddingExam(false);
-      setNewExam({ title: '', startDate: '', endDate: '' });
+      setNewExam({ title: '', startDate: '', startTime: '08:10', endDate: '', endTime: '17:00', sessions: [] });
+      setExamContentText('');
       triggerNotification('新增成功', `已加入：${newExam.title}`);
     } catch (e) {
       triggerNotification('儲存失敗', '請確認權限或網路');
@@ -801,25 +813,120 @@ const SettingsTab = ({
                           onChange={e => setNewExam({ ...newExam, title: e.target.value })}
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">開始日期</label>
-                          <input
-                            type="date"
-                            className="w-full p-4 rounded-[20px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none text-[var(--text-primary)] shadow-sm focus:border-rose-400 transition-colors"
-                            value={newExam.startDate}
-                            onChange={e => setNewExam({ ...newExam, startDate: e.target.value })}
-                          />
+                      {/* 🚀 直覺化「時間區間」卡片 */}
+                      {/* 🚀 組合式排版：上方顯示時間區間，下方顯示科目細節 */}
+                      <div className="bg-slate-50/10 dark:bg-black/20 rounded-[28px] overflow-hidden border border-slate-200 dark:border-white/5 shadow-inner">
+                        <div className="p-4 space-y-3">
+                          {/* 開始時間 */}
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col items-center shrink-0">
+                              <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                              <div className="w-0.5 h-8 bg-gradient-to-b from-emerald-400 to-rose-400 mt-1" />
+                            </div>
+                            <div className="flex-1 flex gap-2 items-center">
+                              <input
+                                type="date"
+                                className="flex-1 min-w-0 px-3 py-3 rounded-[16px] border border-slate-200 dark:border-white/10 text-[14px] font-black bg-white dark:bg-slate-800 outline-none focus:border-emerald-400 text-[var(--text-primary)]"
+                                value={newExam.startDate}
+                                onChange={e => setNewExam({ ...newExam, startDate: e.target.value })}
+                              />
+                              <input
+                                type="time"
+                                className="w-[100px] shrink-0 px-3 py-3 rounded-[16px] border border-slate-200 dark:border-white/10 text-[14px] font-black font-mono bg-white dark:bg-slate-800 outline-none focus:border-emerald-400 text-[var(--text-primary)] text-center"
+                                value={newExam.startTime}
+                                onChange={e => setNewExam({ ...newExam, startTime: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          {/* 結束時間 */}
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col items-center shrink-0">
+                              <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                            </div>
+                            <div className="flex-1 flex gap-2 items-center">
+                              <input
+                                type="date"
+                                className="flex-1 min-w-0 px-3 py-3 rounded-[16px] border border-slate-200 dark:border-white/10 text-[14px] font-black bg-white dark:bg-slate-800 outline-none focus:border-rose-400 text-[var(--text-primary)]"
+                                value={newExam.endDate}
+                                onChange={e => setNewExam({ ...newExam, endDate: e.target.value })}
+                              />
+                              <input
+                                type="time"
+                                className="w-[100px] shrink-0 px-3 py-3 rounded-[16px] border border-slate-200 dark:border-white/10 text-[14px] font-black font-mono bg-white dark:bg-slate-800 outline-none focus:border-rose-400 text-[var(--text-primary)] text-center"
+                                value={newExam.endTime}
+                                onChange={e => setNewExam({ ...newExam, endTime: e.target.value })}
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">結束日期</label>
-                          <input
-                            type="date"
-                            className="w-full p-4 rounded-[20px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none text-[var(--text-primary)] shadow-sm focus:border-rose-400 transition-colors"
-                            value={newExam.endDate}
-                            onChange={e => setNewExam({ ...newExam, endDate: e.target.value })}
-                          />
+
+                        {/* 下半部：場次列表 */}
+                        <div className="p-4 bg-white/40 dark:bg-black/40 border-t border-slate-200 dark:border-white/5 space-y-3">
+                          <div className="flex items-center justify-between px-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">考程科目細節</label>
+                            <span className="text-[10px] font-bold text-rose-500">已加入 {newExam.sessions.length} 科</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <input
+                              type="text"
+                              placeholder="科目"
+                              className="flex-1 min-w-[80px] px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-white/5 text-sm font-bold outline-none focus:border-rose-400 text-[var(--text-primary)]"
+                              value={newSession.subject}
+                              onChange={e => setNewSession({ ...newSession, subject: e.target.value })}
+                            />
+                            <input
+                              type="time"
+                              className="w-[100px] px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-800 border border-slate-100 dark:border-white/5 text-xs font-black font-mono outline-none text-[var(--text-primary)]"
+                              value={newSession.time}
+                              onChange={e => setNewSession({ ...newSession, time: e.target.value })}
+                            />
+                            <div className="flex items-center gap-1.5 bg-white dark:bg-zinc-800 px-3 py-2 rounded-xl border border-slate-100 dark:border-white/5">
+                              <input
+                                type="number"
+                                className="w-8 bg-transparent text-sm font-black text-rose-500 outline-none"
+                                value={newSession.duration}
+                                onChange={e => setNewSession({ ...newSession, duration: parseInt(e.target.value) || 0 })}
+                              />
+                              <span className="text-[10px] font-black text-slate-400">分</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                if(!newSession.subject) return;
+                                setNewExam({ ...newExam, sessions: [...newExam.sessions, { ...newSession, id: Date.now() }] });
+                                triggerNotification('已新增', `${newSession.subject}`);
+                              }}
+                              className="w-10 h-10 bg-rose-500 text-white rounded-xl shadow-lg shadow-rose-500/20 active:scale-95 flex items-center justify-center transition-all"
+                            >
+                              <Plus size={18} />
+                            </button>
+                          </div>
+                          
+                          {newExam.sessions.length > 0 && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                              {newExam.sessions.map(s => (
+                                <div key={s.id} className="flex items-center justify-between bg-white dark:bg-black/20 px-3 py-2.5 rounded-xl border border-white/60 dark:border-white/5 shadow-sm">
+                                  <div className="flex flex-col">
+                                    <span className="text-[12px] font-black text-slate-800 dark:text-gray-100">{s.subject}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 font-mono">{s.time} ({s.duration}min)</span>
+                                  </div>
+                                  <button onClick={() => setNewExam({ ...newExam, sessions: newExam.sessions.filter(it => it.id !== s.id) })} className="p-1 text-slate-300 hover:text-rose-500">
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1 block">考程明細 (可留空，優先顯示場次)</label>
+                        <textarea
+                          placeholder="例如：攜帶計算機、或是其他備註..."
+                          className="w-full p-4 rounded-[24px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none focus:ring-2 focus:ring-rose-500 text-[var(--text-primary)] min-h-[80px] transition-all"
+                          value={examContentText}
+                          onChange={e => setExamContentText(e.target.value)}
+                        />
                       </div>
                       <button
                         onClick={handleAddExam}
@@ -1043,13 +1150,13 @@ const SettingsTab = ({
                       if (!classID) return triggerNotification('請先設定班級', '作業通知需要班級代碼才能同步');
                       setNotifHomework(val);
                       localStorage.setItem('notif_homework', String(val));
-                      
+
                       // 背景靜默同步
                       toggleTopicSubscription(`class_${classID}_homework`, val).then(() => {
                         triggerNotification(val ? '已訂閱作業提醒' : '已取消作業提醒', val ? '每天晚上將準時送到' : '已關閉雲端排程');
-                      }).catch(e => { 
+                      }).catch(e => {
                         console.error("Homework notification toggle error:", e);
-                        triggerNotification('同步失敗', `作業提醒連線錯誤：${e.message || '請檢查網路'}`); 
+                        triggerNotification('同步失敗', `作業提醒連線錯誤：${e.message || '請檢查網路'}`);
                         setNotifHomework(!val); // 失敗時回滾
                       });
                     }}
@@ -1075,9 +1182,9 @@ const SettingsTab = ({
 
                       toggleTopicSubscription(`class_${classID}_exam`, val).then(() => {
                         triggerNotification(val ? '已訂閱考試提醒' : '已取消考試提醒', val ? '祝你今天考試順利！' : '已停用雲端推播');
-                      }).catch(e => { 
+                      }).catch(e => {
                         console.error("Exam notification toggle error:", e);
-                        triggerNotification('同步失敗', `考試提醒連線錯誤：${e.message || '請檢查網路'}`); 
+                        triggerNotification('同步失敗', `考試提醒連線錯誤：${e.message || '請檢查網路'}`);
                         setNotifExam(!val);
                       });
                     }}
@@ -1103,9 +1210,9 @@ const SettingsTab = ({
 
                       toggleTopicSubscription(`class_${classID}_alerts`, val).then(() => {
                         triggerNotification(val ? '已訂閱課表更新' : '已取消課表更新', val ? '將能獲得最即時的課程變動' : '已取消雲端監聽');
-                      }).catch(e => { 
+                      }).catch(e => {
                         console.error("Schedule notification toggle error:", e);
-                        triggerNotification('同步失敗', `課表通知連線錯誤：${e.message || '請檢查網路'}`); 
+                        triggerNotification('同步失敗', `課表通知連線錯誤：${e.message || '請檢查網路'}`);
                         setNotifSchedule(!val);
                       });
                     }}

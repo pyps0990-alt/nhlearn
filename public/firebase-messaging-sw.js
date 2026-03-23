@@ -19,15 +19,8 @@ firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 
-// 3. 處理背景通知
+// 3. 處理背景通知 (僅用於 log，避免呼叫 showNotification 造成與瀏覽器自動彈窗重複)
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] 收到背景通知: ', payload);
-
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/logo192.png' // 這裡可以換成你的 App Logo 路徑
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  console.log('[firebase-messaging-sw.js] 收到背景推播:', payload);
+  // FCM 若帶有 notification 屬性，瀏覽器在背景會自動顯示，手動呼叫會導致重複。
 });

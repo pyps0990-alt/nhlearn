@@ -24,15 +24,12 @@ export const fetchAI = async (prompt, options = {}) => {
     return null;
   }
 
-  // 🚀 模型池：自動備援機制。優先使用 2.0 系列，若塞車則備援至 1.5 或 GPT
+  // 🚀 模型池：自動備援機制。優先使用 2.0 系列，若塞車則備援至 1.5 系列
   const models = [
     'gemini-2.0-flash', 
     'gemini-2.0-flash-lite-preview-02-05',
-    'gemini-2.5-flash', 
-    'gemini-2.5-pro',
-    'gemini-3.0-flash', 
-    'gemini-3.0-flash-lite',
-    'gemini-3.0-pro-preview',
+    'gemini-1.5-flash', 
+    'gemini-1.5-pro'
   ];
   let lastError = null;
 
@@ -46,20 +43,20 @@ export const fetchAI = async (prompt, options = {}) => {
       };
 
       const result = await callBuiltInAI(payload);
-      if (result?.data?.text) {
+      // 配合後端新結構：檢查 success 旗標與 text
+      if (result?.data?.success && result?.data?.text) {
         console.log(`✅ AI 模型 ${model} 回傳成功`);
         return result.data.text;
       }
-      throw new Error(`模型 ${model} 回傳內容為空`);
+      throw new Error(result?.data?.error || `模型 ${model} 回傳不成功`);
     } catch (e) {
       console.warn(`⚠️ 模型 ${model} 請求失敗:`, e.message);
       lastError = e;
-      // 繼續嘗試下一個模型
     }
   }
 
   console.error("❌ 所有 AI 模型均嘗試失敗:", lastError);
-  throw new Error("AI 伺服器繁忙，所有備援模型均連線失敗，請稍後再試。");
+  return null; // 返回 null 讓 UI 使用備援金句
 };
 
 export const normalizePOS = (pos) => {

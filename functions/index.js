@@ -279,12 +279,34 @@ exports.unsubscribeFromTopic = onCall(async (request) => {
 });
 
 exports.callBuiltInAI = onCall({ secrets: [geminiApiKey] }, async (request) => {
-    const { prompt } = request.data;
-    const apiKey = geminiApiKey.value();
-    const ai = new GoogleGenAI(apiKey);
-    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const result = await model.generateContent(prompt);
-    return { text: result.response.text() };
+    try {
+        const { prompt, options } = request.data;
+        const modelName = options?.model || "gemini-2.0-flash";
+        const apiKey = geminiApiKey.value();
+        
+        if (!apiKey) {
+            throw new HttpsError("failed-precondition", "GEMINI_API_KEY 未設定，請聯絡開發者。");
+        }
+
+        const ai = new GoogleGenAI(apiKey);
+        const model = ai.getGenerativeModel({ 
+            model: modelName,
+            generationConfig: { temperature: options?.temperature || 0.7 }
+        });
+
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+
+        return { success: true, text };
+    } catch (e) {
+        console.error("AI 調用失敗:", e);
+        // 不直接拋出 error 給前端，而是返還 success: false，讓前端能無感降級
+        return { 
+            success: false, 
+            error: e.message,
+            fallback: "AI 暫時休息中，請稍後再試。" 
+        };
+    }
 });
 
 exports.dictLookupAI = onCall({ secrets: [geminiApiKey] }, async (request) => {
