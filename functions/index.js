@@ -4,7 +4,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { DateTime } = require("luxon");
-const { GoogleGenAI } = require("@google/genai");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 admin.initializeApp();
 
@@ -161,7 +161,7 @@ exports.dailyExamReminder = onSchedule({
 
         if (apiKey) {
             try {
-                const ai = new GoogleGenAI(apiKey);
+                const ai = new GoogleGenerativeAI(apiKey);
                 const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
                 const prompt = `明天有以下考試：${exams.join('; ')}。
                 請以一位貼心班導師的口吻，寫一段 50 字內的提醒文字 (繁體中文)，鼓勵學生並提醒重點。絕對不要使用 Markdown 代碼。`;
@@ -281,14 +281,14 @@ exports.unsubscribeFromTopic = onCall(async (request) => {
 exports.callBuiltInAI = onCall({ secrets: [geminiApiKey] }, async (request) => {
     try {
         const { prompt, options } = request.data;
-        const modelName = options?.model || "gemini-2.0-flash";
+        const modelName = options?.model || "gemini-2.5-flash";
         const apiKey = geminiApiKey.value();
         
         if (!apiKey) {
             throw new HttpsError("failed-precondition", "GEMINI_API_KEY 未設定，請聯絡開發者。");
         }
 
-        const ai = new GoogleGenAI(apiKey);
+        const ai = new GoogleGenerativeAI(apiKey);
         const model = ai.getGenerativeModel({ 
             model: modelName,
             generationConfig: { temperature: options?.temperature || 0.7 }
@@ -312,8 +312,8 @@ exports.callBuiltInAI = onCall({ secrets: [geminiApiKey] }, async (request) => {
 exports.dictLookupAI = onCall({ secrets: [geminiApiKey] }, async (request) => {
     const { word } = request.data;
     const apiKey = geminiApiKey.value();
-    const ai = new GoogleGenAI(apiKey);
-    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const ai = new GoogleGenerativeAI(apiKey);
+    const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `解析單字 "${word}" 並輸出 JSON (包含 word, pos, chinese, etymology, level)。`;
     const result = await model.generateContent(prompt);
     return { data: JSON.parse(result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()) };

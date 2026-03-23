@@ -24,12 +24,11 @@ export const fetchAI = async (prompt, options = {}) => {
     return null;
   }
 
-  // 🚀 穩定備援名單
+  // 🚀 穩定備援名單 (已更換至 2.5 系列)
   const models = [
+    'gemini-2.5-flash',
     'gemini-2.0-flash', 
-    'gemini-2.0-flash-lite-preview-02-05',
-    'gemini-1.5-flash', 
-    'gemini-1.5-pro'
+    'gemini-1.5-flash-latest'
   ];
 
   for (const model of models) {
