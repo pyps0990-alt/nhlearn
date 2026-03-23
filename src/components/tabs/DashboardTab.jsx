@@ -807,6 +807,16 @@ const DashboardTab = ({
     return examPeriods?.find(p => (p.startDate <= nowStr && p.endDate >= nowStr));
   }, [examPeriods, currentTime]);
 
+  // --- 明日段考檢查 (用於 20:00 後顯示明日考程) ---
+  const tomorrowExam = useMemo(() => {
+    const tomorrow = new Date(currentTime);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDateStr = tomorrow.toISOString().split('T')[0];
+    
+    // 如果明天日期落在段考範圍內
+    return examPeriods?.find(p => (p.startDate.split('T')[0] <= tomorrowDateStr && p.endDate.split('T')[0] >= tomorrowDateStr));
+  }, [examPeriods, currentTime]);
+
   // 檢查是否有任何課表資料
   const hasScheduleData = useMemo(() => {
     if (!weeklySchedule) return false;
@@ -1559,28 +1569,79 @@ JSON 結構必須是這樣：
 
   const widgetPomodoro = <FocusTimerWidget triggerNotification={triggerNotification} />;
 
+  // --- 判斷當前或明日展示的段考對象 ---
+  const examToShow = isTomorrowMode ? tomorrowExam : activeExam;
+
   const widgetSchedule = (
     <div id="schedule-section" className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] relative overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
       {/* 全局頭部：提供快速調課與編輯按鈕 */}
       {hasScheduleData && (
         <div className="flex justify-between items-center mb-6 relative z-10 border-b border-slate-200/50 dark:border-white/10 pb-5">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl text-emerald-600 dark:text-emerald-400 shadow-sm">
-              <Calendar size={20} />
+            <div className={`p-2.5 rounded-xl shadow-sm ${examToShow ? 'bg-emerald-500 text-white animate-pulse' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400'}`}>
+              {examToShow ? <Zap size={20} /> : <Calendar size={20} />}
             </div>
-            <h3 className="text-lg font-black text-slate-800 dark:text-white">學習排程</h3>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 dark:text-white">
+                {examToShow ? (isTomorrowMode ? '明日段考考程' : '今日段考考程') : '學習排程'}
+              </h3>
+              {examToShow && <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">Specialized Mode Active</p>}
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            {canEditSchedule && (
+            {!examToShow && canEditSchedule && (
               <button onClick={() => { setIsSwapMode(!isSwapMode); setEditDayTab(currentTime.getDay()); setSelectedForSwap([]); }} className={`px-3 sm:px-4 py-2 rounded-[14px] text-[12px] sm:text-[13px] font-black transition-all shadow-sm ${isSwapMode ? 'bg-orange-500 text-white' : 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-500/20'}`}>
                 <ArrowUpDown size={14} className="inline mr-1.5 mb-0.5" />{isSwapMode ? '退出調課' : '快速調課'}
               </button>
+            )}
+            {examToShow && (
+              <span className="text-[11px] font-black px-3 py-1 bg-white dark:bg-white/5 border border-emerald-500/30 text-emerald-500 rounded-full">
+                {examToShow.title}
+              </span>
             )}
           </div>
         </div>
       )}
 
-      {isSwapMode && !isEditingSchedule ? (
+      {examToShow && !isSwapMode && !isEditingSchedule ? (
+        /* 🏆 核心需求：段考場次特別模式 */
+        <div className="space-y-4 animate-in slide-in-from-bottom-5 duration-700 relative z-10">
+           {examToShow.sessions && examToShow.sessions.length > 0 ? (
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {examToShow.sessions.map((s, idx) => (
+                 <div key={idx} className="group relative overflow-hidden flex items-center justify-between p-5 bg-white/60 dark:bg-white/5 backdrop-blur-xl rounded-[28px] border border-white/60 dark:border-white/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all duration-300">
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 flex flex-col items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform">
+                          <span className="text-[14px] font-black text-emerald-600 dark:text-emerald-400 leading-tight">Exam</span>
+                          <span className="text-[10px] font-black text-emerald-400/60 uppercase">{idx + 1}</span>
+                       </div>
+                       <div>
+                          <h4 className="text-[17px] font-black text-slate-800 dark:text-white leading-none mb-1.5 tracking-tight">{s.subject}</h4>
+                          <p className="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
+                            <Clock size={11} className="text-emerald-500" />
+                            {s.time} 開始
+                          </p>
+                       </div>
+                    </div>
+                    <div className="text-right">
+                       <div className="text-[15px] font-black text-slate-700 dark:text-gray-200">{s.duration} <span className="text-[10px] text-slate-400">min</span></div>
+                       <p className="text-[9px] font-black text-emerald-500/50 uppercase tracking-widest mt-0.5">Duration</p>
+                    </div>
+                 </div>
+               ))}
+             </div>
+           ) : (
+             <div className="py-12 text-center bg-slate-50 dark:bg-black/10 rounded-[32px] border border-dashed border-slate-200 dark:border-white/10">
+                <p className="text-sm font-bold text-slate-400">目前暫無科目明細</p>
+             </div>
+           )}
+           <div className="mt-4 p-4 bg-emerald-500/5 rounded-[24px] border border-emerald-500/10 text-center">
+              <p className="text-[12px] font-bold text-emerald-600/80 dark:text-emerald-400/80">
+                ✨ 努力終有報，祝您發揮實力，金榜題名！
+              </p>
+           </div>
+        </div>
+      ) : isSwapMode && !isEditingSchedule ? (
         <div className="space-y-4 animate-fadeIn relative z-10">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
             {ALL_DAYS.map(d => (
