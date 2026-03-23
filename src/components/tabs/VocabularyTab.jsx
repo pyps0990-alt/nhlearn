@@ -232,7 +232,7 @@ const WordDetailOverlay = ({
   // 🚀 管理員或個人收藏模式下可編輯單字內容
   const canEdit = isAdmin || currentSet === 'Personal';
 
-  // 🚀 核心修復：立即給予視覺回饋，並延遲 DOM 的卸載，徹底解決手機端卡頓感
+  // 🚀 核心修復：立即給予視覺回饋，徹底解決手機端關閉時滑向空白頁面的問題
   const handleClose = useCallback((e) => {
     if (e) {
       e.preventDefault();
@@ -240,14 +240,15 @@ const WordDetailOverlay = ({
     }
     if (isClosing) return;
     setIsClosing(true);
-    // 🚀 核心修復：立即恢復背景滾動，不需要等退場動畫結束
-    document.body.style.overflow = '';
-    document.body.style.height = '';
-
-    if (window.speechSynthesis) window.speechSynthesis.cancel(); // 立即停止發音，不拖泥帶水
+    
+    if (window.speechSynthesis) window.speechSynthesis.cancel(); // 立即停止發音
+    
     setTimeout(() => {
+      // 🚀 修復：在動畫結束後才釋放捲軸，避免瀏覽器在動畫中途嘗試重算座標
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
       onClose();
-    }, 200); // 給予 200ms 的退場動畫時間
+    }, 200);
   }, [isClosing, onClose]);
 
   // 🚀 核心需求：邏輯拆解渲染 (使用 processWordDecomposition)
@@ -257,14 +258,20 @@ const WordDetailOverlay = ({
     return processWordDecomposition({ ...word, ...morphology });
   }, [word, analysis]);
 
-  // 防呆：鎖定背景滾動、支援 ESC 鍵關閉，避免與底層元件衝突
+  // 防呆：鎖定背景滾動、支援 ESC 鍵關閉
   useEffect(() => {
     const handleKeyDown = (e) => { if (e.key === 'Escape') handleClose(); };
     window.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden'; // 防止底層滾動衝突
+    
+    // 🚀 手機端強化鎖定
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none'; 
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      // 確保即使元件意外卸載也能恢復捲軸
       document.body.style.overflow = '';
+      document.body.style.touchAction = '';
     };
   }, [handleClose]);
 

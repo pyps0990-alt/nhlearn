@@ -1359,12 +1359,36 @@ JSON 結構必須是這樣：
   const liveStatus = useMemo(() => {
     if (!displaySchedule) return null;
     const currentDay = currentTime.getDay();
-    const today = displaySchedule[currentDay] || [];
-
     const nowStr = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
     const currentMins = currentTime.getHours() * 60 + currentTime.getMinutes();
+    const isTomorrowMode = currentTime.getHours() >= 20;
 
-    // 1. 判斷是否有正在進行的課 (Ongoing)
+    // 🚀 [優先權 A]：判斷段考 (Exam Session Priority)
+    if (isTomorrowMode && tomorrowExam && tomorrowExam.sessions?.length > 0) {
+      const exams = [...tomorrowExam.sessions].sort((a, b) => a.time.localeCompare(b.time));
+      return {
+        type: 'tomorrow_exam',
+        item: { subject: exams[0].subject, startTime: exams[0].time, icon: 'Zap' },
+        label: '明日考程首場'
+      };
+    }
+
+    if (!isTomorrowMode && activeExam && activeExam.sessions?.length > 0) {
+      const exams = [...activeExam.sessions]
+        .filter(s => s.time > nowStr)
+        .sort((a, b) => a.time.localeCompare(b.time));
+      
+      if (exams.length > 0) {
+        return {
+          type: 'next_exam',
+          item: { subject: exams[0].subject, startTime: exams[0].time, icon: 'Zap' },
+          label: '今日下一場'
+        };
+      }
+    }
+
+    // 🚀 [優先權 B]：判斷普通正在進行的課表 (Regular Ongoing)
+    const today = displaySchedule[currentDay] || [];
     const ongoing = today.find(item => item && item.startTime && item.endTime && nowStr >= item.startTime && nowStr < item.endTime);
     if (ongoing) {
       const parts = ongoing.endTime.split(':');
@@ -1374,7 +1398,7 @@ JSON 結構必須是這樣：
       }
     }
 
-    // 2. 判斷今天是否有下一堂課 (Next Today)
+    // 🚀 [優先權 C]：判斷今天剩餘課表 (Next Today)
     const nextToday = today
       .filter(item => item && item.startTime && item.startTime > nowStr)
       .sort((a, b) => a.startTime.localeCompare(b.startTime))[0];
@@ -1383,20 +1407,18 @@ JSON 結構必須是這樣：
       const parts = nextToday.startTime.split(':');
       if (parts.length === 2) {
         const countdown = (Number(parts[0]) * 60 + Number(parts[1])) - currentMins;
-        return { type: 'next', item: nextToday, countdown, label: 'Upcoming' };
+        return { type: 'next', item: nextToday, countdown, countdown, label: 'Upcoming' };
       }
     }
 
-    // 3. 跨日預測：今天課上完了，或是今天是週末，預測「下一個上課日」的第一堂課
-    let nextDay = (currentDay + 1) % 7;
+    // 🚀 [優先權 D]：跨日預測 (Next Day)
+    let nextDayIdx = (currentDay + 1) % 7;
     let isWeekendJump = false;
-
-    // 尋找接下來最近的有排課的一天
     let attempts = 0;
     while (attempts < 7) {
-      const nextDayClasses = displaySchedule[nextDay] || [];
+      const nextDayClasses = displaySchedule[nextDayIdx] || [];
       if (nextDayClasses.length > 0) {
-        if (nextDay !== (currentDay + 1) % 7) isWeekendJump = true;
+        if (nextDayIdx !== (currentDay + 1) % 7) isWeekendJump = true;
         const firstNextClass = nextDayClasses.sort((a, b) => a.startTime.localeCompare(b.startTime))[0];
         return {
           type: 'tomorrow',
@@ -1404,12 +1426,12 @@ JSON 結構必須是這樣：
           label: isWeekendJump ? '下一個上課日' : '明日首堂'
         };
       }
-      nextDay = (nextDay + 1) % 7;
+      nextDayIdx = (nextDayIdx + 1) % 7;
       attempts++;
     }
 
     return null;
-  }, [displaySchedule, currentTime]);
+  }, [displaySchedule, currentTime, activeExam, tomorrowExam]);
 
   const handleSaveEdit = async () => {
     const cleanSchedule = JSON.parse(JSON.stringify(weeklySchedule || {}));
