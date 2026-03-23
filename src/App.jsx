@@ -179,6 +179,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
 
   // 考試不打擾模式狀態與切換邏輯
   const [dndEnabled, setDndEnabled] = useState(() => localStorage.getItem('gsat_dnd_enabled') === 'true');
+  const [examPeriods, setExamPeriods] = useState([]);
 
   // 🚀 全域雲端主題訂閱控制 (New Version)
   const toggleTopicSubscription = useCallback(async (topic, isSubscribe) => {
@@ -212,14 +213,30 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
     if (!classID) return;
 
     try {
+      const topics = [
+        `class_${classID}_alerts`,
+        `class_${classID}_homework`,
+        `class_${classID}_exam`
+      ];
+
       if (newVal) {
-        await toggleTopicSubscription(`class_${classID}_alerts`, false);
-        triggerNotification('已開啟不打擾', '考試/上課期間將不再收到即時推播');
+        // 開啟勿擾：全部取消訂閱
+        await Promise.all(topics.map(t => toggleTopicSubscription(t, false)));
+        triggerNotification('已開啟不打擾模式', '所有雲端推播已暫停，確保您專注學習 🌙');
       } else {
-        await toggleTopicSubscription(`class_${classID}_alerts`, true);
-        triggerNotification('已關閉不打擾', '已恢復即時上課與調課提醒');
+        // 關閉勿擾：根據使用者各項設定恢復訂閱
+        const isNotifHomework = localStorage.getItem('notif_homework') === 'true';
+        const isNotifExam = localStorage.getItem('notif_exam') === 'true';
+        const isNotifSchedule = localStorage.getItem('notif_schedule') === 'true';
+
+        if (isNotifSchedule) await toggleTopicSubscription(`class_${classID}_alerts`, true);
+        if (isNotifHomework) await toggleTopicSubscription(`class_${classID}_homework`, true);
+        if (isNotifExam) await toggleTopicSubscription(`class_${classID}_exam`, true);
+        
+        triggerNotification('已關閉控制', '已恢復您的個人化通知設定 ✨');
       }
     } catch (e) {
+      console.error("DND Toggle Error", e);
       triggerNotification('同步失敗', '無法更新雲端訂閱狀態');
     }
   };
@@ -496,7 +513,18 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
       });
     }
 
-    return () => { unsubSchedule(); unsubAssignments(); unsubSchool(); };
+    // 3. Sync ExamPeriods (段考排程)
+    let unsubExams = () => { };
+    if (classID && schoolId && gradeId) {
+      const examsRef = collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ExamPeriods');
+      const qExams = query(examsRef, orderBy('startDate', 'asc'));
+      unsubExams = onSnapshot(qExams, (snapshot) => {
+        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setExamPeriods(list);
+      }, (err) => console.error("ExamPeriods sync error:", err));
+    }
+
+    return () => { unsubSchedule(); unsubAssignments(); unsubSchool(); unsubExams(); };
   }, [db, classID, user, schoolId, gradeId]);
 
   // Notice System Sync (全站系統公告)
@@ -1312,6 +1340,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
                 showTrafficTab={showTrafficTab}
                 setShowTrafficTab={setShowTrafficTab}
                 navTo={navTo}
+                examPeriods={examPeriods}
               />
             )}
             {activeTab === 'legal' && <LegalTab onBack={() => navTo('settings')} />}

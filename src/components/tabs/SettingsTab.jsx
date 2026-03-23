@@ -4,8 +4,9 @@ import {
   Settings, User, Monitor, Sun, Moon, Edit3,
   Bell, Sparkles, Cloud, BrainCircuit, RefreshCw, GraduationCap,
   CheckCircle2, X, Store, Trash2, Lock, MapPin, Globe, Plus, Link, Share, PlusSquare, Smartphone,
-  Utensils, Coffee, CupSoda, PenTool, Clock, LayoutTemplate, Eye, EyeOff, ArrowUp, ArrowDown, GripVertical, Palette, ChevronDown
-  , BookOpen, BookText, Languages, Calculator, Zap, Beaker, Dna, History, Scale, Library, Music, Trophy, Laptop, Lightbulb, Bus
+  Utensils, Coffee, CupSoda, PenTool, Clock, LayoutTemplate, Eye, EyeOff, ArrowUp, ArrowDown, GripVertical, Palette, ChevronDown,
+  BookOpen, BookText, Languages, Calculator, Zap, Beaker, Dna, History, Scale, Library, Music, Trophy, Laptop, Lightbulb, Bus,
+  BellRing, TrendingUp, Calendar
 } from 'lucide-react';
 import { db } from '../../config/firebase';
 import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -28,7 +29,8 @@ const SettingsTab = ({
   subjects, setSubjects,
   schoolId, setSchoolId, navTo,
   gradeId, setGradeId,
-  showTrafficTab, setShowTrafficTab
+  showTrafficTab, setShowTrafficTab,
+  examPeriods = []
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
   const [editingCampus, setEditingCampus] = useState(false);
@@ -302,6 +304,40 @@ const SettingsTab = ({
   const handleAdminLogin = () => {
     if (adminPassword === 'admin') { setIsAdmin(true); setAdminPassword(''); }
     else { triggerNotification('登入失敗', '密碼錯誤'); }
+  };
+
+  // --- 段考排程管理 ---
+  const [isAddingExam, setIsAddingExam] = useState(false);
+  const [newExam, setNewExam] = useState({ title: '', startDate: '', endDate: '' });
+
+  const handleAddExam = async () => {
+    if (!newExam.title || !newExam.startDate || !newExam.endDate) {
+      triggerNotification('資料不全', '請輸入名稱與起訖日期');
+      return;
+    }
+    if (!classID || !schoolId || !gradeId) return;
+
+    try {
+      await addDoc(collection(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ExamPeriods'), {
+        ...newExam,
+        createdAt: Date.now()
+      });
+      setIsAddingExam(false);
+      setNewExam({ title: '', startDate: '', endDate: '' });
+      triggerNotification('新增成功', `已加入：${newExam.title}`);
+    } catch (e) {
+      triggerNotification('儲存失敗', '請確認權限或網路');
+    }
+  };
+
+  const handleRemoveExam = async (id, title) => {
+    if (!window.confirm(`確定要刪除「${title}」段考期間嗎？`)) return;
+    try {
+      await deleteDoc(doc(db, 'Schools', schoolId, 'Grades', gradeId, 'Classes', classID, 'ExamPeriods', id));
+      triggerNotification('已刪除', `已移除：${title}`);
+    } catch (e) {
+      triggerNotification('刪除失敗', '請確認權限');
+    }
   };
 
   return (
@@ -733,6 +769,95 @@ const SettingsTab = ({
                 </div>
               </div>
             </section>
+
+            {classID && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={16} className="text-rose-500 neon-glow-rose" />
+                    <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">段考期間管理</h3>
+                  </div>
+                  <button
+                    onClick={() => setIsAddingExam(!isAddingExam)}
+                    className={`p-2 rounded-xl transition-all active:scale-95 ${isAddingExam ? 'bg-red-50 text-red-500 rotate-45' : 'bg-rose-50 text-rose-600'}`}
+                  >
+                    <Plus size={20} />
+                  </button>
+                </div>
+
+                {isAddingExam && (
+                  <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl p-6 rounded-[32px] border border-rose-300/50 dark:border-rose-500/30 animate-slide-up-fade">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">考試名稱</label>
+                        <input
+                          placeholder="例如：第一次段考"
+                          className="w-full p-4 rounded-[20px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none focus:ring-2 focus:ring-rose-500 text-[var(--text-primary)] transition-all shadow-sm"
+                          value={newExam.title}
+                          onChange={e => setNewExam({ ...newExam, title: e.target.value })}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">開始日期</label>
+                          <input
+                            type="date"
+                            className="w-full p-4 rounded-[20px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none text-[var(--text-primary)] shadow-sm focus:border-rose-400 transition-colors"
+                            value={newExam.startDate}
+                            onChange={e => setNewExam({ ...newExam, startDate: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">結束日期</label>
+                          <input
+                            type="date"
+                            className="w-full p-4 rounded-[20px] border border-[var(--border-color)] text-sm font-bold bg-white dark:bg-black/20 outline-none text-[var(--text-primary)] shadow-sm focus:border-rose-400 transition-colors"
+                            value={newExam.endDate}
+                            onChange={e => setNewExam({ ...newExam, endDate: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleAddExam}
+                        className="w-full bg-rose-600 hover:bg-rose-500 text-white font-black py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all"
+                      >
+                        確認新增段考期間
+                      </button>
+                      <p className="text-[11px] text-slate-400 font-bold text-center">💡 設定期間內，系統將自動暫停所有非必要的雲端推播通知。</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-2 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
+                  {(!examPeriods || examPeriods.length === 0) ? (
+                    <div className="p-8 text-center text-slate-400 font-bold text-sm">
+                      目前沒有設定段考排程 ✍️
+                    </div>
+                  ) : (
+                    <div className="space-y-2 p-2">
+                      {examPeriods.map(item => (
+                        <div key={item.id} className="flex justify-between items-center bg-white/50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5 shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-rose-50 dark:bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-500">
+                              <Calendar size={20} />
+                            </div>
+                            <div>
+                              <div className="font-black text-slate-800 dark:text-white text-sm">{item.title}</div>
+                              <div className="text-[11px] font-bold text-slate-400 mt-0.5">{item.startDate} ~ {item.endDate}</div>
+                            </div>
+                          </div>
+                          {(isAdmin || (user && user.email?.endsWith('.edu.tw'))) && (
+                            <button onClick={() => handleRemoveExam(item.id, item.title)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
           </>
         )}
 
@@ -902,7 +1027,7 @@ const SettingsTab = ({
                 {/* 2. 作業提醒開關 */}
                 <div className="flex justify-between items-center group/item hover:bg-slate-50 dark:hover:bg-white/5 p-2 rounded-2xl transition-all">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 shrink-0">< नोटबुक size={20} className="shrink-0 text-emerald-500" /></div>
+                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 shrink-0"><BookText size={20} className="shrink-0 text-emerald-500" /></div>
                     <div>
                       <div className="text-sm font-black text-[var(--text-primary)]">每日作業提醒</div>
                       <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">每天 18:00 彙整待辦清單</div>

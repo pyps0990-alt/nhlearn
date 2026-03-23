@@ -12,13 +12,43 @@ admin.initializeApp();
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
 /**
+ * 🛑 檢查當前是否處於「段考期間」(暫停雲端推播)
+ * @returns {Promise<boolean>} true 表示處於段考中，應暫停推播
+ */
+async function isExamPeriodActive(schoolId, gradeId, classId) {
+    if (!schoolId || !gradeId || !classId) return false;
+    try {
+        const today = DateTime.now().setZone("Asia/Taipei").toFormat("yyyy-MM-dd");
+        const examsSnap = await admin.firestore()
+            .collection(`Schools/${schoolId}/Grades/${gradeId}/Classes/${classId}/ExamPeriods`)
+            .where("startDate", "<=", today)
+            .get();
+        
+        // Firestore 不支援兩個欄位的 range 比較 (startDate <= today AND endDate >= today)
+        // 所以在記憶體中過濾 endDate
+        const activeExams = examsSnap.docs.filter(doc => doc.data().endDate >= today);
+        return activeExams.length > 0;
+    } catch (e) {
+        console.error("檢查段考期間出錯:", e);
+        return false;
+    }
+}
+
+/**
  * 🚀 1. 聯絡簿新事項推播 (自動區分作業/考試)
  * 監聽路徑: Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/Assignments/{docId}
  */
 exports.sendPushNotificationOnNotice = onDocumentCreated("Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/Assignments/{assignmentId}", async (event) => {
     const data = event.data.data();
-    const { classId } = event.params;
+    const { schoolId, gradeId, classId } = event.params;
     if (!data || data.silent) return null;
+
+    // 🔴 段考期間過濾
+    const inExam = await isExamPeriodActive(schoolId, gradeId, classId);
+    if (inExam) {
+        console.log(`[FCM] 段考期間暫停即時通知: ${classId}`);
+        return null;
+    }
 
     let title = "聯絡簿新消息 📝";
     let body = "";
@@ -58,7 +88,11 @@ exports.sendPushNotificationOnNotice = onDocumentCreated("Schools/{schoolId}/Gra
 exports.notifyScheduleUpdate = onDocumentUpdated("Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/ClassSchedule/{scheduleId}", async (event) => {
     const before = event.data.before.data();
     const after = event.data.after.data();
-    const { classId } = event.params;
+    const { schoolId, gradeId, classId } = event.params;
+
+    // 🔴 段考期間過濾
+    const inExam = await isExamPeriodActive(schoolId, gradeId, classId);
+    if (inExam) return null;
 
     // 檢查老師、地點或科目是否有變更
     const isChanged = before.courseName !== after.courseName || 
@@ -106,11 +140,23 @@ exports.dailyExamReminder = onSchedule({
     assignmentsSnap.docs.forEach(doc => {
         const data = doc.data();
         const classId = doc.ref.parent.parent.id;
-        if (!classMap.has(classId)) classMap.set(classId, []);
-        classMap.get(classId).push(`${data.subject}(${data.examType || '小考'}): ${data.exam}`);
+        if (!classMap.has(classId)) {
+            // 解析路徑取得 schoolId 與 gradeId
+            const pathParts = doc.ref.path.split('/');
+            // Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/Assignments/{docId}
+            const sId = pathParts[1];
+            const gId = pathParts[3];
+            classMap.set(classId, { exams: [], sId, gId });
+        }
+        classMap.get(classId).exams.push(`${data.subject}(${data.examType || '小考'}): ${data.exam}`);
     });
 
-    for (const [classId, exams] of classMap.entries()) {
+    for (const [classId, info] of classMap.entries()) {
+        const { exams, sId, gId } = info;
+
+        // 🔴 段考期間過濾 (雖然是提醒明天考試，但若已在段考週，使用者可能希望安靜)
+        if (await isExamPeriodActive(sId, gId, classId)) continue;
+
         let aiBody = `明天有 ${exams.length} 場測驗，請記得複習喔！`;
 
         if (apiKey) {
@@ -151,11 +197,20 @@ exports.dailyHomeworkReminder = onSchedule({
     const classMap = new Map();
     hwSnap.docs.forEach(doc => {
         const classId = doc.ref.parent.parent.id;
-        if (!classMap.has(classId)) classMap.set(classId, 0);
-        classMap.set(classId, classMap.get(classId) + 1);
+        if (!classMap.has(classId)) {
+            const pathParts = doc.ref.path.split('/');
+            const sId = pathParts[1];
+            const gId = pathParts[3];
+            classMap.set(classId, { count: 0, sId, gId });
+        }
+        const current = classMap.get(classId);
+        classMap.set(classId, { ...current, count: current.count + 1 });
     });
 
-    for (const [classId, count] of classMap.entries()) {
+    for (const [classId, info] of classMap.entries()) {
+        const { count, sId, gId } = info;
+        if (await isExamPeriodActive(sId, gId, classId)) continue;
+
         const message = {
             notification: {
                 title: "別忘了帶作業回家！🏘️",
@@ -187,6 +242,13 @@ exports.checkAndSendClassReminders = onSchedule({
     for (const docSnap of schedulesSnap.docs) {
         const course = docSnap.data();
         const classId = docSnap.ref.parent.parent.id;
+        
+        // 解析路徑
+        const pathParts = docSnap.ref.path.split('/');
+        const sId = pathParts[1];
+        const gId = pathParts[3];
+
+        if (await isExamPeriodActive(sId, gId, classId)) continue;
 
         const message = {
             notification: {
