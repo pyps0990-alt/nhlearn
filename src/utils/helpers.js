@@ -20,43 +20,45 @@ export const fetchAI = async (prompt, options = {}) => {
   const { temperature = 0.7, responseJson = false, image = null, images = [] } = options;
 
   if (!functions) {
-    console.error("Firebase Functions 未初始化");
+    console.warn("Firebase Functions 未初始化，請檢查 config/firebase.js");
     return null;
   }
 
-  // 🚀 模型池：自動備援機制。優先使用 2.0 系列，若塞車則備援至 1.5 系列
+  // 🚀 穩定備援名單
   const models = [
     'gemini-2.0-flash', 
     'gemini-2.0-flash-lite-preview-02-05',
     'gemini-1.5-flash', 
     'gemini-1.5-pro'
   ];
-  let lastError = null;
 
   for (const model of models) {
     try {
       console.log(`🤖 正在嘗試 AI 模型: ${model}...`);
       const callBuiltInAI = httpsCallable(functions, 'callBuiltInAI');
-      const payload = {
+      
+      // ✅ 傳送純粹的 JSON Payload 到後端
+      const result = await callBuiltInAI({
         prompt,
-        options: { temperature, responseJson, image, images, model }
-      };
+        options: { temperature, responseJson, model }
+      });
 
-      const result = await callBuiltInAI(payload);
-      // 配合後端新結構：檢查 success 旗標與 text
+      // 檢查後端回傳的 success 狀態
       if (result?.data?.success && result?.data?.text) {
         console.log(`✅ AI 模型 ${model} 回傳成功`);
         return result.data.text;
       }
-      throw new Error(result?.data?.error || `模型 ${model} 回傳不成功`);
+
+      // 如果成功是 false，紀錄後端回報的具體原因
+      throw new Error(result?.data?.error || `模型 ${model} API 回應異常`);
     } catch (e) {
-      console.warn(`⚠️ 模型 ${model} 請求失敗:`, e.message);
-      lastError = e;
+      console.warn(`⚠️ 模型 ${model} 無法連線:`, e.message);
+      // 繼續嘗試下一個備援模型
     }
   }
 
-  console.error("❌ 所有 AI 模型均嘗試失敗:", lastError);
-  return null; // 返回 null 讓 UI 使用備援金句
+  console.error("❌ 所有 AI 模型備援均已嘗試失敗");
+  return null;
 };
 
 export const normalizePOS = (pos) => {
