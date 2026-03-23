@@ -159,6 +159,24 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
   const [showTrafficTab, setShowTrafficTab] = useState(() => localStorage.getItem('gsat_show_traffic') === 'true');
   useEffect(() => { localStorage.setItem('gsat_show_traffic', String(showTrafficTab)); }, [showTrafficTab]);
 
+  // 🚀 核心 UI 通知觸發器 (必須在所有功能之前初始化)
+  const triggerNotification = useCallback((title, message, icon = 'Bell') => {
+    // 1. 更新內建通知橫幅狀態
+    setNotification({ show: true, title: String(title), message: String(message) });
+    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 4000);
+
+    // 2. 本地瀏覽器推播 (若權限已開)
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body: message, icon: '/favicon.ico' });
+    }
+
+    // 3. 畫面下方的熱提示
+    toast.success(`${title}: ${message}`, {
+      icon: icon === 'Bell' ? '🔔' : '✨',
+      duration: 4000
+    });
+  }, []);
+
   // 考試不打擾模式狀態與切換邏輯
   const [dndEnabled, setDndEnabled] = useState(() => localStorage.getItem('gsat_dnd_enabled') === 'true');
 
@@ -721,12 +739,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
       }
   };
 
-  // ─── Notifications (改為純 UI 提示) ──────────────────────────────────────────
-  const triggerNotification = useCallback((title, message) => {
-    setNotification({ show: true, title: String(title), message: String(message) });
-    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 4000); // 縮短駐留時間
-    // 真正的系統通知已全部移交給 Firebase Cloud Functions (FCM) 派發
-  }, []);
+  // ─── Notifications (已搬移至最上方以支援全域調用) ──────────────────────────────────────────
 
   // ─── 監聽前景推播 (當使用者停留在頁面上時) ─────────────────────────────
   useEffect(() => {
