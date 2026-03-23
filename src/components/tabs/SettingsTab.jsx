@@ -883,13 +883,13 @@ const SettingsTab = ({
                 <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">系統服務串接</h3>
               </div>
               <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] space-y-5">
-                {/* 通知開關 */}
-                <div className="flex justify-between items-center">
+                {/* 1. 全域推播開關 */}
+                <div className="flex justify-between items-center group/item hover:bg-slate-50 dark:hover:bg-white/5 p-2 rounded-2xl transition-all">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500 shrink-0"><Bell size={20} className="shrink-0" /></div>
+                    <div className="w-10 h-10 bg-orange-50 dark:bg-orange-500/10 rounded-xl flex items-center justify-center text-orange-500 shrink-0"><BellRing size={20} className="shrink-0" /></div>
                     <div>
-                      <div className="text-sm font-black text-[var(--text-primary)]">推播通知</div>
-                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">接收課程與作業提醒</div>
+                      <div className="text-sm font-black text-[var(--text-primary)]">系統總體通知</div>
+                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">所有推播服務的總開關</div>
                     </div>
                   </div>
                   <Switch
@@ -898,52 +898,95 @@ const SettingsTab = ({
                     colorClass="bg-orange-500"
                   />
                 </div>
-                {/* 定位開關 */}
-                <div className="flex justify-between items-center">
+
+                {/* 2. 作業提醒開關 */}
+                <div className="flex justify-between items-center group/item hover:bg-slate-50 dark:hover:bg-white/5 p-2 rounded-2xl transition-all">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 shrink-0"><MapPin size={20} className="shrink-0" /></div>
+                    <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500 shrink-0">< नोटबुक size={20} className="shrink-0 text-emerald-500" /></div>
                     <div>
-                      <div className="text-sm font-black text-[var(--text-primary)]">即時定位</div>
-                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">用於尋找附近 YouBike</div>
+                      <div className="text-sm font-black text-[var(--text-primary)]">每日作業提醒</div>
+                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">每天 18:00 彙整待辦清單</div>
                     </div>
                   </div>
                   <Switch
-                    enabled={locPermission === 'granted'}
-                    onChange={(val) => val ? handleLocationRequest() : triggerNotification('資訊', '請至瀏覽器設定關閉權限')}
+                    enabled={localStorage.getItem('notif_homework') === 'true'}
+                    onChange={async (val) => {
+                      if (!classID) return triggerNotification('請先設定班級', '作業通知需要班級代碼才能同步');
+                      localStorage.setItem('notif_homework', String(val));
+                      try {
+                        await toggleTopicSubscription(`class_${classID}_homework`, val);
+                        triggerNotification(val ? '已訂閱作業提醒' : '已取消作業提醒', val ? '每天晚上將準時送到' : '已關閉雲端排程');
+                      } catch (e) { triggerNotification('同步失敗', '請確認網路連線'); }
+                    }}
                     colorClass="bg-emerald-500"
                   />
                 </div>
-                {/* YouBike / 交通資訊開關 */}
-                <div className="flex justify-between items-center">
+
+                {/* 3. 每日考試與測驗提醒 */}
+                <div className="flex justify-between items-center group/item hover:bg-slate-50 dark:hover:bg-white/5 p-2 rounded-2xl transition-all">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-50 dark:bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500 shrink-0"><Bus size={20} className="shrink-0" /></div>
+                    <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-500 shrink-0"><TrendingUp size={20} className="shrink-0" /></div>
                     <div>
-                      <div className="text-sm font-black text-[var(--text-primary)]">交通與 YouBike 導覽</div>
-                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">在側邊選單啟用交通資訊功能</div>
+                      <div className="text-sm font-black text-[var(--text-primary)]">今日考試提醒</div>
+                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">早上 07:30 提醒今日測驗項目</div>
                     </div>
                   </div>
                   <Switch
-                    enabled={showTrafficTab}
-                    onChange={setShowTrafficTab}
-                    colorClass="bg-blue-500"
+                    enabled={localStorage.getItem('notif_exam') === 'true'}
+                    onChange={async (val) => {
+                      if (!classID) return triggerNotification('請先設定班級', '考試提醒需要班級代碼才能同步');
+                      localStorage.setItem('notif_exam', String(val));
+                      try {
+                        await toggleTopicSubscription(`class_${classID}_exam`, val);
+                        triggerNotification(val ? '已訂閱考試提醒' : '已取消考試提醒', val ? '祝你今天考試順利！' : '已停用雲端推播');
+                      } catch (e) { triggerNotification('同步失敗', '請確認網路連線'); }
+                    }}
+                    colorClass="bg-indigo-500"
                   />
                 </div>
-                {/* 考試不打擾開關 */}
-                <div className="flex justify-between items-center">
+
+                {/* 4. 課表更新提醒 */}
+                <div className="flex justify-between items-center group/item hover:bg-slate-50 dark:hover:bg-white/5 p-2 rounded-2xl transition-all">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-50 dark:bg-purple-500/10 rounded-xl flex items-center justify-center text-purple-500 shrink-0"><Moon size={20} className="shrink-0" /></div>
+                    <div className="w-10 h-10 bg-amber-50 dark:bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500 shrink-0"><RefreshCw size={20} className="shrink-0" /></div>
                     <div>
-                      <div className="text-sm font-black text-[var(--text-primary)]">考試不打擾模式</div>
-                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">暫停上課與調課等即時通知</div>
+                      <div className="text-sm font-black text-[var(--text-primary)]">課表更動通知</div>
+                      <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">當同學修改班專、調課時即時通知</div>
                     </div>
                   </div>
                   <Switch
-                    enabled={dndEnabled}
-                    onChange={handleToggleDnd}
-                    colorClass="bg-purple-500"
+                    enabled={localStorage.getItem('notif_schedule') === 'true'}
+                    onChange={async (val) => {
+                      if (!classID) return triggerNotification('請先設定班級', '課表通知需要班級代碼');
+                      localStorage.setItem('notif_schedule', String(val));
+                      try {
+                        await toggleTopicSubscription(`class_${classID}_alerts`, val);
+                        triggerNotification(val ? '已訂閱課表更新' : '已取消課表更新', val ? '將能獲得最即時的課程變動' : '已取消雲端監聽');
+                      } catch (e) { triggerNotification('同步失敗', '雲端連線異常'); }
+                    }}
+                    colorClass="bg-amber-500"
                   />
                 </div>
-                <div className="pt-2 border-t border-slate-50 dark:border-white/5 flex gap-3">
+
+                {/* 其他系統服務 */}
+                <div className="pt-2 border-t border-slate-50 dark:border-white/5 space-y-4">
+                  <div className="flex justify-between items-center py-1">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-purple-50 dark:bg-purple-500/10 rounded-xl flex items-center justify-center text-purple-500 shrink-0"><Moon size={20} className="shrink-0" /></div>
+                      <div>
+                        <div className="text-sm font-black text-[var(--text-primary)]">考試不打擾模式</div>
+                        <div className="text-[12px] font-bold text-slate-500 dark:text-gray-400">暫停上課與調課等即時通知</div>
+                      </div>
+                    </div>
+                    <Switch
+                      enabled={dndEnabled}
+                      onChange={handleToggleDnd}
+                      colorClass="bg-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex gap-3">
                   <button onClick={testPushNotification} className="flex-1 bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-300 px-4 py-3 rounded-2xl text-[12px] font-black flex justify-center items-center gap-2 active:scale-95 border border-slate-100 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
                     <Sparkles size={14} className="shrink-0" /> 測試推播
                   </button>

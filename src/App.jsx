@@ -41,7 +41,7 @@ const LandingPage = lazy(() => import('./components/layout/LandingPage'));
 const FeedbackTab = lazy(() => import('./components/tabs/FeedbackTab'));
 const CreditsTab = lazy(() => import('./components/tabs/CreditsTab'));
 const GradesTab = lazy(() => import('./components/tabs/GradesTab'));
-import CommandPalette from './components/layout/CommandPalette';
+const CommandPalette = lazy(() => import('./components/layout/CommandPalette'));
 import { IosNotification, WelcomeScreen, AuthScreen, PrivacyModal, TabSkeleton } from './components/ui/SharedComponents';
 
 // ─── 預載入輔助函式 ────────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ const preloadTab = (tabId) => {
     case 'settings': import('./components/tabs/SettingsTab'); break;
     case 'credits': import('./components/tabs/CreditsTab'); break;
     case 'grades': import('./components/tabs/GradesTab'); break;
+    case 'cmd': import('./components/layout/CommandPalette'); break;
     default: break;
   }
 };
@@ -99,19 +100,22 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
   const contentRef = useRef(null);
 
   // ─── 切換分頁並自動置頂 ───────────────────────────────────────
-  const navTo = (tabId) => {
+  const navTo = useCallback((tabId) => {
     if (tabId === activeTab) return;
     setPreviousTab(activeTab);
     setActiveTab(tabId);
-    if (contentRef.current) contentRef.current.scrollTo({ top: 0, behavior: 'auto' });
-  };
+    requestAnimationFrame(() => {
+      if (contentRef.current) contentRef.current.scrollTo({ top: 0, behavior: 'auto' });
+      window.scrollTo(0, 0);
+    });
+  }, [activeTab]);
 
   // 🚀 專屬跳轉：前往設定並展開指定子分頁
   const [settingsSubTab, setSettingsSubTab] = useState('general');
-  const navToSettings = (subTab = 'general') => {
+  const navToSettings = useCallback((subTab = 'general') => {
     setSettingsSubTab(subTab);
     navTo('settings');
-  };
+  }, [navTo]);
 
   // ─── 預載入邏輯 ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -158,6 +162,27 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
   // 考試不打擾模式狀態與切換邏輯
   const [dndEnabled, setDndEnabled] = useState(() => localStorage.getItem('gsat_dnd_enabled') === 'true');
 
+  // 🚀 全域雲端主題訂閱控制 (New Version)
+  const toggleTopicSubscription = useCallback(async (topic, isSubscribe) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') {
+      triggerNotification('權限不足', '請先允許瀏覽器推播通知');
+      return;
+    }
+
+    try {
+      const token = await getToken(messaging, { vapidKey: VAPID_KEY?.trim().replace(/\s/g, '') });
+      if (token && functions) {
+        const targetFunc = isSubscribe ? 'subscribeToTopic' : 'unsubscribeFromTopic';
+        const cloudFunc = httpsCallable(functions, targetFunc);
+        await cloudFunc({ token, topic });
+        console.log(`Cloud Notification: ${isSubscribe ? 'Subscribed' : 'Unsubscribed'} to ${topic}`);
+      }
+    } catch (e) {
+      console.error("Cloud Topic Error", e);
+      throw e;
+    }
+  }, [triggerNotification]);
+
   const handleToggleDnd = async (newVal) => {
     setDndEnabled(newVal);
     localStorage.setItem('gsat_dnd_enabled', String(newVal));
@@ -166,23 +191,18 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
       await setDoc(doc(db, 'Users', user.uid), { dndEnabled: newVal }, { merge: true });
     }
 
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!classID) return;
 
     try {
-      const token = await getToken(messaging, { vapidKey: VAPID_KEY?.trim().replace(/\s/g, '') });
-      if (token && classID && functions) {
-        if (newVal) {
-          const unsubscribe = httpsCallable(functions, 'unsubscribeFromTopic');
-          await unsubscribe({ token, topic: `class_${classID}_alerts` }).catch(e => console.warn(e));
-          triggerNotification('已開啟不打擾', '考試/上課期間將不再收到即時推播');
-        } else {
-          const subscribe = httpsCallable(functions, 'subscribeToTopic');
-          await subscribe({ token, topic: `class_${classID}_alerts` }).catch(e => console.warn(e));
-          triggerNotification('已關閉不打擾', '已恢復即時上課與調課提醒');
-        }
+      if (newVal) {
+        await toggleTopicSubscription(`class_${classID}_alerts`, false);
+        triggerNotification('已開啟不打擾', '考試/上課期間將不再收到即時推播');
+      } else {
+        await toggleTopicSubscription(`class_${classID}_alerts`, true);
+        triggerNotification('已關閉不打擾', '已恢復即時上課與調課提醒');
       }
     } catch (e) {
-      console.error("DND toggle error", e);
+      triggerNotification('同步失敗', '無法更新雲端訂閱狀態');
     }
   };
 
@@ -477,26 +497,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
             if (change.type === "added") {
               const data = change.doc.data();
 
-              // 🔴 關鍵修正：只對「App啟動後」才新增的通知進行推播
-              // 解決 Timestamp 物件與 Number 比對永遠為 false 的 Bug
-              let noticeTime = 0;
-              if (data.timestamp?.toMillis) noticeTime = data.timestamp.toMillis();
-              else if (typeof data.timestamp === 'number') noticeTime = data.timestamp;
-
-              if (noticeTime && noticeTime <= lastNoticeTimestamp.current) {
-                console.log('偵測到舊通知，已略過推播:', data.title);
-                return;
-              }
-
-              // 🚀 解除本地主動觸發，統一交由 Firebase Cloud Messaging 廣播發送 (解決三重重複)
-              // 這裡只負責更新畫面狀態或紅點
-
-              // 🔴 更新 iOS / Android 桌面 App 圖示的未讀紅點 (Badge API)
+              // 🚀 此處不觸發本地通知，統一交由雲端 Functions 透過 FCM 推播與鈴聲通知
+              // 只更新 iOS / Android 桌面圖示的未讀紅點 (Badge)
               setUnreadCount(prev => {
                 const nextCount = prev + 1;
-                if ('setAppBadge' in navigator) {
-                  navigator.setAppBadge(nextCount).catch(e => console.error(e));
-                }
+                if ('setAppBadge' in navigator) navigator.setAppBadge(nextCount).catch(() => {});
                 return nextCount;
               });
 
@@ -1284,6 +1289,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
                 setDashboardLayout={setDashboardLayout}
                 dndEnabled={dndEnabled}
                 handleToggleDnd={handleToggleDnd}
+                toggleTopicSubscription={toggleTopicSubscription}
                 subjects={subjects}
                 setSubjects={setSubjects}
                 schoolId={schoolId}

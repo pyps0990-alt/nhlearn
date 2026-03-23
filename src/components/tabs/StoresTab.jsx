@@ -242,4 +242,4 @@ const StoresTab = ({ isAdmin, campusName, schoolId }) => {
   );
 };
 
-export default StoresTab;
+export default React.memo(StoresTab);

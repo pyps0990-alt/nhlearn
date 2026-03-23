@@ -2171,4 +2171,4 @@ JSON 結構必須是這樣：
     </div>
   );
 };
-export default DashboardTab;
+export default React.memo(DashboardTab);

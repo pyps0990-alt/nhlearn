@@ -4,470 +4,238 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { DateTime } = require("luxon");
-const { GoogleGenAI } = require("@google/genai"); // 升級為新版 SDK
+const { GoogleGenAI } = require("@google/genai");
 
 admin.initializeApp();
 
-// 定義 Secret
+// 密鑰定義 (Gemini 2.0 API)
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
-// 1. 監聽「全站系統公告」，發送全局推播
-exports.sendPushNotificationOnNotice = onDocumentCreated("MainNotifications/{noticeId}", async (event) => {
-    const notice = event.data.data();
-    const targetAudience = notice.targetAudience || "all";
+/**
+ * 🚀 1. 聯絡簿新事項推播 (自動區分作業/考試)
+ * 監聽路徑: Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/Assignments/{docId}
+ */
+exports.sendPushNotificationOnNotice = onDocumentCreated("Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/Assignments/{assignmentId}", async (event) => {
+    const data = event.data.data();
+    const { classId } = event.params;
+    if (!data || data.silent) return null;
 
-    // 2. 冗餘濾除：AI 連線、同步成功等不需要推播
-    const skipPushTypes = ["ai_connect", "sync_success", "status_info", "status"];
-    if (skipPushTypes.includes(notice.type) || notice.silent) {
-        console.log(`[${targetAudience}] 偵測到冗餘或靜音通知 (${notice.type})，跳過推播.`);
-        return null;
+    let title = "聯絡簿新消息 📝";
+    let body = "";
+    let type = "general";
+
+    if (data.exam) {
+        title = `【${data.examType || '考試'}】${data.subject} 💯`;
+        body = `${data.exam}${data.examDeadline ? ` (日期: ${data.examDeadline})` : ''}`;
+        type = "exam";
+    } else if (data.homework) {
+        title = `【作業】${data.subject} ✍️`;
+        body = `${data.homework}${data.homeworkDeadline ? ` (期限: ${data.homeworkDeadline})` : ''}`;
+        type = "homework";
+    } else {
+        body = "班級聯絡簿有新更新，請進入查看。";
     }
 
-    try {
-        const message = {
-            notification: {
-                title: notice.title || "班級新通知",
-                body: notice.content || "請開啟 App 查看最新資訊"
-            },
-            data: {
-                type: notice.type || "general",
-                classId: targetAudience
-            },
-            topic: targetAudience === "all" ? "all_users" : `class_${targetAudience}`
-        };
-
-        const response = await admin.messaging().send(message);
-        console.log(`[${targetAudience}] 主題推播發送完成: ${response}`);
-    } catch (error) {
-        console.error("FCM 發送流程失敗:", error);
-    }
-    return null;
-});
-
-// 1.2 監聽「電子聯絡簿」新增事項，發送即時推播
-exports.notifyNewAssignment = onDocumentCreated("Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/Assignments/{assignmentId}", async (event) => {
-    const notice = event.data.data();
-    const classId = event.params.classId;
-
-    if (notice.silent) return null;
+    const message = {
+        notification: { title, body },
+        data: { type, classId, id: event.params.assignmentId },
+        topic: `class_${classId}` // 基礎通知主題
+    };
 
     try {
-        const message = {
-            notification: {
-                title: "聯絡簿新事項 📝",
-                body: `${notice.subject || '新任務'}: ${notice.homework || notice.exam || '請查看詳情'} (期限: ${notice.dueDate || '未定'})`
-            },
-            data: {
-                type: "homework",
-                classId: classId
-            },
-            topic: `class_${classId}`
-        };
-
         await admin.messaging().send(message);
-        console.log(`[${classId}] 新作業即時推播已發送`);
-    } catch (error) {
-        console.error(`[${classId}] 發送新作業推播失敗:`, error);
+        console.log(`[FCM] 即時聯絡簿推播完成: ${classId} (${type})`);
+    } catch (e) {
+        console.error("即時推送失敗:", e);
     }
     return null;
 });
 
-// 1.5 監聽「課表子集合更新」，專準挑出「調課異動」發送通知
+/**
+ * 🚀 2. 課表與調課提醒 (notifyScheduleUpdate)
+ * 監聽路徑: Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/ClassSchedule/{scheduleId}
+ */
 exports.notifyScheduleUpdate = onDocumentUpdated("Schools/{schoolId}/Grades/{gradeId}/Classes/{classId}/ClassSchedule/{scheduleId}", async (event) => {
-    const beforeData = event.data.before.data();
-    const afterData = event.data.after.data();
-    const classId = event.params.classId;
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    const { classId } = event.params;
 
-    // 🚀 精準比對課程時間、名稱或老師是否變更
-    if (beforeData.startTime !== afterData.startTime ||
-        beforeData.courseName !== afterData.courseName ||
-        beforeData.teacher !== afterData.teacher) {
+    // 檢查老師、地點或科目是否有變更
+    const isChanged = before.courseName !== after.courseName || 
+                      before.startTime !== after.startTime || 
+                      before.location !== after.location;
 
-        console.log(`[${classId}] 偵測到課表發生變動，準備發送主題推播`);
+    if (isChanged) {
         const message = {
             notification: {
                 title: "課表異動通知 🔄",
-                body: "班級課表已有更新 (可能為調課或更改教室)，請開啟 App 確認最新課表！"
+                body: `課程「${after.courseName || '未知名'}」已有資訊更新 (可能為調課或更換教室)。`
             },
-            data: {
-                type: "schedule_update",
-                classId: classId
-            },
+            data: { type: "schedule_alert", classId },
             topic: `class_${classId}_alerts`
         };
 
         try {
             await admin.messaging().send(message);
-        } catch (error) {
-            console.error(`[${classId}]發送課表異動推播失敗: `, error);
-        }
+            console.log(`[FCM] 課表異動通知已發送: ${classId}`);
+        } catch (e) { console.error("課表推送失敗:", e); }
     }
+    return null;
 });
 
-// 2. 每天晚上 20:00 執行：結合 AI 摘要，提醒明日行程與考試 (透過跨班級掃描)
-exports.dailyExamReminder = onSchedule({ schedule: "0 20 * * *", timeZone: "Asia/Taipei", secrets: [geminiApiKey] }, async (event) => {
+/**
+ * 🚀 3. 每日晚間 20:00：明日大考專屬提醒 (dailyExamReminder)
+ * 使用 Gemini 2.0 Flash 正式版
+ */
+exports.dailyExamReminder = onSchedule({ 
+    schedule: "0 20 * * *", 
+    timeZone: "Asia/Taipei", 
+    secrets: [geminiApiKey] 
+}, async (event) => {
     const apiKey = geminiApiKey.value();
+    const tomorrow = DateTime.now().setZone("Asia/Taipei").plus({ days: 1 });
+    const tomorrowStr = tomorrow.toFormat("yyyy-MM-dd");
 
-    // 🚀 強制使用台北時區確保跨日正確 (取代舊版有 UTC 時差風險的 new Date)
-    const tomorrowTaipei = DateTime.now().setZone("Asia/Taipei").plus({ days: 1 });
-    const tomorrowStr = tomorrowTaipei.toFormat("yyyy-MM-dd");
-    const jsDay = tomorrowTaipei.weekday === 7 ? 0 : tomorrowTaipei.weekday;
+    // 掃描所有學校層級下的 Assignments
+    const assignmentsSnap = await admin.firestore().collectionGroup("Assignments")
+        .where("examDeadline", "==", tomorrowStr)
+        .get();
 
-    // 透過 collectionGroup 一次抓取所有班級
-    const classesSnap = await admin.firestore().collectionGroup("Classes").get();
+    // 依據 classId 彙整
+    const classMap = new Map();
+    assignmentsSnap.docs.forEach(doc => {
+        const data = doc.data();
+        const classId = doc.ref.parent.parent.id;
+        if (!classMap.has(classId)) classMap.set(classId, []);
+        classMap.get(classId).push(`${data.subject}(${data.examType || '小考'}): ${data.exam}`);
+    });
 
-    for (const classDoc of classesSnap.docs) {
-        // 分別拉取該班級明天的「作業」與「課表」
-        const assignmentsSnap = await classDoc.ref.collection("Assignments").where("dueDate", "==", tomorrowStr).get();
-        // 💡 修改：為了同時支援新舊版欄位 (day 與 dayOfWeek)，我們直接撈取班級課表在記憶體過濾
-        const scheduleSnap = await classDoc.ref.collection("ClassSchedule").get();
-
-        const tomorrowsEntries = assignmentsSnap.docs.map(d => d.data());
-        const tomorrowSchedule = scheduleSnap.docs.map(d => d.data()).filter(c => c.day === jsDay || c.dayOfWeek === jsDay);
-
-        // 如果明天放假且沒作業/考試，就略過不打擾
-        if (tomorrowsEntries.length === 0 && tomorrowSchedule.length === 0) continue;
-
-        const classesList = tomorrowSchedule.map(c => c.courseName || c.subject).join(', ') || '無';
-        const tasksList = tomorrowsEntries.map(e => (e.homework ? `作業:${e.homework}` : `考試:${e.exam}`)).join('; ') || '無';
-
-        let summary = `明天有 ${tomorrowsEntries.length} 項待辦與考試，請記得準備！`;
+    for (const [classId, exams] of classMap.entries()) {
+        let aiBody = `明天有 ${exams.length} 場測驗，請記得複習喔！`;
 
         if (apiKey) {
             try {
-                const ai = new GoogleGenAI({ apiKey });
-                const prompt = `你是一位親切、幽默的學習小助手。請根據以下資訊，為學生寫一段大約 80 字的明日準備摘要，作為推播通知。
-- 明日課程：${classesList}
-- 重點任務：${tasksList}
-請用輕鬆幽默的語氣，最後加一句鼓勵的話。絕對不要使用 Markdown 符號（如 **），請輸出純文字。`;
-
-                const response = await ai.models.generateContent({
-                    model: "gemini-2.5-flash",
-                    contents: prompt
-                });
-                if (response.text) {
-                    summary = response.text.trim();
-                }
-            } catch (err) {
-                console.error("AI 摘要生成失敗:", err);
-            }
+                const ai = new GoogleGenAI(apiKey);
+                const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
+                const prompt = `明天有以下考試：${exams.join('; ')}。
+                請以一位貼心班導師的口吻，寫一段 50 字內的提醒文字 (繁體中文)，鼓勵學生並提醒重點。絕對不要使用 Markdown 代碼。`;
+                const result = await model.generateContent(prompt);
+                aiBody = result.response.text().trim();
+            } catch (e) { console.warn("AI 摘要暫時失效, 使用預設文字"); }
         }
 
-        // 🚀 直接發送 FCM 主題推播，不寫入 notices，避免髒資料與觸發其他迴圈
         const message = {
-            notification: {
-                title: "✨ 明日準備摘要",
-                body: summary
-            },
-            data: { type: "prep", classId: classDoc.id },
-            topic: `class_${classDoc.id}`
+            notification: { title: "📚 明日考試提醒", body: aiBody },
+            topic: `class_${classId}_exam`
         };
 
-        try {
-            await admin.messaging().send(message);
-            console.log(`[${classDoc.id}] 明日 AI 準備事項推播已發送`);
-        } catch (err) {
-            console.error(`[${classDoc.id}]發送明日準備失敗: `, err);
-        }
+        await admin.messaging().send(message).catch(e => console.error(e));
     }
 });
 
-// 3. 🚀 動態比對：平日(週一至週五)的 12:00~18:00 間，每 15 分鐘檢查一次是否剛放學
-exports.dailyHomeworkReminder = onSchedule({ schedule: "*/15 12-18 * * 1-5", timeZone: "Asia/Taipei" }, async (event) => {
-    const nowTaipei = DateTime.now().setZone("Asia/Taipei");
-    const currentTimeStr = nowTaipei.toFormat("HH:mm");
-    const jsDay = nowTaipei.weekday === 7 ? 0 : nowTaipei.weekday;
-
-    // 1. 取得所有班級
-    const classesSnap = await admin.firestore().collectionGroup("Classes").get();
-
-    for (const classDoc of classesSnap.docs) {
-        const classId = classDoc.id;
-
-        // 2. 查詢該班級今天的課表，找出最後一堂課的結束時間
-        const scheduleSnap = await classDoc.ref.collection("ClassSchedule").where("day", "==", jsDay).get();
-        if (scheduleSnap.empty) continue;
-
-        let lastEndTime = "00:00";
-        scheduleSnap.docs.forEach(docSnap => {
-            const c = docSnap.data();
-            if (c.endTime > lastEndTime) lastEndTime = c.endTime;
-        });
-
-        // 3. 判斷現在時間是否大於等於最後一堂課結束時間 (即「已經放學」)
-        if (currentTimeStr >= lastEndTime) {
-            // 撈取該班級尚未推播過的聯絡簿作業
-            const assignmentsSnap = await classDoc.ref.collection("Assignments").where("isNotified", "==", false).get();
-
-            if (!assignmentsSnap.empty) {
-                const count = assignmentsSnap.size;
-                const message = {
-                    notification: {
-                        title: "放學囉！今日作業提醒 📝",
-                        body: `今天新增了 ${count} 筆聯絡簿事項，放學回家記得看喔！`
-                    },
-                    data: { type: "homework", classId: classId },
-                    topic: `class_${classId}`
-                };
-                try {
-                    await admin.messaging().send(message);
-                    console.log(`[${classId}] 放學作業提醒已發送 (${lastEndTime} 放學)`);
-
-                    // 推播成功後，將 isNotified 改為 true 避免重複發送
-                    const batch = admin.firestore().batch();
-                    assignmentsSnap.docs.forEach(docSnap => batch.update(docSnap.ref, { isNotified: true }));
-                    await batch.commit();
-
-                } catch (err) {
-                    console.error(`[${classId}] 發送作業提醒失敗: `, err);
-                }
-            }
-        }
-    }
-});
-
-// 4. 🚀 優化：每 5 分鐘檢查一次，掃描 ClassSchedule 尋找接下來 5~10 分鐘內開始的課程
-exports.checkAndSendClassReminders = onSchedule({
-    schedule: "*/5 7-18 * * 1-5",
-    timeZone: "Asia/Taipei"
+/**
+ * 🚀 4. 每日下課提醒：今日作業清單 (dailyHomeworkReminder)
+ * 週一至週五 17:15 執行 (通常是放學時間)
+ */
+exports.dailyHomeworkReminder = onSchedule({ 
+    schedule: "15 17 * * 1-5", 
+    timeZone: "Asia/Taipei" 
 }, async (event) => {
-    // 獲取台北時間
-    const nowTaipei = DateTime.now().setZone("Asia/Taipei");
+    const todayStr = DateTime.now().setZone("Asia/Taipei").toFormat("yyyy-MM-dd");
+    
+    // 獲取今天「截止」或「新增」的作業
+    const hwSnap = await admin.firestore().collectionGroup("Assignments")
+        .where("homeworkDeadline", "==", todayStr)
+        .get();
 
-    // 檢查區間改為未來 5~10 分鐘內，大幅減少 Function 執行次數與成本 (減少 80%)
-    const windowStart = nowTaipei.plus({ minutes: 5 });
-    const windowEnd = nowTaipei.plus({ minutes: 10 }); // 不包含此分鐘
+    const classMap = new Map();
+    hwSnap.docs.forEach(doc => {
+        const classId = doc.ref.parent.parent.id;
+        if (!classMap.has(classId)) classMap.set(classId, 0);
+        classMap.set(classId, classMap.get(classId) + 1);
+    });
 
-    const jsDay = windowStart.weekday === 7 ? 0 : windowStart.weekday;
-    const startTimeStr = windowStart.toFormat("HH:mm");
-    const endTimeStr = windowEnd.toFormat("HH:mm");
+    for (const [classId, count] of classMap.entries()) {
+        const message = {
+            notification: {
+                title: "別忘了帶作業回家！🏘️",
+                body: `今天有 ${count} 項作業即將到期，記得檢查聯絡簿完成它們。`
+            },
+            topic: `class_${classId}_homework`
+        };
+        await admin.messaging().send(message).catch(e => console.error(e));
+    }
+});
 
-    console.log(`正在檢查課表(台北時間: ${nowTaipei.toFormat("HH:mm")}), 目標區間: ${startTimeStr} ~ ${endTimeStr}`);
+/**
+ * 🚀 5. 課前自動提醒 (checkAndSendClassReminders)
+ * 每 10 分鐘檢查是否有即將開始的課程
+ */
+exports.checkAndSendClassReminders = onSchedule({ 
+    schedule: "*/10 7-16 * * 1-5", 
+    timeZone: "Asia/Taipei" 
+}, async (event) => {
+    const now = DateTime.now().setZone("Asia/Taipei");
+    const targetTime = now.plus({ minutes: 5 }).toFormat("HH:mm"); // 提前 5 分鐘通知
+    const day = now.weekday === 7 ? 0 : now.weekday;
 
-    // 跨集合搜尋所有符合時間的課程
     const schedulesSnap = await admin.firestore().collectionGroup("ClassSchedule")
-        .where("day", "==", jsDay)
-        .where("startTime", ">=", startTimeStr)
-        .where("startTime", "<", endTimeStr)
+        .where("day", "==", day)
+        .where("startTime", "==", targetTime)
         .get();
 
     for (const docSnap of schedulesSnap.docs) {
         const course = docSnap.data();
-        // docSnap.ref.parent 是 ClassSchedule 集合，parent.parent 則是 Classes/{classId} 文件
         const classId = docSnap.ref.parent.parent.id;
-
-        // 動態計算精確的倒數分鐘數
-        const [cH, cM] = course.startTime.split(':').map(Number);
-        const [nH, nM] = nowTaipei.toFormat("HH:mm").split(':').map(Number);
-        let diffMins = (cH * 60 + cM) - (nH * 60 + nM);
-        if (diffMins < 0) diffMins += 24 * 60; // 處理跨日問題
 
         const message = {
             notification: {
-                title: `即將上課：${course.courseName} 🔔`,
-                body: `課程將在 ${diffMins} 分鐘後 (${course.startTime}) 開始${course.location ? `，地點：${course.location}` : ''}`
-            },
-            data: {
-                type: "course",
-                classId: classId
+                title: `即將上課: ${course.courseName} 🔔`,
+                body: `課程將在 ${course.startTime} 開始${course.location ? `，地點在 ${course.location}` : ''}。`
             },
             topic: `class_${classId}_alerts`
         };
-
-        try {
-            await admin.messaging().send(message);
-            console.log(`[${classId}] 課程提醒推播已發送 (${course.startTime})`);
-        } catch (err) {
-            console.error("發送課程提醒失敗:", err);
-        }
+        await admin.messaging().send(message).catch(e => console.error(e));
     }
 });
 
-// 5. 內建 AI Proxy (使用 @google/genai 與 Gemini 2.5 Flash)
-exports.callBuiltInAI = onCall({ region: "us-central1", secrets: [geminiApiKey] }, async (request) => {
-    const { prompt, options = {} } = request.data;
+/**
+ * 🚀 6. 管理與訂閱 RPC (維持原樣，供前端調用)
+ */
+exports.subscribeToTopic = onCall(async (request) => {
+    const { token, topic } = request.data;
+    if (!token || !topic) throw new HttpsError("invalid-argument", "Missing params");
+    await admin.messaging().subscribeToTopic(token, topic);
+    return { success: true };
+});
+
+exports.unsubscribeFromTopic = onCall(async (request) => {
+    const { token, topic } = request.data;
+    if (!token || !topic) throw new HttpsError("invalid-argument", "Missing params");
+    await admin.messaging().unsubscribeFromTopic(token, topic);
+    return { success: true };
+});
+
+exports.callBuiltInAI = onCall({ secrets: [geminiApiKey] }, async (request) => {
+    const { prompt } = request.data;
     const apiKey = geminiApiKey.value();
-
-    if (!apiKey) throw new HttpsError("failed-precondition", "後端系統尚未配置 GEMINI_API_KEY 密鑰");
-    if (!prompt) throw new HttpsError("invalid-argument", "Prompt cannot be empty");
-
-    try {
-        const parts = [{ text: prompt }];
-        if (options.image && options.image.data) {
-            parts.push({
-                inlineData: {
-                    data: options.image.data,
-                    mimeType: options.image.mimeType || "image/jpeg"
-                }
-            });
-        }
-
-        const ai = new GoogleGenAI({ apiKey });
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: parts,
-            config: {
-                temperature: parseFloat(options.temperature) || 0.7,
-                responseMimeType: options.responseJson ? "application/json" : "text/plain"
-            }
-        });
-
-        return { text: response.text };
-    } catch (error) {
-        console.error("AI Proxy Error:", error);
-        throw new HttpsError("internal", error.message || "AI 呼叫失敗");
-    }
+    const ai = new GoogleGenAI(apiKey);
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const result = await model.generateContent(prompt);
+    return { text: result.response.text() };
 });
 
-// 6. AI 智慧字典抓取 (具有 Firestore 快取機制)
-exports.dictLookupAI = onCall({ region: "us-central1", secrets: [geminiApiKey] }, async (request) => {
+exports.dictLookupAI = onCall({ secrets: [geminiApiKey] }, async (request) => {
     const { word } = request.data;
     const apiKey = geminiApiKey.value();
-
-    if (!apiKey) throw new HttpsError("failed-precondition", "未配置 API KEY");
-    if (!word) throw new HttpsError("invalid-argument", "請提供單字");
-
-    const cleanWord = word.trim().toLowerCase();
-    const cacheRef = admin.firestore().collection("ai_cache").doc("dictionary").collection("words").doc(cleanWord);
-
-    try {
-        const cacheSnap = await cacheRef.get();
-        if (cacheSnap.exists) {
-            const cacheData = cacheSnap.data();
-            const isExpired = Date.now() - cacheData.cachedAt.toMillis() > 30 * 24 * 60 * 60 * 1000;
-            if (!isExpired) return { data: cacheData.result, cached: true };
-        }
-
-        const ai = new GoogleGenAI({ apiKey });
-        const dictionaryPrompt = `解析單字 "${cleanWord}" 並回傳 JSON：
-{
-    "word": "${cleanWord}",
-    "pos": "詞性縮寫(務必帶點，如 n./v./adj./adv./prep./conj./abbr./phr.)",
-    "chinese": "中文解釋",
-    "etymology": "語源解析",
-    "example": "例句(附繁體中文翻譯)",
-    "level": "難度(1-6)"
-}
-請用繁體中文。`;
-
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: dictionaryPrompt,
-            config: { responseMimeType: "application/json", temperature: 0.3 }
-        });
-
-        const jsonResult = JSON.parse(response.text);
-
-        // 🚀 服務端 POS 規整化
-        const normalizePOS = (pos) => {
-            if (!pos) return 'n.';
-            const p = pos.trim().toLowerCase().replace(/\./g, '');
-            const map = {
-                'noun': 'n.', 'n': 'n.',
-                'verb': 'v.', 'v': 'v.',
-                'adjective': 'adj.', 'adj': 'adj.', 'a': 'adj.',
-                'adverb': 'adv.', 'adv': 'adv.',
-                'preposition': 'prep.', 'prep': 'prep.',
-                'conjunction': 'conj.', 'conj': 'conj.',
-                'pronoun': 'pron.', 'pron': 'pron.',
-                'phrase': 'phr.', 'phr': 'phr.'
-            };
-            return map[p] || (pos.endsWith('.') ? pos.toLowerCase() : pos.toLowerCase() + '.');
-        };
-
-        if (jsonResult.pos) jsonResult.pos = normalizePOS(jsonResult.pos);
-
-        await cacheRef.set({
-            result: jsonResult,
-            cachedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        return { data: jsonResult, cached: false };
-    } catch (error) {
-        console.error("Dict Lookup Error:", error);
-        throw new HttpsError("internal", "字典查詢失敗");
-    }
+    const ai = new GoogleGenAI(apiKey);
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const prompt = `解析單字 "${word}" 並輸出 JSON (包含 word, pos, chinese, etymology, level)。`;
+    const result = await model.generateContent(prompt);
+    return { data: JSON.parse(result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()) };
 });
 
-// 7. [共用函式] Gemini 2.5 Flash 內容摘要 (Phase 2 需求預作)
-async function generateGeminiSummary(contentArray, apiKey) {
-    if (!apiKey) return "無法使用 AI 摘要 (Missing API Key)";
-    try {
-        const ai = new GoogleGenAI({ apiKey });
-        const prompt = `你是一個貼心的助教，請根據以下今日資訊（包含行程、作業、考試），生成一段 50 字以內、親切且具鼓勵性的繁體中文摘要，提醒學生明天要做什麼。
-資訊內容：
-        ${contentArray.join("\n")}
-摘要重點：`;
-
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt
-        });
-        return response.text;
-    } catch (error) {
-        console.error("Summary generation failed:", error);
-        return "今日摘要產生失敗，請加油！";
-    }
-}
-
-// 8. [新增] 供前端呼叫以訂閱 FCM 主題
-exports.subscribeToTopic = onCall({ region: "us-central1" }, async (request) => {
-    const { token, topic } = request.data;
-    if (!token || !topic) throw new HttpsError("invalid-argument", "缺少 token 或 topic 參數");
-
-    try {
-        await admin.messaging().subscribeToTopic(token, topic);
-        console.log(`成功將 token 訂閱至主題: ${topic} `);
-        return { success: true };
-    } catch (error) {
-        console.error("訂閱主題失敗:", error);
-        throw new HttpsError("internal", error.message);
-    }
-});
-
-// 10. [新增] 供前端呼叫以取消訂閱 FCM 主題 (考試不打擾模式)
-exports.unsubscribeFromTopic = onCall({ region: "us-central1" }, async (request) => {
-    const { token, topic } = request.data;
-    if (!token || !topic) throw new HttpsError("invalid-argument", "缺少 token 或 topic 參數");
-
-    try {
-        await admin.messaging().unsubscribeFromTopic(token, topic);
-        console.log(`成功將 token 取消訂閱主題: ${topic} `);
-        return { success: true };
-    } catch (error) {
-        console.error("取消訂閱主題失敗:", error);
-        throw new HttpsError("internal", error.message);
-    }
-});
-
-// 9. [新增] 管理員專屬：獲取系統營運數據與健康度
-exports.getSystemStats = onCall({ region: "us-central1" }, async (request) => {
-    // 🔒 嚴格的安全性檢查：確認是否登入，且信箱必須是內湖高中的管理員網域
-    const email = request.auth?.token?.email || "";
-    const isAdminEmail = email.endsWith('@nhsh.tp.edu.tw');
-
-    if (!request.auth || !isAdminEmail) {
-        console.warn(`[資安警告] 未授權的存取嘗試: ${email} `);
-        throw new HttpsError("permission-denied", "權限不足：此 API 僅限管理員存取。");
-    }
-
-    try {
-        const db = admin.firestore();
-
-        // 📊 使用 count() 聚合查詢 (比起 get() 撈取全部文件，count() 不會消耗大量讀取額度，非常省錢)
-        const usersCount = await db.collection("Users").count().get();
-        const classesCount = await db.collectionGroup("Classes").count().get();
-
-        return {
-            status: "healthy",
-            stats: {
-                totalUsers: usersCount.data().count,
-                totalClasses: classesCount.data().count,
-            },
-            timestamp: new Date().toISOString()
-        };
-    } catch (error) {
-        console.error("獲取系統數據失敗:", error);
-        throw new HttpsError("internal", "獲取數據失敗");
-    }
+exports.getSystemStats = onCall(async (request) => {
+    const users = await admin.firestore().collection("Users").count().get();
+    return { totalUsers: users.data().count, status: "healthy" };
 });

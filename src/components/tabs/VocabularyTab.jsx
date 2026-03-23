@@ -1825,6 +1825,8 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
             setCampusSemester={setCampusSemester}
             campusUnit={campusUnit}
             setCampusUnit={setCampusUnit}
+            campusStage={campusStage}
+            setCampusStage={setCampusStage}
 
             user={user}
             schoolId={schoolId}
@@ -1926,9 +1928,9 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
 // WORD CARD (Optimized for Mobile Performance)
 // ═══════════════════════════════════════════════════════════════════════════════
 const WordCard = React.memo(({
-  word, idx, currentSet, savedWords, setSavedWords, addWords,
-  setDetailedWordId, handleSpeak, playVoice, accent, posColors,
-  isBatchMode, selectedBatch, setSelectedBatch, deleteWord, isAdmin
+  word, idx, currentSet, savedWords, handleToggleSaved,
+  handleWordClick, playVoice, accent, posColors,
+  isBatchMode, selectedBatch, handleBatchToggle, deleteWord, isAdmin
 }) => {
   const currentMeanings = getMeanings(word);
   const safeId = word.id;
@@ -1941,8 +1943,7 @@ const WordCard = React.memo(({
       <div
         className="flex items-center gap-5 px-6 py-[22px] cursor-pointer relative"
         onClick={() => {
-          handleSpeak(null, word.word);
-          setDetailedWordId(word.id);
+          handleWordClick(word);
         }}
       >
         {isBatchMode && (
@@ -1950,10 +1951,7 @@ const WordCard = React.memo(({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                const next = new Set(selectedBatch);
-                if (next.has(safeId)) next.delete(safeId);
-                else next.add(safeId);
-                setSelectedBatch(next);
+                handleBatchToggle(safeId);
               }}
               className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedBatch.has(safeId) ? 'bg-indigo-500 border-indigo-500 text-white scale-110 shadow-lg' : 'border-slate-300 dark:border-slate-600'}`}
             >
@@ -1972,9 +1970,7 @@ const WordCard = React.memo(({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (savedWords.has(safeId)) return;
-                    setSavedWords(prev => new Set(prev).add(safeId));
-                    addWords([word], 'Personal', false);
+                    handleToggleSaved(word);
                   }}
                   className={`p-2 rounded-full transition-all active:scale-90 ${savedWords.has(safeId) ? 'text-rose-500 bg-rose-50 dark:bg-rose-500/10' : 'text-slate-300 hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-white/10'}`}
                 >
@@ -2076,6 +2072,7 @@ const WordBank = ({
   campusGrade, setCampusGrade,
   campusSemester, setCampusSemester,
   campusStage, setCampusStage,
+  campusUnit, setCampusUnit,
 
   user, schoolId, gradeId,
   filterLevel, setFilterLevel,
@@ -2092,22 +2089,55 @@ const WordBank = ({
   const [filterTagMeaning, setFilterTagMeaning] = useState('');
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState(new Set());
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
 
   // 記錄本次 session 已經點擊加入收藏的單字 ID，用於即時顯示動畫與狀態
   const [savedWords, setSavedWords] = useState(new Set());
 
+  // 🚀 核心優化：使用 useCallback 穩定所有傳給 WordCard 的 Props
+  const handleWordClick = useCallback((word) => {
+    playVoice(word.word, accent);
+    setDetailedWordId(word.id);
+  }, [playVoice, accent, setDetailedWordId]);
+
+  const handleToggleSaved = useCallback((word) => {
+    const safeId = word.id;
+    if (savedWords.has(safeId)) return;
+    setSavedWords(prev => {
+      const next = new Set(prev);
+      next.add(safeId);
+      return next;
+    });
+    addWords([word], 'Personal', false);
+    triggerNotification('已收藏', `「${word.word}」已加入個人字庫`);
+  }, [savedWords, addWords, triggerNotification]);
+
+  const handleBatchToggle = useCallback((safeId) => {
+    setSelectedBatch(prev => {
+      const next = new Set(prev);
+      if (next.has(safeId)) next.delete(safeId);
+      else next.add(safeId);
+      return next;
+    });
+  }, []);
+
   // 🌟 單字庫專屬的拖動 (Drag to Scroll) 邏輯
   const scrollRefSet = useRef(null);
   const [dragState, setDragState] = useState({ isDragging: false, startX: 0, scrollLeft: 0 });
-  const onDragStart = (e) => {
+  const onDragStart = useCallback((e) => {
+    if (!scrollRefSet.current) return;
     setDragState({ isDragging: true, startX: e.pageX - scrollRefSet.current.offsetLeft, scrollLeft: scrollRefSet.current.scrollLeft });
-  };
-  const onDragMove = (e) => {
-    if (!dragState.isDragging) return;
+  }, []);
+
+  const onDragMove = useCallback((e) => {
+    if (!dragState.isDragging || !scrollRefSet.current) return;
     e.preventDefault();
     scrollRefSet.current.scrollLeft = dragState.scrollLeft - (e.pageX - scrollRefSet.current.offsetLeft - dragState.startX) * 2;
-  };
+  }, [dragState]);
+
+  const onDragEnd = useCallback(() => {
+    setDragState(prev => ({ ...prev, isDragging: false }));
+  }, []);
 
   // 動態萃取所有不重複的標籤及其意義 (從 aiAnalysis 中反查)
   const ObjectMaps = useMemo(() => {
@@ -2123,6 +2153,7 @@ const WordBank = ({
         const { breakdown } = parseMorphology(w.aiAnalysis);
         if (breakdown) {
           breakdown.forEach(p => {
+            if (!p.value || !p.label) return;
             const cleanValue = p.value.replace(/[^a-zA-Z]/g, '').toLowerCase();
             const tag = `${p.label.toLowerCase()}:${cleanValue}`;
             if (p.meaning) {
@@ -2157,7 +2188,10 @@ const WordBank = ({
       );
     }
 
-    if (filterPos !== 'all') list = list.filter(w => getMeanings(w).some(m => (m.pos || '').toLowerCase().includes(filterPos.toLowerCase())));
+    if (filterPos !== 'all') {
+      const fPos = filterPos.toLowerCase();
+      list = list.filter(w => getMeanings(w).some(m => (m.pos || '').toLowerCase().includes(fPos)));
+    }
 
     // 🚀 強化版標籤篩選：若點選的字根與其他字根意義相同 (如 dic/dict)，合併顯示與篩選
     if (filterTag !== 'all') {
@@ -2192,7 +2226,8 @@ const WordBank = ({
     }
 
     return list;
-  }, [words, search, filterPos, filterTag, filterLearned, filterLevel]);
+  }, [words, search, filterPos, filterTag, filterLearned, filterLevel, tagMeaningMap, meaningToTagsMap, filterTagMeaning]);
+
 
   const handleAiAnalyze = async (id, word) => {
     setAnalyzingIds(prev => new Set(prev).add(id));
@@ -2466,7 +2501,10 @@ const WordBank = ({
               {/* 第二排：單元選擇 (橫向捲動) */}
               <div
                 ref={scrollRefSet}
-                onMouseDown={onDragStart} onMouseLeave={() => setDragState({ ...dragState, isDragging: false })} onMouseUp={() => setDragState({ ...dragState, isDragging: false })} onMouseMove={onDragMove}
+                onMouseDown={onDragStart} 
+                onMouseLeave={onDragEnd} 
+                onMouseUp={onDragEnd} 
+                onMouseMove={onDragMove}
                 className="flex gap-2 overflow-x-auto scrollbar-hide py-1 cursor-grab select-none active:cursor-grabbing"
               >
                 {Array.from({ length: 16 }).map((_, i) => {
@@ -2592,7 +2630,7 @@ const WordBank = ({
         )}
       </div>
 
-      {/* 啟用中的篩選摘要 */}
+      {/* 3. 啟用中的篩選摘要 */}
       {(filterPos !== 'all' || filterLearned !== 'all' || filterLevel !== 'all') && (
         <div className="flex items-center gap-1.5 px-2 animate-fadeIn mb-2">
           <span className="text-[10px] font-black text-slate-400">篩選作用中：</span>
@@ -2603,6 +2641,69 @@ const WordBank = ({
           </div>
           <button onClick={() => { setFilterPos('all'); setFilterLearned('all'); setFilterLevel('all'); }}
             className="ml-auto text-[10px] font-black text-rose-400 hover:text-rose-500 transition-colors active:scale-95 px-2 py-1">清除</button>
+        </div>
+      )}
+
+      {/* 4. 進階篩選面板 (詞性、等級、掌握度) */}
+      {showFilters && (
+        <div className="mx-1 mb-2 p-4 bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl rounded-[24px] border border-white/60 dark:border-white/10 shadow-sm animate-in slide-in-from-top-2 duration-300 space-y-4">
+          {/* 詞性篩選 */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">詞性篩選 POS</span>
+              {filterPos !== 'all' && <button onClick={() => setFilterPos('all')} className="text-[10px] font-black text-emerald-500 hover:underline">重設</button>}
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto scrollbar-hide py-0.5">
+              {posList.map(pos => (
+                <button
+                  key={pos} onClick={() => setFilterPos(pos === filterPos ? 'all' : pos)}
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition-all active:scale-95 border ${filterPos === pos 
+                    ? 'bg-emerald-500 text-white border-transparent shadow-md' 
+                    : 'bg-white/60 dark:bg-zinc-800 text-slate-500 dark:text-gray-400 border-white/80 dark:border-white/5 hover:bg-white dark:hover:bg-zinc-700'}`}
+                >
+                  {pos === 'all' ? '全部' : pos}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* 掌握度 */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">掌握度 Learned</span>
+              <div className="flex bg-slate-100 dark:bg-zinc-800/50 p-1 rounded-xl">
+                {[
+                  { id: 'all', label: '全部' },
+                  { id: 'learned', label: '已學' },
+                  { id: 'unlearned', label: '未學' }
+                ].map(l => (
+                  <button key={l.id} onClick={() => setFilterLearned(l.id)}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all ${filterLearned === l.id ? 'bg-white dark:bg-zinc-700 text-indigo-600 shadow-sm' : 'text-slate-400'}`}>
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 難度標記 */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block px-1">難度 Level</span>
+              <div className="flex bg-slate-100 dark:bg-zinc-800/50 p-1 rounded-xl">
+                {[
+                  { id: 'all', label: '全部' },
+                  { id: '1', label: 'L1' },
+                  { id: '2', label: 'L2' },
+                  { id: '3', label: 'L3' },
+                  { id: '4', label: 'L4' }
+                ].map(lv => (
+                  <button key={lv.id} onClick={() => setFilterLevel(lv.id)}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all ${filterLevel === lv.id ? 'bg-white dark:bg-zinc-700 text-amber-500 shadow-sm' : 'text-slate-400'}`}>
+                    {lv.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2671,16 +2772,14 @@ const WordBank = ({
               idx={idx}
               currentSet={currentSet}
               savedWords={savedWords}
-              setSavedWords={setSavedWords}
-              addWords={addWords}
-              setDetailedWordId={setDetailedWordId}
-              handleSpeak={handleSpeak}
+              handleToggleSaved={handleToggleSaved}
+              handleWordClick={handleWordClick}
               playVoice={playVoice}
               accent={accent}
               posColors={posColors}
               isBatchMode={isBatchMode}
               selectedBatch={selectedBatch}
-              setSelectedBatch={setSelectedBatch}
+              handleBatchToggle={handleBatchToggle}
               deleteWord={deleteWord}
               isAdmin={isAdmin}
             />
@@ -2688,18 +2787,18 @@ const WordBank = ({
         )}
       </div>
 
-      {/* 單字詳情彈窗 */}
+      {/* 單字詳情彈窗 - 延遲渲染以提升效能 */}
       {detailedWordId && (
         <WordDetailOverlay
-          word={filtered.find(w => w.id === detailedWordId) || words.find(w => w.id === detailedWordId)}
-          analysis={aiAnalysisData[detailedWordId] || filtered.find(w => w.id === detailedWordId)?.aiAnalysis || words.find(w => w.id === detailedWordId)?.aiAnalysis}
+          word={words.find(w => w.id === detailedWordId)}
+          analysis={aiAnalysisData[detailedWordId] || words.find(w => w.id === detailedWordId)?.aiAnalysis}
           isAnalyzing={analyzingIds.has(detailedWordId)}
           handleAiAnalyze={handleAiAnalyze}
           currentSet={currentSet}
           isSaved={savedWords.has(detailedWordId)}
           onSave={() => setSavedWords(prev => new Set(prev).add(detailedWordId))}
-          addWords={addWords}
           onClose={() => setDetailedWordId(null)}
+          addWords={addWords}
           updateWord={updateWord}
           triggerNotification={triggerNotification}
           playVoice={playVoice}
@@ -2713,6 +2812,7 @@ const WordBank = ({
           setCurrentSet={setCurrentSet}
         />
       )}
+
     </div>
   );
 };
@@ -3641,4 +3741,4 @@ const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin, currentSet }) =>
       )}
     </div>
   );
-};
+}
