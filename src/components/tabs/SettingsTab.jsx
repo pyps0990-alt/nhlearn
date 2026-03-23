@@ -30,7 +30,8 @@ const SettingsTab = ({
   schoolId, setSchoolId, navTo,
   gradeId, setGradeId,
   showTrafficTab, setShowTrafficTab,
-  examPeriods = []
+  examPeriods = [],
+  toggleTopicSubscription
 }) => {
   const [adminPassword, setAdminPassword] = useState('');
   const [editingCampus, setEditingCampus] = useState(false);
@@ -137,6 +138,9 @@ const SettingsTab = ({
   // 權限狀態
   const [locPermission, setLocPermission] = useState('prompt');
   const [notifPermission, setNotifPermission] = useState(Notification.permission);
+  const [notifHomework, setNotifHomework] = useState(() => localStorage.getItem('notif_homework') === 'true');
+  const [notifExam, setNotifExam] = useState(() => localStorage.getItem('notif_exam') === 'true');
+  const [notifSchedule, setNotifSchedule] = useState(() => localStorage.getItem('notif_schedule') === 'true');
 
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [newLinkTitle, setNewLinkTitle] = useState('');
@@ -1034,14 +1038,20 @@ const SettingsTab = ({
                     </div>
                   </div>
                   <Switch
-                    enabled={localStorage.getItem('notif_homework') === 'true'}
-                    onChange={async (val) => {
+                    enabled={notifHomework}
+                    onChange={(val) => {
                       if (!classID) return triggerNotification('請先設定班級', '作業通知需要班級代碼才能同步');
+                      setNotifHomework(val);
                       localStorage.setItem('notif_homework', String(val));
-                      try {
-                        await toggleTopicSubscription(`class_${classID}_homework`, val);
+                      
+                      // 背景靜默同步
+                      toggleTopicSubscription(`class_${classID}_homework`, val).then(() => {
                         triggerNotification(val ? '已訂閱作業提醒' : '已取消作業提醒', val ? '每天晚上將準時送到' : '已關閉雲端排程');
-                      } catch (e) { triggerNotification('同步失敗', '請確認網路連線'); }
+                      }).catch(e => { 
+                        console.error("Homework notification toggle error:", e);
+                        triggerNotification('同步失敗', `作業提醒連線錯誤：${e.message || '請檢查網路'}`); 
+                        setNotifHomework(!val); // 失敗時回滾
+                      });
                     }}
                     colorClass="bg-emerald-500"
                   />
@@ -1057,14 +1067,19 @@ const SettingsTab = ({
                     </div>
                   </div>
                   <Switch
-                    enabled={localStorage.getItem('notif_exam') === 'true'}
-                    onChange={async (val) => {
+                    enabled={notifExam}
+                    onChange={(val) => {
                       if (!classID) return triggerNotification('請先設定班級', '考試提醒需要班級代碼才能同步');
+                      setNotifExam(val);
                       localStorage.setItem('notif_exam', String(val));
-                      try {
-                        await toggleTopicSubscription(`class_${classID}_exam`, val);
+
+                      toggleTopicSubscription(`class_${classID}_exam`, val).then(() => {
                         triggerNotification(val ? '已訂閱考試提醒' : '已取消考試提醒', val ? '祝你今天考試順利！' : '已停用雲端推播');
-                      } catch (e) { triggerNotification('同步失敗', '請確認網路連線'); }
+                      }).catch(e => { 
+                        console.error("Exam notification toggle error:", e);
+                        triggerNotification('同步失敗', `考試提醒連線錯誤：${e.message || '請檢查網路'}`); 
+                        setNotifExam(!val);
+                      });
                     }}
                     colorClass="bg-indigo-500"
                   />
@@ -1080,14 +1095,19 @@ const SettingsTab = ({
                     </div>
                   </div>
                   <Switch
-                    enabled={localStorage.getItem('notif_schedule') === 'true'}
-                    onChange={async (val) => {
+                    enabled={notifSchedule}
+                    onChange={(val) => {
                       if (!classID) return triggerNotification('請先設定班級', '課表通知需要班級代碼');
+                      setNotifSchedule(val);
                       localStorage.setItem('notif_schedule', String(val));
-                      try {
-                        await toggleTopicSubscription(`class_${classID}_alerts`, val);
+
+                      toggleTopicSubscription(`class_${classID}_alerts`, val).then(() => {
                         triggerNotification(val ? '已訂閱課表更新' : '已取消課表更新', val ? '將能獲得最即時的課程變動' : '已取消雲端監聽');
-                      } catch (e) { triggerNotification('同步失敗', '雲端連線異常'); }
+                      }).catch(e => { 
+                        console.error("Schedule notification toggle error:", e);
+                        triggerNotification('同步失敗', `課表通知連線錯誤：${e.message || '請檢查網路'}`); 
+                        setNotifSchedule(!val);
+                      });
                     }}
                     colorClass="bg-amber-500"
                   />

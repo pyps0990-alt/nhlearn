@@ -161,19 +161,11 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
 
   // 🚀 核心 UI 通知觸發器 (必須在所有功能之前初始化)
   const triggerNotification = useCallback((title, message, icon = 'Bell') => {
-    // 1. 更新內建通知橫幅狀態
-    setNotification({ show: true, title: String(title), message: String(message) });
-    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 4000);
-
-    // 2. 本地瀏覽器推播 (若權限已開)
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body: message, icon: '/favicon.ico' });
-    }
-
-    // 3. 畫面下方的熱提示
+    // 🚀 僅保留畫面下方的熱提示，移除頂部重複橫幅以符合使用者需求
     toast.success(`${title}: ${message}`, {
       icon: icon === 'Bell' ? '🔔' : '✨',
-      duration: 4000
+      duration: 3000,
+      position: 'bottom-center'
     });
   }, []);
 
@@ -220,24 +212,31 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
       ];
 
       if (newVal) {
-        // 開啟勿擾：全部取消訂閱
-        await Promise.all(topics.map(t => toggleTopicSubscription(t, false)));
         triggerNotification('已開啟不打擾模式', '所有雲端推播已暫停，確保您專注學習 🌙');
+        // 背景異步執行訂閱切換
+        Promise.all(topics.map(t => toggleTopicSubscription(t, false))).catch(e => {
+          console.error("DND Sync Error", e);
+          triggerNotification('連線異常', '部分雲端設定同步失敗，請檢查網路');
+        });
       } else {
-        // 關閉勿擾：根據使用者各項設定恢復訂閱
+        triggerNotification('已關閉控制', '已恢復您的個人化通知設定 ✨');
+        // 背景異步執行訂閱切換
         const isNotifHomework = localStorage.getItem('notif_homework') === 'true';
         const isNotifExam = localStorage.getItem('notif_exam') === 'true';
         const isNotifSchedule = localStorage.getItem('notif_schedule') === 'true';
 
-        if (isNotifSchedule) await toggleTopicSubscription(`class_${classID}_alerts`, true);
-        if (isNotifHomework) await toggleTopicSubscription(`class_${classID}_homework`, true);
-        if (isNotifExam) await toggleTopicSubscription(`class_${classID}_exam`, true);
-        
-        triggerNotification('已關閉控制', '已恢復您的個人化通知設定 ✨');
+        (async () => {
+          if (isNotifSchedule) await toggleTopicSubscription(`class_${classID}_alerts`, true);
+          if (isNotifHomework) await toggleTopicSubscription(`class_${classID}_homework`, true);
+          if (isNotifExam) await toggleTopicSubscription(`class_${classID}_exam`, true);
+        })().catch(e => {
+          console.error("DND Resume Error", e);
+          triggerNotification('連線異常', '恢復雲端訂閱失敗，請檢查網路');
+        });
       }
     } catch (e) {
-      console.error("DND Toggle Error", e);
-      triggerNotification('同步失敗', '無法更新雲端訂閱狀態');
+      console.error("DND State Error", e);
+      triggerNotification('狀態更新失敗', `錯誤：${e.message}`);
     }
   };
 
