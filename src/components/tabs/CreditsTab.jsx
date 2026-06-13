@@ -170,7 +170,7 @@ export default function CreditsTab({ user, triggerNotification }) {
   return (
     <div className="max-w-4xl mx-auto space-y-10 pb-20 animate-fadeIn px-2">
       {/* 🏆 Hero Summary Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-emerald-500/10 to-blue-500/10 dark:from-emerald-500/5 dark:to-blue-500/5 rounded-[40px] p-8 md:p-12 border border-white/20 dark:border-white/5">
+      <section className="liquid-glass-heavy relative overflow-hidden bg-gradient-to-br from-emerald-500/10 to-blue-500/10 dark:from-emerald-500/5 dark:to-blue-500/5 p-8 md:p-12">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
@@ -231,7 +231,7 @@ export default function CreditsTab({ user, triggerNotification }) {
 
         <div className="space-y-4">
           {data.semesters.map(semester => (
-            <div key={semester.id} className={`group bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl rounded-[32px] border transition-all duration-500 ${expandedSemesters.has(semester.id) ? 'border-emerald-500/20 shadow-xl' : 'border-white/60 dark:border-white/5 shadow-sm'}`}>
+            <div key={semester.id} className={`group liquid-glass overflow-hidden transition-all duration-500 ${expandedSemesters.has(semester.id) ? 'border-emerald-500/20 shadow-xl' : ''}`}>
               <button 
                 onClick={() => toggleSemester(semester.id)}
                 className="w-full flex items-center justify-between p-6 cursor-pointer"
@@ -240,7 +240,7 @@ export default function CreditsTab({ user, triggerNotification }) {
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${expandedSemesters.has(semester.id) ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 rotate-6' : 'bg-slate-100 dark:bg-white/5 text-slate-400 rotate-0 group-hover:bg-slate-200'}`}>
                     <GraduationCap size={24} />
                   </div>
-                  <div className="text-left">
+                  <div className="text-left min-w-0">
                     <h3 className="text-[18px] font-black text-slate-800 dark:text-white group-hover:translate-x-1 transition-transform">{semester.name}</h3>
                     <p className="text-[12px] font-bold text-slate-400 flex items-center gap-2 mt-0.5">
                       結算所得：<span className="text-emerald-500">{semester.subjects.reduce((acc, s) => acc + (s.grade >= 60 ? parseFloat(s.credits) : 0), 0)}</span> 學分
@@ -261,7 +261,7 @@ export default function CreditsTab({ user, triggerNotification }) {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {semester.subjects.map(subject => (
-                        <div key={subject.id} className="relative p-5 bg-white/60 dark:bg-white/5 rounded-[24px] border border-transparent hover:border-emerald-500/20 transition-all group/sub">
+                        <div key={subject.id} className="relative p-5 liquid-glass-subtle hover:border-emerald-500/20 transition-all group/sub overflow-hidden">
                           <div className="flex justify-between items-start mb-3">
                             <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${subject.type === 'mandatory' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'}`}>
                               {subject.type === 'mandatory' ? '部定/校定必修' : '選修課程'}
@@ -308,7 +308,7 @@ export default function CreditsTab({ user, triggerNotification }) {
       {showAddModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 animate-fadeIn">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowAddModal(false)} />
-          <div className="relative w-full max-sm:max-w-full max-w-sm bg-white dark:bg-slate-900 rounded-[48px] shadow-2xl overflow-hidden border border-white/20 dark:border-white/10 animate-pop-in">
+          <div className="relative w-full max-sm:max-w-full max-w-sm liquid-glass-heavy overflow-hidden shadow-2xl animate-pop-in">
             <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-10 text-white text-center">
                <div className="w-16 h-16 bg-white/20 rounded-3xl mx-auto flex items-center justify-center mb-4">
                  <BookOpen size={32} />

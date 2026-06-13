@@ -14,7 +14,7 @@ export const IosNotification = ({ notification }) => {
       className={`fixed left-0 right-0 z-[160] flex justify-center transition-all duration-[300ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] pointer-events-none px-4`}
       style={{ top: notification.show ? topPos : '-120px', opacity: notification.show ? 1 : 0, transform: notification.show ? 'scale(1)' : 'scale(0.95)' }}
     >
-      <div className="w-full max-w-[360px] bg-[#f8f8f9]/95 backdrop-blur-2xl p-4 rounded-[24px] shadow-[0_15px_40px_rgba(0,0,0,0.15)] border border-white/60 flex flex-col gap-1.5 pointer-events-auto transition-transform active:scale-95">
+      <div className="w-full max-w-[360px] liquid-glass-heavy p-4 shadow-[0_15px_40px_rgba(0,0,0,0.15)] flex flex-col gap-1.5 pointer-events-auto transition-transform active:scale-95">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <div className="bg-emerald-500 rounded-[8px] p-1.5 shadow-sm shrink-0"><Bell size={14} className="text-white shrink-0" /></div>
@@ -33,7 +33,7 @@ export const IosNotification = ({ notification }) => {
 
 export const PrivacyModal = ({ onAccept, title = "隱私權聲明與使用條款" }) => (
   <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-emerald-950/40 backdrop-blur-md animate-fadeIn text-left">
-    <div className="bg-white rounded-[40px] w-full max-w-sm shadow-2xl border border-white/50 overflow-hidden">
+    <div className="liquid-glass-heavy w-full max-w-sm shadow-2xl overflow-hidden">
       <div className="p-8 pb-4">
         <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/10 rounded-3xl flex items-center justify-center mb-6 shrink-0 border border-transparent dark:border-white/10">
           <ShieldCheck className="text-emerald-600 shrink-0" size={32} />
@@ -205,7 +205,7 @@ export const FeedbackModal = ({ isOpen, onClose }) => {
   };
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white dark:bg-slate-900 rounded-[32px] w-full max-w-md p-6 shadow-2xl border border-white/60 dark:border-white/10" onClick={e => e.stopPropagation()}>
+      <div className="liquid-glass-heavy w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-black flex items-center gap-2"><MessageSquare size={24} className="text-emerald-500 shrink-0" />意見回饋</h2>
           <button onClick={onClose} className="p-2 bg-slate-100 dark:bg-white/10 rounded-full text-slate-500 shrink-0"><X size={20} className="shrink-0" /></button>

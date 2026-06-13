@@ -28,13 +28,13 @@ const LegalTab = ({ onBack }) => {
         <div className="grid grid-cols-1 gap-4 animate-slide-up-fade px-1">
           <button
             onClick={() => setView('privacy')}
-            className="group bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] text-left flex items-center justify-between"
+            className="group liquid-glass p-6 overflow-hidden hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] text-left flex items-center justify-between"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0 border border-transparent dark:border-white/10 group-hover:scale-110 transition-transform">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-110 transition-transform">
                 <ShieldCheck size={24} className="shrink-0" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="text-[17px] font-black text-[var(--text-primary)]">隱私權政策</div>
                 <div className="text-[12px] font-bold text-slate-400">瞭解我們如何保護您的數據</div>
               </div>
@@ -44,10 +44,10 @@ const LegalTab = ({ onBack }) => {
 
           <button
             onClick={() => setView('terms')}
-            className="group bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] text-left flex items-center justify-between"
+            className="group liquid-glass p-6 overflow-hidden hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] text-left flex items-center justify-between"
           >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-600 shrink-0 border border-transparent dark:border-white/10 group-hover:scale-110 transition-transform">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-110 transition-transform">
                 <FileText size={24} className="shrink-0" />
               </div>
               <div>
@@ -58,7 +58,7 @@ const LegalTab = ({ onBack }) => {
             <ChevronLeft size={20} className="text-slate-300 rotate-180 shrink-0 transition-transform group-hover:translate-x-1" />
           </button>
 
-          <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] mt-4">
+          <div className="liquid-glass p-6 overflow-hidden mt-4">
             <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-2 flex items-center gap-2">
               <Globe size={16} className="text-slate-400 shrink-0" /> 資料合規性
             </h4>
@@ -68,7 +68,7 @@ const LegalTab = ({ onBack }) => {
           </div>
         </div>
       ) : (
-        <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-10 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] max-h-[75vh] overflow-y-auto scrollbar-hide">
+        <div className="liquid-glass-heavy p-6 md:p-10 max-h-[75vh] overflow-y-auto overflow-hidden scrollbar-hide">
           {view === 'privacy' ? <PrivacyTab /> : <TermsTab />}
 
           <div className="mt-12 pt-8 border-t border-[var(--border-color)] text-center">

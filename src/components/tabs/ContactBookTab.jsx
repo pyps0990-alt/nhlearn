@@ -344,7 +344,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
     return (
-      <div key="calendar-view" className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 animate-fadeIn relative overflow-hidden">
+      <div key="calendar-view" className="liquid-glass-heavy p-6 md:p-8 rounded-[40px] animate-fadeIn relative overflow-hidden">
         <div className="flex justify-between items-center mb-6">
           <button onClick={() => setCalendarMonth(new Date(year, month - 1, 1))} className="p-3.5 bg-slate-100/50 dark:bg-white/5 rounded-[20px] hover:bg-slate-200 dark:hover:bg-white/10 transition-colors active:scale-95 shadow-sm">
             <ChevronLeft size={20} className="text-slate-600 dark:text-gray-300" />
@@ -442,7 +442,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       </div>
 
       {viewMode === 'list' ? (
-        <div key="list-view" className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-4 rounded-[36px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 flex items-center justify-between transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] animate-fadeIn">
+        <div key="list-view" className="liquid-glass-heavy p-4 rounded-[36px] flex items-center justify-between transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] animate-fadeIn overflow-hidden">
           <button onClick={() => changeDate(-1)} className="p-4 bg-slate-100/50 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 rounded-[24px] active:scale-[0.95] text-slate-600 dark:text-gray-300 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] shadow-sm border border-slate-200/50 dark:border-white/5 shrink-0">
             <ChevronLeft size={20} className="shrink-0" />
           </button>
@@ -478,7 +478,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
 
       {/* 新增區塊 - 開放全班編輯 */}
       {!canEditContactBook ? (
-        <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-8 rounded-[36px] shadow-sm border border-white/60 dark:border-white/10 text-center animate-slide-up-fade">
+        <div className="liquid-glass-heavy p-8 rounded-[36px] text-center animate-slide-up-fade overflow-hidden">
           <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
             <Lock size={24} className="text-slate-400" />
           </div>
@@ -488,7 +488,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
           </p>
         </div>
       ) : (
-        <div ref={addFormRef} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[36px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 overflow-hidden relative group transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
+        <div ref={addFormRef} className="liquid-glass-heavy p-6 md:p-8 rounded-[36px] overflow-hidden relative group transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 dark:bg-emerald-500/10 rounded-full -mr-12 -mt-12 opacity-40 group-hover:scale-125 transition-transform duration-1000"></div>
 
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 relative z-10">
@@ -593,7 +593,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
             const subjectInfo = subjects?.find(s => s.name === group.subject) || { icon: 'BookText', color: 'text-emerald-500' };
 
             return (
-              <div key={group.subject || idx} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 p-7 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] relative group animate-pop-in">
+              <div key={group.subject || idx} className="liquid-glass p-7 rounded-[40px] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] relative group animate-pop-in overflow-hidden">
                 <div onClick={() => toggleGroup(group.subject)} className={`flex justify-between items-center cursor-pointer select-none group/header ${isCollapsed ? '' : 'mb-4 border-b border-[var(--border-color)] pb-4'}`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl ${subjectInfo.color.replace('text', 'bg-').replace('500', '50')} dark:bg-emerald-500/10 flex items-center justify-center text-xl shrink-0`}>
@@ -633,7 +633,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                                     </div>
                                   )}
                                 </div>
-                                <p className={`text-[15px] font-bold leading-relaxed min-h-[24px] pr-8 transition-all ${isHwExpired ? 'line-through text-slate-400 dark:text-slate-500 opacity-60' : 'text-gray-700 dark:text-gray-300'}`}>{entry.homework}</p>
+                                <p className={`text-[15px] font-bold leading-relaxed min-h-[24px] pr-8 transition-all break-words ${isHwExpired ? 'line-through text-slate-400 dark:text-slate-500 opacity-60' : 'text-gray-700 dark:text-gray-300'}`}>{entry.homework}</p>
                               </div>
                             </div>
                           )}
@@ -652,7 +652,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
                                     </div>
                                   )}
                                 </div>
-                                <p className={`text-[15px] font-bold leading-relaxed min-h-[24px] pr-8 transition-all ${isExamExpired ? 'line-through text-slate-400 dark:text-slate-500 opacity-60' : 'text-gray-700 dark:text-gray-300'}`}>{entry.exam}</p>
+                                <p className={`text-[15px] font-bold leading-relaxed min-h-[24px] pr-8 transition-all break-words ${isExamExpired ? 'line-through text-slate-400 dark:text-slate-500 opacity-60' : 'text-gray-700 dark:text-gray-300'}`}>{entry.exam}</p>
                               </div>
                             </div>
                           )}
@@ -735,7 +735,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       {/* 刪除確認 Modal */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 w-full max-w-sm shadow-2xl border border-white/20 dark:border-white/10 transform transition-all animate-pop-in">
+          <div className="liquid-glass-heavy rounded-[32px] p-6 w-full max-w-sm shadow-2xl transform transition-all animate-pop-in overflow-hidden">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-2xl">
                 <Trash2 size={24} />
@@ -766,7 +766,7 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
       {/* 期限過期確認 Modal */}
       {expiredConfirmOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 w-full max-w-sm shadow-2xl border border-white/20 dark:border-white/10 transform transition-all animate-pop-in">
+          <div className="liquid-glass-heavy rounded-[32px] p-6 w-full max-w-sm shadow-2xl transform transition-all animate-pop-in overflow-hidden">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl">
                 <Calendar size={24} />

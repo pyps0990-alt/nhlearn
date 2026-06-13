@@ -45,7 +45,7 @@ const WeatherWidget = ({ lat = 25.078410, lng = 121.587152 }) => {
   return (
     <div
       onClick={() => window.open('https://www.cwa.gov.tw/V8/C/', '_blank')}
-      className="group cursor-pointer bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-5 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_12px_32px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_12px_32px_rgba(0,0,0,0.3)] hover:-translate-y-1 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] mb-2 flex items-center justify-between animate-slide-up-fade"
+      className="group cursor-pointer liquid-glass p-5 rounded-[32px] hover:-translate-y-1 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] mb-2 flex items-center justify-between animate-slide-up-fade overflow-hidden"
     >
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-4">
@@ -190,7 +190,7 @@ const YoubikeWidget = ({ campusName, campusAddress, campusLat = '25.078410', cam
     window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
 
   return (
-    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
+    <div className="liquid-glass-heavy p-6 md:p-8 rounded-[40px] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden">
       {/* Header */}
       <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
         <h3 className="text-[17px] font-black text-[var(--text-primary)] flex items-center gap-2 tracking-tight">
@@ -425,7 +425,7 @@ const TransportGuide = ({ campusName, campusAddress, campusLat = '25.078410', ca
       </div>
 
       {/* 地址 - 鈦金冷灰 (全寬) */}
-      <div className="md:col-span-2 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1">
+      <div className="md:col-span-2 liquid-glass p-6 rounded-[32px] flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 overflow-hidden">
         <div className="flex items-center gap-5 w-full md:w-auto">
           <div className="p-3.5 bg-white dark:bg-white/5 rounded-2xl shadow-inner text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/10">
             <MapPin size={26} className="shrink-0" />

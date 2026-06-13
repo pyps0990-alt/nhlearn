@@ -313,7 +313,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
   }
 
   return (
-    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 rounded-[36px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] animate-slide-up-fade">
+    <div className="liquid-glass-heavy overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] animate-slide-up-fade">
       {/* Header */}
       <div className={`px-6 py-4 flex items-center justify-between ${mode === 'focus' ? 'bg-gradient-to-r from-rose-500/10 to-orange-500/10 dark:from-rose-950/40 dark:to-orange-950/40' : 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-950/40 dark:to-teal-950/40'}`}>
         <div className="flex items-center gap-3">
@@ -351,7 +351,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
               style={{ filter: `drop-shadow(0 2px 6px ${mode === 'focus' ? 'rgba(244,63,94,0.6)' : 'rgba(16,185,129,0.6)'})` }}
             />
           </svg>
-          <div className="absolute inset-3 rounded-full bg-white/30 dark:bg-black/20 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_4px_16px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_4px_16px_rgba(0,0,0,0.2)] border border-white/50 dark:border-white/10 flex flex-col items-center justify-center pointer-events-none">
+          <div className="absolute inset-3 rounded-full liquid-glass flex flex-col items-center justify-center pointer-events-none" style={{borderRadius:'9999px'}}>
             <span className="text-[36px] font-black text-slate-900 dark:text-white font-mono tracking-tight leading-none">{mins}:{secs}</span>
             <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest mt-1">
               {mode === 'focus' ? 'Focus' : 'Break'}
@@ -360,7 +360,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
         </div>
 
         {/* 白噪音選擇器 */}
-        <div className="flex gap-2 mb-6 bg-white/40 dark:bg-black/20 p-1.5 rounded-[20px] backdrop-blur-md">
+        <div className="flex gap-2 mb-6 liquid-glass-subtle p-1.5">
           {[{ id: 'none', icon: '🔇 無', label: '關閉' }, { id: 'rain', icon: '🌧️ 雨聲', label: '下雨' }, { id: 'wave', icon: '🌊 海浪', label: '海浪' }].map(n => (
             <button
               key={n.id}
@@ -478,7 +478,7 @@ const SchoolNewsWidget = () => {
               href={item.link || NEWS_PAGE_URL}
               target="_blank"
               rel="noreferrer"
-              className="block p-4 bg-white/50 dark:bg-white/5 backdrop-blur-md hover:bg-white/80 dark:hover:bg-white/10 border border-white/60 dark:border-white/10 rounded-[28px] transition-all duration-500 ease-spring group active:scale-[0.98] hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(59,130,246,0.15)] relative z-10"
+              className="block p-4 liquid-glass hover:bg-white/80 dark:hover:bg-white/10 transition-all duration-500 ease-spring group active:scale-[0.98] hover:-translate-y-1 hover:shadow-[var(--glass-shadow-lg)] relative z-10"
             >
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
@@ -563,7 +563,7 @@ const AiBriefing = React.memo(({ weeklySchedule, contactBook, user, classID, act
   return (
     <div className="w-full mb-6">
       {/* 🔮 儀表板看板模式：置頂 AI 導航員 */}
-      <div className="relative group overflow-hidden bg-white/40 dark:bg-zinc-900/40 backdrop-blur-2xl rounded-[32px] border border-white/60 dark:border-white/10 shadow-sm transition-all hover:shadow-xl hover:bg-white/60 dark:hover:bg-zinc-900/60 duration-500">
+      <div className="relative group overflow-hidden liquid-glass-heavy transition-all hover:shadow-[var(--glass-shadow-xl)] duration-500">
         <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-500 via-purple-500 to-rose-400" />
         
         <div className="p-6">
@@ -693,7 +693,7 @@ const LearningHeatmapWidget = React.memo(({ streak }) => {
   }, [stats]);
 
   return (
-    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[36px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-[600ms] hover:-translate-y-1 animate-slide-up-fade">
+    <div className="liquid-glass-heavy p-6 transition-all duration-[600ms] hover:-translate-y-1 animate-slide-up-fade">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-[16px] font-black text-slate-800 dark:text-white flex items-center gap-2 tracking-tight">
           <TrendingUp className="text-emerald-500" size={20} /> 學習熱力圖
@@ -747,7 +747,7 @@ const DashboardTab = ({
   customLinks, contactBook, isEditingSchedule, setIsEditingSchedule, classID, navToSettings,
   saveToFirestore, customCountdowns, dashboardLayout,
   setContactBook, saveContactBookToFirestore, user,
-  examPeriods = []
+  examPeriods = [], navTo
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -1219,6 +1219,13 @@ JSON 結構必須是這樣：
     const originalSubj1 = item1.subject;
     let noticeContent = '';
 
+    // Store original for daily auto-reset
+    const originals = JSON.parse(localStorage.getItem('gsat_swap_originals') || '{}');
+    const key1 = `${day1}_${item1.id}`;
+    if (!originals[key1]) {
+      originals[key1] = { subject: item1.subject, teacher: item1.teacher, location: item1.location, link: item1.link, color: item1.color, icon: item1.icon };
+    }
+
     if (id2 === 'absent') {
       newWeekly[day1][idx1] = {
         ...item1,
@@ -1259,6 +1266,25 @@ JSON 結構必須是這樣：
       noticeContent = `已對調「${originalSubj1}」與「${originalSubj2}」`;
       triggerNotification('調課成功 ⚡', noticeContent);
     }
+
+    // Also store item2 original if it was a real swap
+    if (id2 !== 'absent' && id2 !== 'substitute') {
+      let day2Search = -1;
+      for (let d = 0; d < 7; d++) {
+        if ((weeklySchedule[d] || []).find(c => c.id === id2)) { day2Search = d; break; }
+      }
+      if (day2Search !== -1) {
+        const item2Orig = (weeklySchedule[day2Search] || []).find(c => c.id === id2);
+        if (item2Orig) {
+          const key2 = `${day2Search}_${id2}`;
+          if (!originals[key2]) {
+            originals[key2] = { subject: item2Orig.subject, teacher: item2Orig.teacher, location: item2Orig.location, link: item2Orig.link, color: item2Orig.color, icon: item2Orig.icon };
+          }
+        }
+      }
+    }
+    localStorage.setItem('gsat_swap_originals', JSON.stringify(originals));
+    localStorage.setItem('gsat_last_swap_date', new Date().toISOString().slice(0, 10));
 
     setWeeklySchedule(newWeekly);
     setIsSwapMode(false);
@@ -1306,6 +1332,14 @@ JSON 結構必須是這樣：
     }
 
     if (idx1 === -1) return;
+
+    const originals = JSON.parse(localStorage.getItem('gsat_swap_originals') || '{}');
+    const key1 = `${day1}_${newWeekly[day1][idx1].id}`;
+    if (!originals[key1]) {
+      originals[key1] = { subject: newWeekly[day1][idx1].subject, teacher: newWeekly[day1][idx1].teacher, location: newWeekly[day1][idx1].location };
+    }
+    localStorage.setItem('gsat_swap_originals', JSON.stringify(originals));
+    localStorage.setItem('gsat_last_swap_date', new Date().toISOString().slice(0, 10));
 
     newWeekly[day1][idx1] = {
       ...newWeekly[day1][idx1],
@@ -1473,7 +1507,7 @@ JSON 結構必須是這樣：
         const filledDots = Math.floor(progress * dotCount);
 
         const styles = {
-          simple: "bg-white/50 dark:bg-zinc-900/40 border border-white/60 dark:border-white/10 text-slate-800 dark:text-white [---dot-active:#10b981] [---dot-idle:rgba(148,163,184,0.2)]",
+          simple: "liquid-glass text-slate-800 dark:text-white [---dot-active:#10b981] [---dot-idle:rgba(148,163,184,0.2)]",
           gradient: "bg-gradient-to-br from-emerald-500 to-teal-600 text-white [---dot-active:#fff] [---dot-idle:rgba(255,255,255,0.2)]",
           neon: "bg-slate-900 border border-emerald-500/30 text-emerald-400 [---dot-active:#10b981] [---dot-idle:rgba(16,185,129,0.1)]",
           sakura: "bg-gradient-to-br from-pink-400 to-rose-300 text-white [---dot-active:#fff] [---dot-idle:rgba(255,255,255,0.2)]",
@@ -1537,7 +1571,7 @@ JSON 結構必須是這樣：
   };
 
   const widgetGreeting = (
-    <div className={`group ${bgGradients[greeting.time]} backdrop-blur-2xl backdrop-saturate-150 p-8 md:p-10 text-slate-900 dark:text-white rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] border border-white/60 dark:border-white/10 relative transition-all duration-500 ease-spring-smooth hover:-translate-y-1 overflow-hidden`}>
+    <div className={`group ${bgGradients[greeting.time]} liquid-glass-heavy p-6 md:p-8 text-slate-900 dark:text-white relative transition-all duration-300 hover:-translate-y-0.5 overflow-hidden`}>
       <div className="relative z-10">
         <div className="flex flex-wrap justify-between items-start gap-4 mb-4">
           <h2 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -1566,7 +1600,7 @@ JSON 結構必須是這樣：
           </div>
           <div className="h-3 bg-emerald-200/50 dark:bg-black/20 rounded-full overflow-hidden backdrop-blur-sm border border-emerald-100/50 dark:border-white/5 relative">
             <div
-              className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-1000 ease-spring-smooth"
+              className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 shadow-[0_0_15px_rgba(16,185,129,0.5)] progress-smooth"
               style={{ width: `${currentProgress}%` }}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-[shimmer-slide_2s_infinite]"></div>
@@ -1575,7 +1609,7 @@ JSON 結構必須是這樣：
 
         {/* 整合式課程動態 (包含跨日預測) */}
         {(liveStatus || currentProgress >= 100) && (
-          <div className="mt-6 bg-emerald-50/60 dark:bg-white/5 backdrop-blur-2xl rounded-[28px] p-4 border border-emerald-200/50 dark:border-white/20 animate-fadeIn flex items-center justify-between shadow-glass transition-transform group-hover:scale-[1.01]">
+          <div className="mt-6 liquid-glass p-4 animate-fadeIn flex items-center justify-between transition-transform group-hover:scale-[1.01]">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 ${(liveStatus?.type === 'ongoing') ? 'bg-emerald-600' : (liveStatus?.type === 'tomorrow' ? 'bg-purple-500' : (currentProgress >= 100 ? 'bg-orange-400' : 'bg-blue-400'))}`}>
                 <Clock size={22} className="text-white shrink-0" />
@@ -1637,7 +1671,7 @@ JSON 結構必須是這樣：
   const examToShow = isTomorrowMode ? tomorrowExam : activeExam;
 
   const widgetSchedule = (
-    <div id="schedule-section" className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] relative overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
+    <div id="schedule-section" className="content-auto liquid-glass-heavy p-5 md:p-7 relative overflow-hidden transition-all duration-300 hover:-translate-y-0.5">
       {/* 全局頭部：提供快速調課與編輯按鈕 */}
       {hasScheduleData && (
         <div className="flex justify-between items-center mb-6 relative z-10 border-b border-slate-200/50 dark:border-white/10 pb-5">
@@ -1673,7 +1707,7 @@ JSON 結構必須是這樣：
            {examToShow.sessions && examToShow.sessions.length > 0 ? (
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                {examToShow.sessions.map((s, idx) => (
-                 <div key={idx} className="group relative overflow-hidden flex items-center justify-between p-5 bg-white/60 dark:bg-white/5 backdrop-blur-xl rounded-[28px] border border-white/60 dark:border-white/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all duration-300">
+                 <div key={idx} className="group relative overflow-hidden flex items-center justify-between p-5 liquid-glass hover:bg-white/80 dark:hover:bg-white/10 transition-all duration-300">
                     <div className="flex items-center gap-4">
                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/20 flex flex-col items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform">
                           <span className="text-[14px] font-black text-emerald-600 dark:text-emerald-400 leading-tight">Exam</span>
@@ -1695,7 +1729,7 @@ JSON 結構必須是這樣：
                ))}
              </div>
            ) : (
-             <div className="py-12 text-center bg-slate-50 dark:bg-black/10 rounded-[32px] border border-dashed border-slate-200 dark:border-white/10">
+             <div className="py-12 text-center liquid-glass rounded-[32px] border-dashed">
                 <p className="text-sm font-bold text-slate-400">目前暫無科目明細</p>
              </div>
            )}
@@ -1722,7 +1756,7 @@ JSON 結構必須是這樣：
               const isSelected = selectedForSwap.includes(item.id);
               const theme = getSubjectTheme(item, subjects);
               return (
-                <div key={item.id} onClick={() => toggleSwapSelect(item.id)} className={`relative overflow-hidden flex flex-col gap-3 px-6 py-4 rounded-[24px] border transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md ${isSelected ? 'ring-2 ring-orange-500 border-orange-500 bg-orange-50/30 dark:bg-orange-900/20 scale-[1.02]' : `bg-white/80 dark:bg-white/5 ${theme.border} hover:-translate-y-0.5`}`}>
+                <div key={item.id} onClick={() => toggleSwapSelect(item.id)} className={`relative overflow-hidden flex flex-col gap-3 px-6 py-4 liquid-glass-subtle transition-all duration-300 cursor-pointer ${isSelected ? 'ring-2 ring-orange-500 border-orange-500 scale-[1.02]' : `${theme.border} hover:-translate-y-0.5`}`}>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme.bg} ${theme.text}`}>
@@ -1752,7 +1786,7 @@ JSON 結構必須是這樣：
             })}
           </div>
         </div>
-      ) : isWeekendRest && !isEditingSchedule ? (
+      ) : isWeekendRest ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
             <Sun className="text-emerald-500" size={40} />
@@ -1763,221 +1797,33 @@ JSON 結構必須是這樣：
           </p>
         </div>
       ) : isEditingSchedule ? (
-        !canEditSchedule ? (
-          <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-pop-in bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl rounded-[32px] border border-white/60 dark:border-white/10 shadow-sm">
-            <div className="w-16 h-16 bg-rose-50 dark:bg-rose-500/10 rounded-full flex items-center justify-center mb-4">
-              <AlertCircle size={32} className="text-rose-500" />
-            </div>
-            <h4 className="text-[18px] font-black text-slate-800 dark:text-white mb-2">權限不足</h4>
-            <p className="text-[14px] font-bold text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-              班級雲端課表僅限管理員編輯。<br />一般使用者會自動同步最新課表。如需建立個人課表，請先至設定解除綁定班級。
-            </p>
-            <button onClick={() => setIsEditingSchedule(false)} className="px-8 py-3 bg-slate-800 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black active:scale-95 transition-all shadow-sm">
+        <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-pop-in liquid-glass">
+          <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-4">
+            <Settings size={32} className="text-emerald-500" />
+          </div>
+          <h4 className="text-[18px] font-black text-slate-800 dark:text-white mb-2">課表管理已移至後台</h4>
+          <p className="text-[14px] font-bold text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+            課表的新增、編輯與刪除請至管理後台操作。<br />手機端僅保留「快速調課」功能。
+          </p>
+          <div className="flex gap-3">
+            <button onClick={() => setIsEditingSchedule(false)} className="px-6 py-3 liquid-glass-subtle rounded-2xl font-black text-slate-600 dark:text-slate-300 active:scale-95 transition-all">
               返回課表
             </button>
-          </div>
-        ) : (
-        <div className="flex flex-col gap-4">
-          {!previewSchedule && (
-            <label className="border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 rounded-3xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-500/5 transition-all group">
-              {uploadLoading ? <RefreshCw className="animate-spin text-emerald-500" size={32} /> : <ImageIcon className="text-emerald-400 group-hover:scale-110 transition-transform" size={32} />}
-              <div className="text-center">
-                <span className="block text-emerald-600 dark:text-emerald-400 font-black text-lg">{uploadLoading ? 'AI 解析中...' : '上傳課表照片'}</span>
-                <span className="text-xs text-emerald-600/60 dark:text-emerald-400/40 font-bold">由 AI 自動辨識課程與時間</span>
-              </div>
-              <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-            </label>
-          )}
-          {previewSchedule && (
-            <div className="flex flex-col gap-3">
-              <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 p-4 rounded-[24px] text-sm font-bold flex items-center gap-3">
-                <PenTool size={20} className="shrink-0" />
-                <p>AI 解析完成！您可以直接<strong>點擊下方的「時間」或「科目」欄位進行手動微調</strong>，確認無誤後再點擊儲存。</p>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setPreviewSchedule(null)} className="flex-1 py-4 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-2xl font-black active:scale-95 transition-all">放棄重測</button>
-                <button onClick={async () => {
-                  const cleanSchedule = JSON.parse(JSON.stringify(previewSchedule || {}));
-                  setWeeklySchedule(previewSchedule);
-                  setPreviewSchedule(null);
-                  if (classID || user) {
-                    triggerNotification('連線中', '正在將課表上傳至雲端...');
-                    try {
-                      await saveToFirestore(cleanSchedule);
-                      triggerNotification('同步成功 🎉', classID ? '課表已安全備份至班級雲端！' : '個人自訂課表已備份至雲端！');
-                    } catch (err) {
-                      if (err.message === 'PERMISSION_DENIED_NOT_ADMIN') {
-                        triggerNotification('權限不足 ❌', '只有管理員可以修改班級雲端課表！');
-                      } else if (err.message === 'MISSING_SCHOOL_OR_GRADE') {
-                        triggerNotification('同步失敗 ❌', '請先至設定選擇學校與年級！');
-                      } else if (err.message === 'PERMISSION_DENIED' || err.message?.includes('permission')) {
-                        triggerNotification('同步失敗 ❌', '權限不足：請先登入帳號，或檢查 Firebase 安全規則');
-                      } else {
-                        triggerNotification('同步失敗 ❌', '請檢查網路或系統狀態');
-                      }
-                    }
-                  } else {
-                    triggerNotification('儲存成功', '已儲存課表結果！');
-                  }
-                  setIsEditingSchedule(false);
-                }}
-                  className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">儲存結果</button>
-              </div>
-            </div>
-          )}
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {ALL_DAYS.map(d => (
-              <button key={d.id} onClick={() => setEditDayTab(d.id)} className={`px-5 py-3 rounded-2xl font-black whitespace-nowrap transition-all ${editDayTab === d.id ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20' : 'bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'}`}>{d.label}</button>
-            ))}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 mt-4">
-            <div className="flex gap-2 w-full sm:w-auto">
-              <button onClick={() => {
-                if (window.confirm('確定要清空今天的排程嗎？')) {
-                  const setter = previewSchedule ? setPreviewSchedule : setWeeklySchedule;
-                  setter(prev => ({ ...prev, [editDayTab]: [] }));
-                }
-              }} className="flex-1 sm:flex-none px-5 py-4 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 rounded-[24px] font-black text-[14px] active:scale-95 transition-all border border-orange-200/50 dark:border-orange-500/30 hover:bg-orange-100 dark:hover:bg-orange-900/50">
-                清空今日
+            {navTo && (
+              <button onClick={() => { setIsEditingSchedule(false); navTo('scheduleAdmin'); }} className="px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black active:scale-95 transition-all shadow-lg shadow-emerald-500/20">
+                前往後台
               </button>
-              <button onClick={() => {
-                if (window.confirm('⚠️ 警告：確定要一鍵清空「全部」的課表嗎？這將無法復原！')) {
-                  const setter = previewSchedule ? setPreviewSchedule : setWeeklySchedule;
-                  setter({ 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] });
-                }
-              }} className="flex-1 sm:flex-none px-5 py-4 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 rounded-[24px] font-black text-[14px] active:scale-95 transition-all border border-red-200/50 dark:border-red-500/30 hover:bg-red-100 dark:hover:bg-red-900/50">
-                一鍵刪除
-              </button>
-            </div>
-            <button
-              onClick={handleSaveEdit}
-              className="w-full sm:flex-1 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[24px] font-black text-[16px] shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-            >
-              <Check size={20} /> {classID || user ? '完成編輯並同步至雲端' : '儲存我的自訂課表'}
-            </button>
+            )}
           </div>
-
-          <div className="space-y-4">
-            {(displaySchedule[editDayTab] || []).map((item, index) => (
-              <div
-                key={item.id}
-                draggable
-                onDragStart={(e) => handleScheduleDragStart(e, index)}
-                onDragEnter={(e) => handleScheduleDragEnter(e, index)}
-                onDragEnd={handleScheduleDragEnd}
-                onDragOver={handleScheduleDragOver}
-                className={`p-6 bg-white/50 dark:bg-black/20 backdrop-blur-xl rounded-[32px] border ${getSubjectTheme(item, subjects).border} relative group transition-all duration-500 ease-spring hover:shadow-[0_12px_32px_rgba(0,0,0,0.1)] animate-slide-up-fade ${draggedScheduleIdx === index ? 'opacity-50 scale-[0.98] border-dashed border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/20 z-50 shadow-xl' : ''}`}
-              >
-                {/* 拖曳手把 (大螢幕顯示，手機端可直接長按卡片拖曳) */}
-                <div className="absolute left-1.5 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-slate-300 hover:text-emerald-500 transition-colors hidden sm:flex h-[80%] items-center px-1 z-10">
-                  <GripVertical size={20} />
-                </div>
-
-                <div className="flex flex-col gap-4 sm:pl-5">
-
-                  {/* Row 1: Subject, Color Picker and Time */}
-                  <div className="flex flex-col md:flex-row md:items-stretch gap-4">
-                    <div className="flex flex-col justify-between flex-1 bg-slate-50/50 dark:bg-black/20 p-4 rounded-[24px] border border-slate-200/50 dark:border-white/5 shadow-sm focus-within:border-emerald-400 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-[20px] ${getSubjectTheme(item, subjects).bg} ${getSubjectTheme(item, subjects).text} flex items-center justify-center shrink-0 shadow-inner transition-colors`}>
-                          {React.createElement(getSubjectIcon(item, subjects), { size: 22 })}
-                        </div>
-                        <input type="text" value={item.subject || ''} onChange={e => updateSchedule(item.id, 'subject', e.target.value)} className={`flex-1 bg-transparent font-black text-[20px] ${getSubjectTheme(item, subjects).text} outline-none placeholder:text-slate-400`} placeholder="輸入課程名稱" />
-                      </div>
-
-                      <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-slate-200/50 dark:border-white/5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 w-12 text-right">標籤顏色</span>
-                          <div className="flex flex-wrap gap-2">
-                            {Object.entries(THEME_COLORS).map(([key, config]) => (
-                              <button key={key} onClick={() => updateSchedule(item.id, 'color', key)} className={`w-5 h-5 rounded-full ${config.hex} shadow-sm transition-transform hover:scale-110 active:scale-95 ${item.color === key ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-slate-600 scale-110' : ''}`} />
-                            ))}
-                            <button onClick={() => updateSchedule(item.id, 'color', '')} className={`w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] text-slate-600 dark:text-slate-300 font-black shadow-sm hover:scale-110 active:scale-95 transition-transform ${!item.color ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-slate-600 scale-110' : ''}`}>A</button>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 w-12 text-right">自訂圖示</span>
-                          <div className="flex items-center bg-slate-100 dark:bg-black/40 px-2 py-1.5 rounded-[10px] border border-slate-200 dark:border-white/5 focus-within:border-emerald-400 transition-colors">
-                            <Search size={12} className="text-slate-400 shrink-0" />
-                            <input
-                              type="text"
-                              placeholder="搜尋..."
-                              value={item._iconSearch || ''}
-                              onChange={e => updateSchedule(item.id, '_iconSearch', e.target.value)}
-                              className="bg-transparent text-[11px] outline-none ml-1.5 w-14 text-[var(--text-primary)] placeholder:text-slate-400"
-                            />
-                          </div>
-                          <div className="flex gap-1 overflow-x-auto scrollbar-hide py-1 mask-fade-edges flex-1">
-                            {((item._iconSearch || '').trim()
-                              ? Object.keys(ICON_MAP).filter(k => k.toLowerCase().includes(item._iconSearch.toLowerCase())).slice(0, 30)
-                              : DASHBOARD_ICONS).map(iconName => {
-                                const IconComp = ICON_MAP[iconName] || BookText;
-                                return (
-                                  <button key={iconName} onClick={() => updateSchedule(item.id, 'icon', iconName)} className={`shrink-0 p-1.5 rounded-lg transition-all active:scale-90 ${item.icon === iconName ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/30 shadow-sm ring-1 ring-emerald-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}><IconComp size={16} /></button>
-                                );
-                              })}
-                            <button onClick={() => updateSchedule(item.id, 'icon', '')} className={`shrink-0 px-2 py-1.5 rounded-lg transition-all text-[10px] font-black active:scale-90 ${!item.icon ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-slate-600 scale-110' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5'}`}>預設</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col justify-center gap-2 bg-slate-50/50 dark:bg-black/20 p-4 rounded-[24px] border border-slate-200/50 dark:border-white/5 shadow-sm shrink-0 w-full md:w-auto">
-                      <div className="flex items-center gap-2 text-slate-400 text-[11px] font-black uppercase tracking-widest"><Clock size={12} /> 上課時間</div>
-                      <div className="flex items-center justify-between gap-3">
-                        <input type="time" value={item.startTime || ''} onChange={e => updateSchedule(item.id, 'startTime', e.target.value)} className="flex-1 sm:flex-none text-center bg-white dark:bg-slate-800 px-2 sm:px-3 py-2 rounded-[14px] font-mono font-black text-[14px] sm:text-[15px] text-slate-700 dark:text-gray-200 outline-none shadow-sm border border-slate-200 dark:border-white/5 min-w-0" />
-                        <span className="text-slate-300 dark:text-gray-600 font-bold">➜</span>
-                        <input type="time" value={item.endTime || ''} onChange={e => updateSchedule(item.id, 'endTime', e.target.value)} className="flex-1 sm:flex-none text-center bg-white dark:bg-slate-800 px-2 sm:px-3 py-2 rounded-[14px] font-mono font-black text-[14px] sm:text-[15px] text-slate-700 dark:text-gray-200 outline-none shadow-sm border border-slate-200 dark:border-white/5 min-w-0" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="flex items-center gap-2 bg-white dark:bg-black/20 p-3.5 rounded-[20px] border border-slate-200 dark:border-white/5 focus-within:border-emerald-400 transition-all shadow-sm">
-                      <span className="text-[12px] font-black text-slate-400 shrink-0 w-8 text-center">教師</span>
-                      <input type="text" value={item.teacher || ''} onChange={e => updateSchedule(item.id, 'teacher', e.target.value)} className="w-full bg-transparent text-[14px] font-bold outline-none text-[var(--text-primary)]" placeholder="選填" />
-                    </div>
-                    <div className="flex items-center gap-2 bg-white dark:bg-black/20 p-3.5 rounded-[20px] border border-slate-200 dark:border-white/5 focus-within:border-emerald-400 transition-all shadow-sm">
-                      <span className="text-[12px] font-black text-slate-400 shrink-0 w-8 text-center">地點</span>
-                      <input type="text" value={item.location || ''} onChange={e => updateSchedule(item.id, 'location', e.target.value)} className="w-full bg-transparent text-[14px] font-bold outline-none text-[var(--text-primary)]" placeholder="選填" />
-                    </div>
-                    <div className="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-900/10 p-3.5 rounded-[20px] border border-blue-100 dark:border-blue-900/30 focus-within:border-blue-400 transition-all shadow-sm">
-                      <ExternalLink size={16} className="text-blue-400 ml-1.5 shrink-0" />
-                      <input type="text" value={item.link || ''} onChange={e => updateSchedule(item.id, 'link', e.target.value)} className="w-full bg-transparent text-[14px] font-bold outline-none text-blue-700 dark:text-blue-300 placeholder:text-blue-300/60 dark:placeholder:text-blue-700/60" placeholder="外部連結 (選填)" />
-                    </div>
-                  </div>
-
-                  {/* Row 3: Reschedule Toggle */}
-                  <div className="mt-1 flex items-center justify-between px-3 bg-orange-50/30 dark:bg-orange-950/20 p-3.5 rounded-[20px] border border-orange-100/50 dark:border-orange-500/10">
-                    <span className="text-[13px] font-black text-orange-600 dark:text-orange-400 flex items-center gap-2">
-                      <Bell size={16} className={item.rescheduled ? 'animate-pulse' : 'opacity-60'} /> 特殊調課標記
-                    </span>
-                    <button onClick={() => updateSchedule(item.id, 'rescheduled', !item.rescheduled)} className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-300 outline-none shadow-inner ${item.rescheduled ? 'bg-orange-500' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-300 ease-spring-smooth ${item.rescheduled ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </div>
-                </div>
-                <button onClick={() => deleteSchedule(item.id)} className="absolute -top-3 -right-3 text-red-500 p-2.5 bg-white dark:bg-slate-800 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 active:scale-90 shadow-md border border-slate-100 dark:border-white/5 hover:bg-red-50"><Trash2 size={16} /></button>
-              </div>
-            ))}
-            <button
-              onClick={addSchedule}
-              className="w-full mt-4 py-6 border-2 border-dashed border-emerald-300 dark:border-emerald-800/50 rounded-[32px] text-emerald-600 dark:text-emerald-400 font-black text-[16px] flex items-center justify-center gap-2 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all duration-300 ease-spring active:scale-[0.98] group bg-white/50 dark:bg-black/20"
-            >
-              <Plus size={24} className="group-hover:rotate-90 transition-transform duration-500" /> 點擊手動新增課程
-            </button>
           </div>
-        </div>
-        )
       ) : (
         <div className="relative pl-[40px]">
           {/* Timeline Vertical Line */}
           <div className="absolute left-[15px] top-2 bottom-6 w-[2px] bg-gradient-to-b from-emerald-500/40 via-emerald-500/20 to-transparent dark:from-emerald-500/30 dark:via-emerald-500/10 rounded-full" />
 
           <div className="space-y-10">
-            {!hasScheduleData && !isEditingSchedule ? (
-              <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-pulse-slow relative z-10 bg-[var(--bg-surface)] glass-effect rounded-[32px] border border-[var(--border-color)]">
+            {!hasScheduleData ? (
+              <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-pulse-slow relative z-10 liquid-glass">
                 <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/20 rounded-[28px] flex items-center justify-center mb-6 border border-emerald-100 dark:border-emerald-900/30 shadow-inner">
                   <Calendar size={36} className="text-emerald-500" />
                 </div>
@@ -2005,7 +1851,7 @@ JSON 結構必須是這樣：
                     </div>
                     <div className="space-y-4">
                       {group.isExamMode ? (
-                        <div className="p-6 bg-white/80 dark:bg-white/5 backdrop-blur-2xl rounded-[32px] border border-rose-100 dark:border-rose-500/20 shadow-glass animate-pop-in">
+                        <div className="p-6 liquid-glass border-rose-100 dark:border-rose-500/20 animate-pop-in">
                           <div className="flex items-center gap-2 mb-4 text-rose-500">
                             <BookOpen size={18} />
                             <span className="text-[14px] font-black uppercase tracking-widest">今日考程明細</span>
@@ -2113,23 +1959,23 @@ JSON 結構必須是這樣：
                           const theme = getSubjectTheme(item, subjects);
 
                           return (
-                            <div key={item.id} className="relative group">
+                            <div key={item.id} className="relative group animate-schedule-card-in" style={{ animationDelay: `${idx * 50}ms` }}>
                               {/* Timeline Node */}
-                              <div className={`absolute left-[-31px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-[3px] transition-all duration-500 z-10 ${isActive ? 'bg-emerald-500 border-emerald-200 dark:border-emerald-800 scale-125 neon-glow-emerald shadow-[0_0_15px_#10b981]' : 'bg-gray-300 dark:bg-slate-700 border-white dark:border-slate-900 group-hover:border-emerald-500/50'}`} />
+                              <div className={`absolute left-[-31px] top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full border-[3px] transition-all duration-500 z-10 ${isActive ? 'bg-emerald-500 border-emerald-200 dark:border-emerald-800 scale-125 neon-glow-emerald shadow-[0_0_15px_#10b981] animate-timeline-pulse' : 'bg-gray-300 dark:bg-slate-700 border-white dark:border-slate-900 group-hover:border-emerald-500/50'}`} />
 
                               {/* Pill Card */}
                               <div
                                 onClick={() => toggleSwapSelect(item.id)}
-                                className={`relative overflow-hidden flex items-center gap-4 px-6 py-4 rounded-[32px] border transition-all duration-300 cursor-pointer active:scale-[0.96] hover:shadow-[0_12px_24px_rgba(0,0,0,0.15)] backdrop-blur-md ${isActive ? `${theme.activeBg} border-white/30 shadow-lg scale-[1.02] ring-4 ${theme.ring}` :
-                                  item.rescheduled ? 'bg-orange-50/30 dark:bg-orange-950/30 border-orange-500/60 shadow-[0_0_20px_rgba(255,152,0,0.15)] hover:scale-[1.01]' :
-                                    `bg-white/60 dark:bg-white/5 shadow-sm dark:shadow-none ${theme.border} hover:-translate-y-0.5 hover:scale-[1.01]`
-                                  } ${selectedForSwap.includes(item.id) ? 'border-orange-500 ring-4 ring-orange-500/20 scale-105' : ''}`}
-                                style={item.rescheduled && !isActive ? { border: '2px solid #ff9800', boxShadow: '0 0 15px rgba(255, 152, 0, 0.3)' } : {}}
+                                className={`relative overflow-hidden flex items-center gap-4 px-5 py-3.5 rounded-[var(--card-radius)] transition-all duration-300 cursor-pointer active:scale-[0.97] ${isActive ? `${theme.activeBg} border-0 shadow-lg scale-[1.01] ring-2 ${theme.ring}` :
+                                  item.rescheduled ? 'liquid-glass-subtle border-orange-500/40' :
+                                    `liquid-glass-subtle ${theme.border} hover:-translate-y-0.5`
+                                  } ${selectedForSwap.includes(item.id) ? 'ring-2 ring-orange-500/30 scale-[1.02]' : ''}`}
+                                style={item.rescheduled && !isActive ? { borderColor: 'rgba(255,152,0,0.4)' } : {}}
                               >
                                 {isActive && (
                                   <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/10 dark:bg-white/10">
                                     <div
-                                      className="bg-white/90 h-full transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(255,255,255,0.8)]"
+                                      className="bg-white/90 h-full progress-smooth shadow-[0_0_10px_rgba(255,255,255,0.8)]"
                                       style={{ width: `${currentClassProgress}%` }}
                                     ></div>
                                   </div>
@@ -2206,7 +2052,7 @@ JSON 結構必須是這樣：
   };
 
   const widgetLinks = (
-    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] relative overflow-hidden group/links">
+    <div className="liquid-glass-heavy p-5 md:p-7 transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden group/links">
       <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none mix-blend-multiply dark:mix-blend-lighten"></div>
       <div className="flex items-center gap-3 mb-6 relative z-10">
         <div className="w-12 h-12 rounded-[24px] bg-white/50 dark:bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/60 dark:border-white/20 shadow-sm">
@@ -2221,7 +2067,7 @@ JSON 結構必須是這樣：
           const col = LINK_COLORS[link.themeColor] || LINK_COLORS.blue;
           return (
             <a key={link.id || `custom-link-${idx}`} href={link.url} target="_blank" rel="noreferrer"
-              className="flex flex-col items-center gap-3 p-5 bg-white/40 dark:bg-white/5 backdrop-blur-xl rounded-[32px] active:scale-[0.95] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] border border-white/50 dark:border-white/10 hover:bg-white/80 dark:hover:bg-white/10 hover:-translate-y-2 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_20px_40px_rgba(59,130,246,0.15)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_20px_40px_rgba(59,130,246,0.25)] group relative overflow-hidden">
+              className="flex flex-col items-center gap-3 p-4 liquid-glass-subtle active:scale-[0.95] transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-colors duration-[600ms]"></div>
               <div className={`p-4 bg-white/60 dark:bg-black/20 backdrop-blur-md rounded-[24px] group-hover:scale-[1.15] group-hover:-rotate-6 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 shadow-sm border border-white/60 dark:border-white/5 relative z-10 ${col.text} ${col.shadow} ${col.bgHover}`}>
                 <IconComp size={28} className="shrink-0 drop-shadow-sm" />
@@ -2240,7 +2086,7 @@ JSON 結構必須是這樣：
 
   const widgetPrep = tomorrowsPrep.length > 0 && !isEditingSchedule ? (
     <div className="relative animate-pop-in">
-      <div className={`relative z-10 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[36px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1`}>
+      <div className="relative z-10 liquid-glass-heavy p-5 transition-all duration-300 hover:-translate-y-0.5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-[15px] font-black text-slate-800 dark:text-gray-100 flex items-center gap-2">
             <BellRing size={18} className="text-orange-500" />
@@ -2364,7 +2210,7 @@ JSON 結構必須是這樣：
       {/* 代課/更改科目 Modal (取代 window.prompt) */}
       {showSubModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-zinc-900 rounded-[32px] p-6 w-full max-w-sm shadow-2xl border border-white/20 dark:border-white/10 transform transition-all animate-slide-up-fade">
+          <div className="liquid-glass-heavy p-6 w-full max-w-sm shadow-2xl transform transition-all animate-slide-up-fade">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl">
                 <PenTool size={24} />

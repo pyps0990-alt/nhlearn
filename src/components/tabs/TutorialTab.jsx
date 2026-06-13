@@ -76,7 +76,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
   return (
     <div className="space-y-8 flex flex-col w-full text-left animate-slide-up-fade pb-12">
       {/* 🚀 Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[40px] p-8 md:p-10 text-white shadow-lg shadow-emerald-500/20 border border-white/20">
+      <div className="liquid-glass-heavy relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 p-8 md:p-10 text-white shadow-lg shadow-emerald-500/20">
         <div className="relative z-10">
           <h2 className="text-[28px] md:text-[36px] font-black tracking-tight leading-tight mb-2">
             歡迎來到 GSAT Pro
@@ -91,7 +91,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
       {/* 🧩 Grid Layout for Features */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 px-1">
         {guides.map((guide, idx) => (
-          <div key={idx} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:-translate-y-1 transition-transform duration-500 flex flex-col h-full group">
+          <div key={idx} className="liquid-glass p-6 overflow-hidden hover:-translate-y-1 transition-transform duration-500 flex flex-col h-full group">
             <div className="flex items-center gap-3 mb-5">
               <div className={`w-12 h-12 rounded-[20px] bg-gradient-to-br ${guide.color} shadow-lg ${guide.shadow} flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform duration-500`}>
                 <guide.icon size={22} />
@@ -100,7 +100,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
             </div>
             <div className="flex-1 space-y-4">
               {guide.items.map((item, i) => (
-                <div key={i} className="bg-white/60 dark:bg-black/20 p-4 rounded-[20px] border border-slate-100/50 dark:border-white/5">
+                <div key={i} className="liquid-glass-subtle p-4 overflow-hidden">
                   <div className="text-[13px] font-black text-[var(--text-primary)] mb-1 flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> {item.label}
                   </div>

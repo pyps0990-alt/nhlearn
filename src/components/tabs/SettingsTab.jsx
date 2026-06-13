@@ -416,7 +416,7 @@ const SettingsTab = ({
                 <Palette size={16} className="text-emerald-500 shrink-0" />
                 <h3 className="text-sm font-black uppercase tracking-wider">外觀主題</h3>
               </div>
-              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
+              <div className="liquid-glass-heavy p-6 rounded-[32px] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden">
                 <div className="grid grid-cols-3 gap-3">
                   {themeOptions.map(opt => (
                     <button key={opt.value} onClick={() => handleThemeChange(opt.value)}
@@ -434,7 +434,7 @@ const SettingsTab = ({
                 <LayoutTemplate size={16} className="text-indigo-600 neon-glow-indigo" />
                 <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">首頁排版設定</h3>
               </div>
-              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-3 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
+              <div className="liquid-glass-heavy p-3 rounded-[32px] overflow-hidden">
                 <div className="space-y-2 p-1">
                   {dashboardLayout?.map((item, idx) => (
                     <div
@@ -498,7 +498,7 @@ const SettingsTab = ({
               </div>
 
               {isAddingCountdown && (
-                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 border border-emerald-300/50 dark:border-emerald-500/30 rounded-[32px] p-6 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(16,185,129,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(16,185,129,0.2)] animate-slide-up-fade">
+                <div className="liquid-glass-heavy border border-emerald-300/50 dark:border-emerald-500/30 rounded-[32px] p-6 animate-slide-up-fade overflow-hidden">
                   <div className="space-y-4">
                     <div>
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 mb-1 block">事件名稱</label>
@@ -561,7 +561,7 @@ const SettingsTab = ({
                 </div>
               )}
 
-              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-2 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
+              <div className="liquid-glass-heavy p-2 rounded-[32px] overflow-hidden">
                 {!customCountdowns || customCountdowns.length === 0 ? (
                   <div className="p-8 text-center text-slate-400 font-bold text-sm">
                     目前沒有自定義倒數項目 ✨
@@ -599,7 +599,7 @@ const SettingsTab = ({
               </div>
 
               {isAddingSubject && (
-                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl p-6 rounded-[32px] border border-blue-300/50 dark:border-blue-500/30 animate-slide-up-fade">
+                <div className="liquid-glass-heavy p-6 rounded-[32px] border border-blue-300/50 dark:border-blue-500/30 animate-slide-up-fade overflow-hidden">
                   <div className="space-y-4">
                     <div>
                       <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">科目名稱</label>
@@ -631,7 +631,7 @@ const SettingsTab = ({
                 </div>
               )}
 
-              <div className="bg-white/50 dark:bg-zinc-900/40 p-4 rounded-[32px] border border-white/60 dark:border-white/10 flex flex-wrap gap-2">
+              <div className="liquid-glass p-4 rounded-[32px] overflow-hidden flex flex-wrap gap-2">
                 {subjects.map(sub => {
                   const IconComp = SUBJECT_ICONS[sub.icon] || BookOpen;
                   const colorConfig = COLOR_CLASSES.find(c => c.key === sub.color) || COLOR_CLASSES[0];
@@ -658,7 +658,7 @@ const SettingsTab = ({
                 <MapPin size={16} className="text-emerald-600 neon-glow-emerald" />
                 <h3 className="text-sm font-black text-[var(--text-secondary)] uppercase tracking-wider">校園導覽設定</h3>
               </div>
-              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] transition-all duration-500">
+              <div className="liquid-glass-heavy p-6 rounded-[32px] transition-all duration-500 overflow-hidden">
                 {!editingCampus ? (
                   <div className="bg-emerald-50/80 dark:bg-emerald-500/10 rounded-[24px] border border-emerald-100 dark:border-emerald-500/20 p-4 flex items-center gap-4">
                     <div className="w-12 h-12 shrink-0 bg-white dark:bg-slate-800 rounded-[18px] shadow-sm flex items-center justify-center">
@@ -704,7 +704,7 @@ const SettingsTab = ({
                 <GraduationCap size={16} className="text-emerald-600 neon-glow-emerald" />
                 <h3 className="text-sm font-black text-[var(--text-secondary)] dark:text-gray-400 uppercase tracking-wider">班級與課表管理</h3>
               </div>
-              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] space-y-5 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
+              <div className="liquid-glass-heavy p-6 rounded-[32px] space-y-5 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 dark:text-gray-500 uppercase ml-1">選擇學校</label>
@@ -806,7 +806,7 @@ const SettingsTab = ({
                 </div>
 
                 {isAddingExam && (
-                  <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl p-6 rounded-[32px] border border-rose-300/50 dark:border-rose-500/30 animate-slide-up-fade">
+                  <div className="liquid-glass-heavy p-6 rounded-[32px] border border-rose-300/50 dark:border-rose-500/30 animate-slide-up-fade overflow-hidden">
                     <div className="space-y-4">
                       <div>
                         <label className="text-[10px] font-black text-gray-400 uppercase ml-1 mb-1 block">考試名稱</label>
@@ -943,7 +943,7 @@ const SettingsTab = ({
                   </div>
                 )}
 
-                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-2 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
+                <div className="liquid-glass-heavy p-2 rounded-[32px] overflow-hidden">
                   {(!examPeriods || examPeriods.length === 0) ? (
                     <div className="p-8 text-center text-slate-400 font-bold text-sm">
                       目前沒有設定段考排程 ✍️
@@ -996,7 +996,7 @@ const SettingsTab = ({
               </div>
 
               {isAddingLink && (
-                <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-emerald-300/50 dark:border-emerald-500/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(16,185,129,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(16,185,129,0.2)] animate-apple-linear overflow-hidden">
+                <div className="liquid-glass-heavy p-6 rounded-[32px] border border-emerald-300/50 dark:border-emerald-500/30 animate-apple-linear overflow-hidden">
                   <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2">
                     <Plus size={16} className="shrink-0 text-emerald-500" /> 新增快捷連結
                   </h4>
@@ -1044,7 +1044,7 @@ const SettingsTab = ({
                 </div>
               )}
 
-              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-2 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
+              <div className="liquid-glass-heavy p-2 rounded-[32px] overflow-hidden">
                 {customLinks.length === 0 && !isAddingLink ? (
                   <div className="p-8 text-center flex flex-col items-center gap-3">
                     <div className="w-12 h-12 bg-slate-50 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-300 dark:text-gray-700 shrink-0">
@@ -1122,7 +1122,7 @@ const SettingsTab = ({
                 <Cloud size={16} className="text-blue-600" />
                 <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">系統服務串接</h3>
               </div>
-              <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] space-y-5">
+              <div className="liquid-glass-heavy p-6 rounded-[32px] space-y-5 overflow-hidden">
                 {/* 1. 全域推播開關 */}
                 <div className="flex justify-between items-center group/item hover:bg-slate-50 dark:hover:bg-white/5 p-2 rounded-2xl transition-all">
                   <div className="flex items-center gap-3">
@@ -1252,7 +1252,7 @@ const SettingsTab = ({
                 </div>
               </div>
 
-              <div className="group bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5">
+              <div className="group liquid-glass-heavy p-6 rounded-[32px] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 overflow-hidden">
                 <h4 className="text-[14px] font-black text-[var(--text-primary)] mb-4 flex items-center gap-2"><Cloud className="text-blue-500" size={16} /> Google 服務</h4>
                 <div className="flex justify-between items-center bg-slate-50/50 dark:bg-black/20 p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-sm group-hover:border-blue-200 dark:group-hover:border-blue-500/30 transition-colors duration-[600ms]">
                   <div>
@@ -1277,7 +1277,7 @@ const SettingsTab = ({
                 <Smartphone size={16} className="text-blue-600 shrink-0" />
                 <h3 className="text-sm font-black text-slate-400 dark:text-gray-500 uppercase tracking-wider">iOS 安裝教學</h3>
               </div>
-              <div className="bg-[var(--bg-surface)] p-6 rounded-[32px] border border-blue-100 dark:border-white/10 shadow-soft glass-effect space-y-4">
+              <div className="liquid-glass p-6 rounded-[32px] border border-blue-100 dark:border-white/10 space-y-4 overflow-hidden">
                 <div className="flex items-start gap-3 bg-blue-50/50 dark:bg-blue-500/5 p-4 rounded-2xl border border-blue-100 dark:border-blue-500/10 transition-transform active:scale-[0.98]">
                   <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
                     <Share size={20} className="text-blue-500" />
@@ -1313,7 +1313,7 @@ const SettingsTab = ({
                   <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider">管理 / 學生會專區</h3>
                 </div>
                 {!isAdmin ? (
-                  <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-8 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] flex flex-col items-center mx-auto w-full">
+                  <div className="liquid-glass-heavy p-8 rounded-[32px] overflow-hidden flex flex-col items-center mx-auto w-full">
                     <div className="bg-emerald-100 dark:bg-emerald-500/10 p-4 rounded-[24px] mb-4 text-emerald-600 dark:text-emerald-400"><Store size={32} /></div>
                     <h4 className="text-[17px] font-black text-[var(--text-primary)] mb-1">特約商店管理</h4>
                     <p className="text-[12px] font-bold text-slate-500 dark:text-gray-400 mb-6 text-center">進入後台以管理商店資料</p>
@@ -1326,7 +1326,7 @@ const SettingsTab = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[32px] border border-emerald-400/50 dark:border-emerald-500/30 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_12px_32px_rgba(16,185,129,0.15)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_12px_32px_rgba(16,185,129,0.25)]">
+                  <div className="liquid-glass-heavy p-6 rounded-[32px] border border-emerald-400/50 dark:border-emerald-500/30 overflow-hidden">
                     <h4 className="text-[15px] font-black text-[var(--text-primary)] mb-5 flex items-center gap-2"><Store size={18} className="text-emerald-500" /> 特約商店管理（已授權）</h4>
                     <div className="bg-emerald-50/80 dark:bg-emerald-950/20 p-5 rounded-[24px] border border-emerald-100 dark:border-emerald-500/20 flex flex-col gap-4 mb-6">
                       <h5 className="text-sm font-black text-emerald-800 dark:text-emerald-400 flex justify-between items-center">

@@ -107,7 +107,7 @@ const StoresTab = ({ isAdmin, campusName, schoolId }) => {
             校園特約商店
           </h2>
         </div>
-        <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl rounded-[40px] border border-white/60 dark:border-white/10 shadow-sm mx-2 animate-pop-in">
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center liquid-glass-heavy rounded-[40px] mx-2 animate-pop-in overflow-hidden">
           <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-5">
             <Store size={40} className="text-slate-400" />
           </div>
@@ -129,7 +129,7 @@ const StoresTab = ({ isAdmin, campusName, schoolId }) => {
             校園特約商店
           </h2>
         </div>
-        <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl rounded-[40px] border border-white/60 dark:border-white/10 shadow-sm mx-2 animate-pop-in">
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center liquid-glass-heavy rounded-[40px] mx-2 animate-pop-in overflow-hidden">
           <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-5">
             <Store size={40} className="text-slate-400" />
           </div>
@@ -166,7 +166,7 @@ const StoresTab = ({ isAdmin, campusName, schoolId }) => {
           <div
             key={store.id}
             style={{ animationDelay: `${idx * 80}ms` }}
-            className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 p-7 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 flex flex-col relative transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] group hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-2 animate-slide-up-fade overflow-hidden"
+            className="liquid-glass p-7 rounded-[40px] flex flex-col relative transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] group hover:-translate-y-2 animate-slide-up-fade overflow-hidden"
           >
             {/* 標題與圖示區塊 */}
             <div className="flex items-center gap-4 mb-5">
@@ -179,8 +179,8 @@ const StoresTab = ({ isAdmin, campusName, schoolId }) => {
                 </div>
               </div>
 
-              <div className="flex flex-col">
-                <h4 className="text-[20px] font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-2">
+              <div className="flex flex-col min-w-0">
+                <h4 className="text-[20px] font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-2 break-words">
                   {store.name}
                 </h4>
                 <div className="flex flex-wrap items-center gap-2">

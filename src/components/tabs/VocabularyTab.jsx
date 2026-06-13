@@ -240,15 +240,17 @@ const WordDetailOverlay = ({
     }
     if (isClosing) return;
     setIsClosing(true);
-    
-    if (window.speechSynthesis) window.speechSynthesis.cancel(); // 立即停止發音
-    
-    setTimeout(() => {
-      // 🚀 修復：在動畫結束後才釋放捲軸，避免瀏覽器在動畫中途嘗試重算座標
-      document.body.style.overflow = '';
-      document.body.style.touchAction = '';
-      onClose();
-    }, 200);
+
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    // 使用 requestAnimationFrame 確保動畫流暢
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        document.body.style.overflow = '';
+        document.body.style.touchAction = '';
+        onClose();
+      }, 180);
+    });
   }, [isClosing, onClose]);
 
   // 🚀 核心需求：邏輯拆解渲染 (使用 processWordDecomposition)
@@ -363,7 +365,7 @@ const WordDetailOverlay = ({
   return createPortal(
     <div className={`fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl transition-opacity duration-200 ${isClosing ? 'opacity-0 pointer-events-none' : 'animate-fadeIn'}`} onClick={handleClose}>
       <div
-        className={`bg-white/95 dark:bg-zinc-900/95 backdrop-blur-2xl w-full h-[100dvh] md:h-[90vh] md:max-w-4xl md:rounded-[48px] shadow-2xl border border-white/20 overflow-hidden flex flex-col transition-all duration-200 ${isClosing ? 'scale-[0.98] opacity-0 translate-y-4 md:translate-y-0' : 'animate-pop-in'}`}
+        className={`liquid-glass-heavy w-full h-[100dvh] md:h-[90vh] md:max-w-4xl md:rounded-[48px] overflow-hidden flex flex-col transition-all duration-200 ${isClosing ? 'scale-[0.98] opacity-0 translate-y-4 md:translate-y-0' : 'animate-pop-in'}`}
         onClick={e => e.stopPropagation()}
       >
         <style>{`
@@ -821,9 +823,9 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
   };
 
   // --- 防抖搜尋機制 (Debounce Search) ---
-  // 等待使用者停止輸入 400 毫秒後，才真正觸發搜尋，大幅減少 Firebase 讀取次數與卡頓
+  // 縮短至 250ms，在回應速度與 Firebase 讀取次數間取得更好平衡
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    const timer = setTimeout(() => setDebouncedSearch(search), 250);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -1758,7 +1760,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         <div
           ref={scrollRefTabs}
           onMouseDown={e => onDragStart(e, scrollRefTabs)} onMouseLeave={() => setDragState({ ...dragState, isDragging: false })} onMouseUp={() => setDragState({ ...dragState, isDragging: false })} onMouseMove={onDragMove}
-          className={`relative flex gap-2 overflow-x-auto scrollbar-hide bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-[24px] backdrop-blur-xl border border-white/40 dark:border-white/5 shadow-inner select-none ${dragState.isDragging && dragState.ref === scrollRefTabs ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`relative flex gap-2 overflow-x-auto scrollbar-hide liquid-glass p-1.5 shadow-inner select-none ${dragState.isDragging && dragState.ref === scrollRefTabs ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
           {/* 魔術背景膠囊 */}
           <div
@@ -1891,11 +1893,10 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
       {notification && createPortal(
         <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[9999] animate-toast-pop-up filter drop-shadow-[0_20px_40px_rgba(0,0,0,0.15)] select-none pointer-events-none w-[90%] max-w-md">
           <div className={`
-            relative px-5 py-4 md:px-8 md:py-5 rounded-[32px] 
-            border backdrop-blur-2xl flex items-center gap-4 md:gap-6
+            relative px-5 py-4 md:px-8 md:py-5 liquid-glass-heavy flex items-center gap-4 md:gap-6 overflow-hidden
             ${notification.type === 'error'
-              ? 'bg-rose-50/90 border-rose-200/50 text-rose-700 dark:bg-rose-950/80 dark:border-rose-500/30'
-              : 'bg-white/90 border-emerald-200/50 text-emerald-800 dark:bg-zinc-900/90 dark:border-emerald-500/30'
+              ? 'border-rose-200/50 text-rose-700 dark:border-rose-500/30'
+              : 'border-emerald-200/50 text-emerald-800 dark:border-emerald-500/30'
             }
             shadow-2xl
           `}>
@@ -1944,8 +1945,8 @@ const WordCard = React.memo(({
 
   return (
     <div
-      style={{ animationDelay: `${Math.min(idx * 40, 600)}ms` }}
-      className="group flex flex-col bg-white/50 dark:bg-zinc-900/40 backdrop-blur-md border border-white/60 dark:border-white/10 rounded-[32px] overflow-hidden transition-all duration-500 shadow-sm hover:shadow-xl hover:-translate-y-1.5 active:scale-[0.97] animate-fadeIn transform-gpu"
+      style={{ animationDelay: `${Math.min(idx * 30, 300)}ms` }}
+      className="group flex flex-col liquid-glass overflow-hidden shadow-sm word-card-hover animate-fadeIn transform-gpu"
     >
       <div
         className="flex items-center gap-5 px-6 py-[22px] cursor-pointer relative"
@@ -2434,7 +2435,7 @@ const WordBank = ({
               }
               setCurrentSet(set.id);
             }}
-            className={`flex-1 min-w-[80px] sm:min-w-[120px] flex items-center justify-center gap-2 px-4 py-3 rounded-[20px] font-black text-[12px] transition-all duration-500 ease-spring-smooth active:scale-90 shadow-sm border ${currentSet === set.id ? 'bg-slate-900 dark:bg-zinc-800 text-white border-transparent shadow-lg shadow-slate-900/20' : 'bg-white/40 dark:bg-zinc-900/40 text-slate-500 dark:text-gray-400 border-white/60 dark:border-white/10 hover:bg-white/60 dark:hover:bg-white/10 hover:translate-y-[-1px]'} ${(set.id === 'Campus' && !user) ? 'opacity-70 grayscale-[0.5]' : ''}`}>
+            className={`flex-1 min-w-[80px] sm:min-w-[120px] flex items-center justify-center gap-2 px-4 py-3 rounded-[20px] font-black text-[12px] transition-all duration-500 ease-spring-smooth active:scale-90 shadow-sm ${currentSet === set.id ? 'bg-slate-900 dark:bg-zinc-800 text-white border border-transparent shadow-lg shadow-slate-900/20' : 'liquid-glass-subtle text-slate-500 dark:text-gray-400 hover:translate-y-[-1px]'} ${(set.id === 'Campus' && !user) ? 'opacity-70 grayscale-[0.5]' : ''}`}>
             <span className={`transition-transform duration-500 ${currentSet === set.id ? 'scale-110 rotate-12' : ''}`}>{set.icon}</span>
             {set.label}
             {set.id === 'Campus' && !user && <Lock size={12} className="ml-0.5 text-slate-400 dark:text-slate-500" />}
@@ -2446,7 +2447,7 @@ const WordBank = ({
       {currentSet === 'Campus' && (
         <div className="animate-fadeIn px-1 mt-1">
           {!user ? (
-            <div className="bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl rounded-2xl border border-dashed border-slate-300 dark:border-white/10 p-6 flex flex-col items-center justify-center gap-2 text-center">
+            <div className="liquid-glass-subtle rounded-2xl border border-dashed border-slate-300 dark:border-white/10 p-6 flex flex-col items-center justify-center gap-2 text-center">
               <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-full flex items-center justify-center text-slate-400">
                 <Lock size={20} />
               </div>
@@ -2454,7 +2455,7 @@ const WordBank = ({
               <p className="text-[11px] font-bold text-slate-400">請先登入後方可切換年級與範圍</p>
             </div>
           ) : (
-            <div className="bg-white/50 dark:bg-zinc-900/50 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-white/5 p-2.5 space-y-2">
+            <div className="liquid-glass rounded-2xl p-2.5 space-y-2">
               {/* 第一排：年級 + 學期 */}
               <div className="flex items-center gap-2">
                 <div className="flex flex-1 bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl">
@@ -2534,7 +2535,7 @@ const WordBank = ({
 
       {/* 2. 搜尋 + 動作合併列 */}
       <div className="flex items-center gap-1.5 px-1 relative z-20">
-        <div className="flex-1 flex items-center gap-1.5 flex-wrap bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl border border-white/40 dark:border-white/10 rounded-[18px] px-2.5 py-1.5 shadow-inner focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+        <div className="flex-1 flex items-center gap-1.5 flex-wrap liquid-glass-subtle px-2.5 py-1.5 shadow-inner search-glow transition-all">
           {/* 隨機按鈕 */}
           <button onClick={() => { if (words.length === 0) return; const randomWord = words[Math.floor(Math.random() * words.length)]; setSearch(randomWord.word); }}
             className="p-1.5 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all active:scale-90 shrink-0" title="隨機單字">
@@ -2608,17 +2609,17 @@ const WordBank = ({
       {/* 動作按鈕列 */}
       <div className="flex gap-2 px-1">
         <button onClick={() => setShowAdd(!showAdd)}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] bg-white/40 dark:bg-zinc-900/40 border border-white/60 dark:border-white/10 active:scale-95 transition-all text-[11px] font-black ${showAdd ? 'text-slate-400' : 'text-emerald-500'}`}>
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] liquid-glass-subtle active:scale-95 transition-all text-[11px] font-black ${showAdd ? 'text-slate-400' : 'text-emerald-500'}`}>
           <Plus size={14} className={showAdd ? 'rotate-45 transition-transform' : 'transition-transform'} /> 新增
         </button>
         <button onClick={() => { setIsBatchMode(!isBatchMode); setSelectedBatch(new Set()); }}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] bg-white/40 dark:bg-zinc-900/40 border border-white/60 dark:border-white/10 active:scale-95 transition-all text-[11px] font-black ${isBatchMode ? 'text-indigo-500' : 'text-slate-400'}`}>
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] liquid-glass-subtle active:scale-95 transition-all text-[11px] font-black ${isBatchMode ? 'text-indigo-500' : 'text-slate-400'}`}>
           <CheckCircle2 size={14} /> 批次
         </button>
         <button onClick={() => setShowFilters(!showFilters)}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[14px] border active:scale-95 transition-all text-[11px] font-black relative ${showFilters || filterPos !== 'all' || filterLearned !== 'all' || filterLevel !== 'all'
             ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-            : 'bg-white/40 dark:bg-zinc-900/40 border-white/60 dark:border-white/10 text-slate-400'}`}>
+            : 'liquid-glass-subtle text-slate-400'}`}>
           <SlidersHorizontal size={14} /> {showFilters ? '收合' : '篩選'}
           {!showFilters && (filterPos !== 'all' || filterLearned !== 'all' || filterLevel !== 'all') && (
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-zinc-900" />
@@ -2653,7 +2654,7 @@ const WordBank = ({
 
       {/* 4. 進階篩選面板 (詞性、等級、掌握度) */}
       {showFilters && (
-        <div className="mx-1 mb-2 p-4 bg-white/40 dark:bg-zinc-900/40 backdrop-blur-xl rounded-[24px] border border-white/60 dark:border-white/10 shadow-sm animate-in slide-in-from-top-2 duration-300 space-y-4">
+        <div className="mx-1 mb-2 p-4 liquid-glass shadow-sm animate-in slide-in-from-top-2 duration-300 space-y-4">
           {/* 詞性篩選 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
@@ -2716,7 +2717,7 @@ const WordBank = ({
 
       {/* 手動新增表單 */}
       {showAdd && (
-        <div className="mx-1 p-6 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl rounded-[32px] border border-emerald-200 dark:border-emerald-500/20 shadow-xl animate-slide-up-fade">
+        <div className="mx-1 p-6 liquid-glass rounded-[32px] border border-emerald-200 dark:border-emerald-500/20 shadow-xl animate-slide-up-fade">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center gap-2"><div className="w-2 h-6 bg-emerald-500 rounded-full" /> 手動新增單字</h3>
             <button onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
@@ -2758,7 +2759,7 @@ const WordBank = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-24 pt-2 px-1 min-h-[400px]">
         {isLoading && filtered.length === 0 ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white/50 dark:bg-zinc-900/40 border border-white/60 dark:border-white/10 rounded-[32px] p-6 space-y-4 animate-pulse">
+            <div key={i} className="liquid-glass p-6 space-y-4 animate-pulse overflow-hidden">
               <div className="w-1/2 h-8 bg-slate-100 dark:bg-zinc-800 rounded-xl" />
               <div className="flex gap-2"><div className="w-12 h-4 bg-slate-100 dark:bg-zinc-800 rounded-lg" /><div className="w-12 h-4 bg-slate-100 dark:bg-zinc-800 rounded-lg" /></div>
               <div className="space-y-2"><div className="w-full h-4 bg-slate-100 dark:bg-zinc-800 rounded-lg" /><div className="w-3/4 h-4 bg-slate-100 dark:bg-zinc-800 rounded-lg" /></div>
@@ -2973,7 +2974,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent, 
               className="transition-all duration-[1500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
             />
           </svg>
-          <div className="absolute inset-3 rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_4px_16px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_4px_16px_rgba(0,0,0,0.2)] border border-white/50 dark:border-white/10 flex flex-col items-center justify-center pointer-events-none">
+          <div className="absolute inset-3 rounded-full liquid-glass-subtle flex flex-col items-center justify-center pointer-events-none">
             <span className={`text-[36px] font-black tracking-tight leading-none ${pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : pct >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>{pct}%</span>
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">秒答率</span>
           </div>
@@ -2983,15 +2984,15 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent, 
 
         {/* 數據統計面板 */}
         <div className="flex gap-3 mb-8 mt-2 w-full max-w-xs px-2">
-          <div className="flex-1 flex flex-col items-center bg-white/50 dark:bg-white/5 backdrop-blur-md p-3 rounded-[20px] border border-white/60 dark:border-white/10 shadow-sm">
+          <div className="flex-1 flex flex-col items-center liquid-glass-subtle p-3 shadow-sm">
             <div className="text-emerald-500 font-black text-xl mb-1">{results.correct}</div>
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">😎 秒答</div>
           </div>
-          <div className="flex-1 flex flex-col items-center bg-white/50 dark:bg-white/5 backdrop-blur-md p-3 rounded-[20px] border border-white/60 dark:border-white/10 shadow-sm">
+          <div className="flex-1 flex flex-col items-center liquid-glass-subtle p-3 shadow-sm">
             <div className="text-amber-500 font-black text-xl mb-1">{results.blurry}</div>
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">🤔 模糊</div>
           </div>
-          <div className="flex-1 flex flex-col items-center bg-white/50 dark:bg-white/5 backdrop-blur-md p-3 rounded-[20px] border border-white/60 dark:border-white/10 shadow-sm">
+          <div className="flex-1 flex flex-col items-center liquid-glass-subtle p-3 shadow-sm">
             <div className="text-rose-500 font-black text-xl mb-1">{results.wrong}</div>
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400">😵 忘了</div>
           </div>
@@ -3019,7 +3020,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent, 
       <div className="w-full flex items-center gap-3 px-1">
         <span className="text-[11px] font-black text-slate-400">{idx + 1}/{sessionWords.length}</span>
         <div className="flex-1 h-2 bg-[var(--border-color)] rounded-full overflow-hidden">
-          <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${((idx + 1) / sessionWords.length) * 100}%` }} />
+          <div className="h-full bg-emerald-500 rounded-full progress-smooth" style={{ width: `${((idx + 1) / sessionWords.length) * 100}%` }} />
         </div>
       </div>
 
@@ -3055,7 +3056,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent, 
           {/* FRONT FACE (未翻面) */}
           <div
             style={{ backfaceVisibility: 'hidden' }}
-            className="absolute inset-0 flex flex-col items-center justify-center p-10 rounded-[48px] bg-white/50 dark:bg-zinc-900/50 backdrop-blur-2xl backdrop-saturate-200 border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_12px_40px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_12px_40px_rgba(0,0,0,0.3)] overflow-hidden"
+            className="absolute inset-0 flex flex-col items-center justify-center p-10 liquid-glass-heavy overflow-hidden"
           >
             <span className="text-[42px] font-black text-slate-900 dark:text-white mb-4 text-center tracking-tight leading-tight pointer-events-none break-words whitespace-normal px-6 w-full">{current.word}</span>
             <div className="flex gap-2 flex-wrap justify-center pointer-events-none mb-6">
@@ -3317,7 +3318,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
     return (
       <div className="space-y-4 py-4">
         {/* 題數設定區域 */}
-        <div className="flex items-center justify-between bg-white/40 dark:bg-white/5 backdrop-blur-[24px] p-4 rounded-[28px] border border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)]">
+        <div className="flex items-center justify-between liquid-glass p-4">
           <span className="text-[14px] font-black text-[var(--text-primary)] ml-2 tracking-tight">測驗題數</span>
           <div className="flex gap-2 bg-slate-100/50 dark:bg-white/5 p-1 rounded-[20px] border border-slate-200/50 dark:border-white/5">
             {[10, 20, 30].map(n => (
@@ -3397,8 +3398,8 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
           </div>
           <span className="text-[13px] font-black text-emerald-500">✓ {score}</span>
         </div>
-        <div className="text-center py-6 sm:py-8 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[32px] sm:rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-5 sm:mb-6">
-          <span className="text-[28px] sm:text-[36px] font-black text-slate-900 dark:text-white tracking-tight leading-tight">{q.word.word}</span>
+        <div className="text-center py-6 sm:py-8 liquid-glass-heavy mb-5 sm:mb-6 overflow-hidden">
+          <span className="text-[28px] sm:text-[36px] font-black text-slate-900 dark:text-white tracking-tight leading-tight break-words">{q.word.word}</span>
           <div className="flex gap-2 justify-center mt-2 sm:mt-3">
             {getMeanings(q.word).map((m, i) => (
               <span key={i} className="text-[12px] sm:text-[13px] font-black text-slate-400 bg-slate-100 dark:bg-white/10 px-3 py-1 rounded-lg inline-block">{m.pos}</span>
@@ -3407,7 +3408,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
         </div>
         <div className="space-y-3">
           {q.options.map((opt, i) => {
-            let cls = 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-md border-white/60 dark:border-white/10 hover:border-blue-500/50 hover:bg-white/60 dark:hover:bg-white/10 hover:shadow-md';
+            let cls = 'liquid-glass-subtle hover:border-blue-500/50 hover:shadow-md';
             if (showResult) {
               if (opt === q.answer) cls = 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-500/30 scale-[1.02] z-10 relative';
               else if (opt === selected) cls = 'bg-rose-500 text-white border-rose-500 shadow-lg shadow-rose-500/30 scale-[1.02] z-10 relative animate-vocab-shake';
@@ -3438,9 +3439,9 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
           </div>
           <span className="text-[13px] font-black text-emerald-500">✓ {score}</span>
         </div>
-        <div className="text-center py-6 sm:py-10 bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border border-white/50 dark:border-white/10 rounded-[32px] sm:rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] mb-5 sm:mb-6">
+        <div className="text-center py-6 sm:py-10 liquid-glass-heavy mb-5 sm:mb-6 overflow-hidden">
           <p className="text-[11px] sm:text-[12px] font-bold text-slate-400 mb-2 sm:mb-3 uppercase tracking-widest">請拼出以下中文的英文</p>
-          <span className="text-[24px] sm:text-[32px] font-black text-slate-900 dark:text-white px-4 block leading-tight">{getPrimaryMeaning(q.word)}</span>
+          <span className="text-[24px] sm:text-[32px] font-black text-slate-900 dark:text-white px-4 block leading-tight break-words">{getPrimaryMeaning(q.word)}</span>
           <div className="flex gap-2 justify-center mt-2">
             {getMeanings(q.word).map((m, i) => (
               <span key={i} className="text-[12px] font-bold text-slate-400">({m.pos})</span>
@@ -3455,7 +3456,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
               ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-[1.02]'
               : spellFailed
                 ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-400 text-rose-600 dark:text-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 placeholder:text-rose-300'
-                : 'bg-white/40 dark:bg-white/5 backdrop-blur-[24px] border-white/50 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_8px_32px_rgba(148,163,184,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] focus:bg-white/60 dark:focus:bg-white/10 focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
+                : 'liquid-glass-subtle focus:border-purple-500/50 focus:ring-4 focus:ring-purple-500/20 text-slate-900 dark:text-white'
               }`} placeholder={spellFailed ? "再試一次..." : "..."} />
           {spellFailed && (
             <div className="flex flex-col items-center gap-3 animate-slide-up-fade">

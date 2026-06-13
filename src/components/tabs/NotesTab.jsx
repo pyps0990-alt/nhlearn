@@ -55,7 +55,7 @@ const QuizModal = ({ isOpen, onClose, quizData, subject }) => {
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-[450px] bg-white/70 dark:bg-zinc-800/70 backdrop-blur-3xl backdrop-saturate-200 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_24px_64px_rgba(0,0,0,0.2)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_24px_64px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col max-h-[90vh] border border-white/60 dark:border-white/10">
+      <div className="w-full max-w-[450px] liquid-glass-heavy rounded-[40px] overflow-hidden flex flex-col max-h-[90vh]">
         <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
           <div>
             <h3 className="text-xl font-black flex items-center gap-2 tracking-tight"><BrainCircuit size={24} /> AI 隨堂測驗</h3>
@@ -225,14 +225,14 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
           </h2>
           <button
             onClick={() => setIsEditMode(!isEditMode)}
-            className={`p-3.5 rounded-[20px] transition-all active:scale-[0.95] duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${isEditMode ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 rotate-12' : 'bg-white/40 dark:bg-slate-900/40 backdrop-blur-[24px] text-slate-500 border border-white/60 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.08)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] hover:-translate-y-0.5'}`}
+            className={`p-3.5 rounded-[20px] transition-all active:scale-[0.95] duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${isEditMode ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 rotate-12' : 'liquid-glass-subtle text-slate-500 hover:-translate-y-0.5'}`}
           >
             {isEditMode ? <CheckCircle2 size={20} /> : <Edit3 size={20} />}
           </button>
         </div>
 
         {showAddSubject && (
-          <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-5 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] animate-slide-up-fade flex flex-col gap-3">
+          <div className="liquid-glass p-5 rounded-[32px] animate-slide-up-fade flex flex-col gap-3 overflow-hidden">
             <h4 className="text-[14px] font-black text-[var(--text-primary)] flex items-center gap-2">
               <FolderPlus size={16} className="text-emerald-500" /> 新增科目
             </h4>
@@ -291,7 +291,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
               <div key={s.name} className="relative group animate-pop-in">
                 <button
                   onClick={() => !isEditMode && setSelectedSubject(s)}
-                  className={`relative w-full aspect-square bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 rounded-[40px] flex flex-col items-center justify-center gap-4 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] ${isEditMode ? 'opacity-50 grayscale scale-[0.98]' : 'hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-2 active:scale-[0.95] hover:bg-white/60 dark:hover:bg-white/10'}`}
+                  className={`relative w-full aspect-square liquid-glass rounded-[40px] flex flex-col items-center justify-center gap-4 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden ${isEditMode ? 'opacity-50 grayscale scale-[0.98]' : 'hover:-translate-y-2 active:scale-[0.95]'}`}
                 >
                   <div className="text-emerald-500 transform group-hover:scale-110 transition-transform duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
                     {renderSubjectIcon(s.icon, 48)}
@@ -323,7 +323,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
       <QuizModal isOpen={isQuizOpen} onClose={() => setIsQuizOpen(false)} quizData={quizData} subject={selectedSubject?.name} />
       <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-6 px-2">
         <div className="flex items-center gap-4">
-          <button onClick={() => setSelectedSubject(null)} className="p-4 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 rounded-[24px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_12px_32px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_12px_32px_rgba(0,0,0,0.3)] active:scale-[0.95] border border-white/60 dark:border-white/10 transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)]"><ArrowLeft size={22} className="text-slate-600 dark:text-gray-300" /></button>
+          <button onClick={() => setSelectedSubject(null)} className="p-4 liquid-glass-subtle rounded-[24px] active:scale-[0.95] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)]"><ArrowLeft size={22} className="text-slate-600 dark:text-gray-300" /></button>
           <div>
             <h2 className="text-[24px] font-black text-emerald-600 tracking-tight">{selectedSubject?.name}</h2>
             <p className="text-[12px] font-bold text-slate-400">{sn.length} 則筆記</p>
@@ -334,7 +334,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
         </button>
       </div>
 
-      <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 md:p-8 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] space-y-5 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]">
+      <div className="liquid-glass-heavy p-6 md:p-8 rounded-[40px] space-y-5 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] overflow-hidden">
         <div className="flex flex-col sm:flex-row gap-2.5">
           <select className="bg-slate-50 dark:bg-white/5 border border-[var(--border-color)] rounded-2xl px-3 py-4 text-xs font-black text-[var(--text-primary)] outline-none" value={newNote.category} onChange={e => setNewNote({ ...newNote, category: e.target.value })}>
             {NOTE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -357,15 +357,15 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
 
       <div className="space-y-4 mt-4">
         {sn.map(n => (
-          <div key={n.id} className="p-7 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] group">
+          <div key={n.id} className="p-7 liquid-glass rounded-[40px] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] group overflow-hidden">
             <div className="flex justify-between items-start mb-4">
               <span className={`px-3 py-1.5 ${n.category === '錯題本' ? 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'} rounded-lg text-[10px] font-black`}>{n.category}</span>
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button onClick={() => handleDeleteNote(n.id)} className="p-2 text-slate-300 hover:text-red-500 active:scale-125 transition-all"><Trash2 size={18} /></button>
               </div>
             </div>
-            <h4 className="font-black text-[var(--text-primary)] text-lg mb-2">{n.title}</h4>
-            <p className="text-sm font-bold text-slate-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{n.content}</p>
+            <h4 className="font-black text-[var(--text-primary)] text-lg mb-2 break-words">{n.title}</h4>
+            <p className="text-sm font-bold text-slate-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed break-words">{n.content}</p>
           </div>
         ))}
       </div>

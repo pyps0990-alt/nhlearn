@@ -181,7 +181,7 @@ export default function GradesTab({ user, triggerNotification }) {
             </div>
 
             {/* 圖表視覺區塊 */}
-            <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[40px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)]">
+            <div className="liquid-glass-heavy p-6 rounded-[40px] overflow-hidden">
 
                 {/* 過濾器與設定中心 */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -273,10 +273,10 @@ export default function GradesTab({ user, triggerNotification }) {
             {/* 歷史紀錄清單 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {exams.map(exam => (
-                    <div key={exam.id} className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-md p-6 rounded-[32px] border border-white/60 dark:border-white/10 shadow-sm flex flex-col transition-all hover:shadow-md hover:-translate-y-1">
+                    <div key={exam.id} className="liquid-glass p-6 rounded-[32px] flex flex-col transition-all hover:-translate-y-1 overflow-hidden">
                         <div className="flex justify-between items-start mb-4 border-b border-slate-100 dark:border-white/5 pb-4">
-                            <div>
-                                <h4 className="text-[18px] font-black text-slate-800 dark:text-white flex items-center gap-2">
+                            <div className="min-w-0">
+                                <h4 className="text-[18px] font-black text-slate-800 dark:text-white flex items-center gap-2 break-words">
                                     {exam.name}
                                     <span className="text-[10px] bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 px-2 py-1 rounded-md">{exam.type || '未分類'}</span>
                                 </h4>
@@ -305,7 +305,7 @@ export default function GradesTab({ user, triggerNotification }) {
             {showAddModal && (
                 <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowAddModal(false)} />
-                    <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 w-full max-w-sm shadow-2xl relative z-10 animate-pop-in border border-white/20 dark:border-white/10">
+                    <div className="liquid-glass-heavy rounded-[40px] p-8 w-full max-w-sm shadow-2xl relative z-10 animate-pop-in overflow-hidden">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black text-slate-800 dark:text-white">{editingExam.id ? '編輯成績' : '新增模擬考成績'}</h3>
                             <button onClick={() => setShowAddModal(false)} className="p-2 bg-slate-100 dark:bg-white/10 rounded-full text-slate-500"><X size={20} /></button>
@@ -353,7 +353,7 @@ export default function GradesTab({ user, triggerNotification }) {
             {showSettingsModal && (
                 <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowSettingsModal(false)} />
-                    <div className="bg-white dark:bg-slate-900 rounded-[40px] p-8 w-full max-w-sm shadow-2xl relative z-10 animate-pop-in border border-white/20 dark:border-white/10">
+                    <div className="liquid-glass-heavy rounded-[40px] p-8 w-full max-w-sm shadow-2xl relative z-10 animate-pop-in overflow-hidden">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2"><Settings size={20} /> 自訂科目與類型</h3>
                             <button onClick={() => setShowSettingsModal(false)} className="p-2 bg-slate-100 dark:bg-white/10 rounded-full text-slate-500"><X size={20} /></button>

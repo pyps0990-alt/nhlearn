@@ -14,12 +14,12 @@ const PrivacyTab = () => {
                         <p className="text-[12px] font-bold text-slate-400">最後更新：2026 年 3 月 12 日</p>
                     </div>
                 </div>
-                <a href="/privacy.html" target="_blank" rel="noreferrer" className="p-3 bg-white/50 dark:bg-white/5 rounded-xl hover:bg-white/80 dark:hover:bg-white/10 transition-colors text-emerald-600 dark:text-emerald-400 shadow-sm border border-white/60 dark:border-white/10" title="在新分頁開啟完整網頁">
+                <a href="/privacy.html" target="_blank" rel="noreferrer" className="p-3 liquid-glass-subtle hover:bg-white/80 dark:hover:bg-white/10 transition-colors text-emerald-600 dark:text-emerald-400" title="在新分頁開啟完整網頁">
                     <ExternalLink size={20} />
                 </a>
             </div>
 
-            <div className="bg-white/40 dark:bg-white/5 p-6 md:p-10 rounded-[32px] border border-white/50 dark:border-white/10 shadow-sm text-[15px] text-slate-700 dark:text-slate-300 leading-relaxed font-bold">
+            <div className="liquid-glass p-6 md:p-10 overflow-hidden text-[15px] text-slate-700 dark:text-slate-300 leading-relaxed font-bold">
 
                 <p className="mb-4">歡迎您使用 <strong className="text-emerald-600 dark:text-emerald-400">GSAT Pro</strong>（以下簡稱「本 App」）。為了讓您能安心使用本 App 的各項服務與資訊，特此向您說明本 App 的隱私權保護政策，以保障您的權益。請您詳細閱讀以下內容。</p>
 
