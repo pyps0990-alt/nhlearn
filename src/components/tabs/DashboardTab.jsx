@@ -295,7 +295,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="w-full flex items-center gap-4 p-4 bg-white/50 dark:bg-zinc-900/40 backdrop-blur-xl backdrop-saturate-150 rounded-[28px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] group"
+        className="w-full flex items-center gap-4 p-4 bg-white/50 dark:bg-zinc-900/40 backdrop-saturate-150 rounded-[28px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] group"
       >
         <div className={`p-3 rounded-2xl transition-colors ${mode === 'focus' ? 'bg-rose-500/10' : 'bg-emerald-500/10'}`}>
           <Timer size={24} className={mode === 'focus' ? 'text-rose-500' : 'text-emerald-500'} />
@@ -455,7 +455,7 @@ const SchoolNewsWidget = () => {
   }, []);
 
   return (
-    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-blur-2xl backdrop-saturate-150 p-6 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 mt-5 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
+    <div className="bg-white/50 dark:bg-zinc-900/40 backdrop-saturate-150 p-6 rounded-[40px] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_8px_24px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_8px_24px_rgba(0,0,0,0.2)] border border-white/60 dark:border-white/10 mt-5 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.9),0_16px_48px_rgba(0,0,0,0.08)] dark:hover:shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_16px_48px_rgba(0,0,0,0.3)]">
       <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <h3 className="text-[16px] font-black text-slate-800 dark:text-gray-100 flex items-center gap-2">
           <MapPin className={error ? "text-orange-400 shrink-0" : "text-blue-500 shrink-0"} size={20} />
@@ -1598,7 +1598,7 @@ JSON 結構必須是這樣：
             </div>
             <span className="text-slate-800 dark:text-white text-[20px] font-black">{Math.round(currentProgress)}%</span>
           </div>
-          <div className="h-3 bg-emerald-200/50 dark:bg-black/20 rounded-full overflow-hidden backdrop-blur-sm border border-emerald-100/50 dark:border-white/5 relative">
+          <div className="h-3 bg-emerald-200/50 dark:bg-black/20 rounded-full overflow-hidden border border-emerald-100/50 dark:border-white/5 relative">
             <div
               className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 shadow-[0_0_15px_rgba(16,185,129,0.5)] progress-smooth"
               style={{ width: `${currentProgress}%` }}
@@ -1927,7 +1927,7 @@ JSON 結構必須是這樣：
                               <div key={el.id} className="relative flex items-center gap-4 py-3 my-1">
                                 <div className="absolute left-[-32px] w-4 h-4 bg-rose-500 rounded-full border-[3px] border-white dark:border-slate-900 shadow-[0_0_15px_rgba(244,63,94,0.8)] z-20 animate-pulse" />
                                 <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-500/60 to-transparent relative">
-                                  <span className="absolute -top-5 left-0 text-[10px] font-black text-rose-500 bg-rose-50/90 dark:bg-rose-950/80 px-2 py-1 rounded-lg backdrop-blur-md border border-rose-200/50 dark:border-rose-500/30 tracking-widest shadow-sm">現在時間 NOW</span>
+                                  <span className="absolute -top-5 left-0 text-[10px] font-black text-rose-500 bg-rose-50/90 dark:bg-rose-950/80 px-2 py-1 rounded-lg border border-rose-200/50 dark:border-rose-500/30 tracking-widest shadow-sm">現在時間 NOW</span>
                                 </div>
                               </div>
                             );
@@ -2055,7 +2055,7 @@ JSON 結構必須是這樣：
     <div className="liquid-glass-heavy p-5 md:p-7 transition-all duration-300 hover:-translate-y-0.5 relative overflow-hidden group/links">
       <div className="absolute top-0 right-0 w-40 h-40 bg-blue-400/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none mix-blend-multiply dark:mix-blend-lighten"></div>
       <div className="flex items-center gap-3 mb-6 relative z-10">
-        <div className="w-12 h-12 rounded-[24px] bg-white/50 dark:bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/60 dark:border-white/20 shadow-sm">
+        <div className="w-12 h-12 rounded-[24px] bg-white/50 dark:bg-white/10 flex items-center justify-center border border-white/60 dark:border-white/20 shadow-sm">
           <Globe className="text-blue-600 dark:text-blue-400" size={24} />
         </div>
         <h3 className="text-[22px] font-black text-slate-800 dark:text-white tracking-tight">外部連結</h3>
@@ -2069,7 +2069,7 @@ JSON 結構必須是這樣：
             <a key={link.id || `custom-link-${idx}`} href={link.url} target="_blank" rel="noreferrer"
               className="flex flex-col items-center gap-3 p-4 liquid-glass-subtle active:scale-[0.95] transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-colors duration-[600ms]"></div>
-              <div className={`p-4 bg-white/60 dark:bg-black/20 backdrop-blur-md rounded-[24px] group-hover:scale-[1.15] group-hover:-rotate-6 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 shadow-sm border border-white/60 dark:border-white/5 relative z-10 ${col.text} ${col.shadow} ${col.bgHover}`}>
+              <div className={`p-4 bg-white/60 dark:bg-black/20 rounded-[24px] group-hover:scale-[1.15] group-hover:-rotate-6 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 shadow-sm border border-white/60 dark:border-white/5 relative z-10 ${col.text} ${col.shadow} ${col.bgHover}`}>
                 <IconComp size={28} className="shrink-0 drop-shadow-sm" />
               </div>
               <span className={`text-[14px] font-black text-slate-700 dark:text-gray-200 text-center w-full px-1 transition-colors duration-[600ms] relative z-10 ${col.groupText}`}>{link.title}</span>
@@ -2137,7 +2137,7 @@ JSON 結構必須是這樣：
       <div className="flex flex-col gap-4 relative z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full border border-white/20">
+            <div className="bg-white/20 px-3 py-1 rounded-full border border-white/20">
                <span className="text-[10px] font-black text-white uppercase tracking-widest">Exam Mode</span>
             </div>
             <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
@@ -2155,7 +2155,7 @@ JSON 結構必須是這樣：
             <div className="text-[10px] font-black text-emerald-200 uppercase tracking-widest border-b border-emerald-400/30 pb-1">今日考程明細</div>
             <div className="grid grid-cols-1 gap-2">
               {activeExam.sessions.map((s, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-white/10 backdrop-blur-sm p-3 rounded-2xl border border-white/10">
+                <div key={idx} className="flex items-center justify-between bg-white/10 p-3 rounded-2xl border border-white/10">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-black text-white text-xs">{idx + 1}</div>
                     <div>
@@ -2209,7 +2209,7 @@ JSON 結構必須是這樣：
 
       {/* 代課/更改科目 Modal (取代 window.prompt) */}
       {showSubModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 animate-fade-in">
           <div className="liquid-glass-heavy p-6 w-full max-w-sm shadow-2xl transform transition-all animate-slide-up-fade">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-2xl">

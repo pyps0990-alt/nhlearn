@@ -1102,7 +1102,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
     <>
       {/* 🚀 全螢幕登入載入動畫 (Auth Loading Overlay) */}
       {isAuthLoading && (
-        <div className="fixed inset-0 z-[9999] bg-slate-900/40 dark:bg-[#020617]/80 backdrop-blur-3xl flex flex-col items-center justify-center animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/40 dark:bg-[#020617]/80 flex flex-col items-center justify-center animate-fadeIn">
           {/* 背景氛圍光暈 */}
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-emerald-500/20 blur-[80px] rounded-full animate-pulse-slow pointer-events-none"></div>
 
@@ -1131,7 +1131,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
       {/* 🚀 全新液態玻璃設計：推播通知授權彈窗 */}
       {showPushPrompt && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm animate-fadeIn" onClick={() => setShowPushPrompt(false)} />
+          <div className="absolute inset-0 bg-slate-900/30 animate-fadeIn" onClick={() => setShowPushPrompt(false)} />
           <div className="liquid-glass-heavy p-8 md:p-10 rounded-[48px] shadow-[var(--glass-shadow-xl)] relative w-full max-w-sm animate-pop-in text-center overflow-hidden">
             <div className="absolute -top-20 -left-20 w-48 h-48 bg-emerald-400/30 blur-[50px] rounded-full pointer-events-none"></div>
             <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-blue-400/30 blur-[50px] rounded-full pointer-events-none"></div>

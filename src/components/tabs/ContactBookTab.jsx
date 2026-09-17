@@ -441,7 +441,7 @@ const ContactBookContent = ({ contactBook, setContactBook, subjects, isAdmin, sa
           <h2 className="text-3xl font-black text-emerald-600 flex items-center gap-3 tracking-tight">
             <Notebook size={28} className="shrink-0 neon-glow-emerald" /> 電子聯絡簿
           </h2>
-          <div className="flex bg-slate-100/80 dark:bg-white/5 p-1 rounded-xl border border-slate-200/50 dark:border-white/5 backdrop-blur-sm">
+          <div className="flex bg-slate-100/80 dark:bg-white/5 p-1 rounded-xl border border-slate-200/50 dark:border-white/5">
             <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all duration-300 ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><List size={16} /></button>
             <button onClick={() => setViewMode('calendar')} className={`p-2 rounded-lg transition-all duration-300 ${viewMode === 'calendar' ? 'bg-white dark:bg-slate-800 shadow-sm text-emerald-600 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'}`}><LayoutGrid size={16} /></button>
           </div>
@@ -508,7 +508,7 @@ const ContactBookContent = ({ contactBook, setContactBook, subjects, isAdmin, sa
             </div>
             <div className="flex items-center gap-3 w-full md:w-auto">
               <div className="relative flex-1 md:flex-none">
-                <select className="w-full md:w-40 bg-white/60 dark:bg-black/20 backdrop-blur-md border border-slate-200 dark:border-white/10 rounded-[18px] px-4 py-3 text-[14px] font-black outline-none focus:border-emerald-400 transition-all shadow-sm appearance-none text-[var(--text-primary)]" value={newEntry.subject} onChange={e => setNewEntry({ ...newEntry, subject: e.target.value })}>
+                <select className="w-full md:w-40 bg-white/60 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-[18px] px-4 py-3 text-[14px] font-black outline-none focus:border-emerald-400 transition-all shadow-sm appearance-none text-[var(--text-primary)]" value={newEntry.subject} onChange={e => setNewEntry({ ...newEntry, subject: e.target.value })}>
                   {subjects.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
                 </select>
                 <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none shrink-0" />
@@ -527,12 +527,12 @@ const ContactBookContent = ({ contactBook, setContactBook, subjects, isAdmin, sa
             <div className="flex flex-col gap-4">
               <div className="relative">
                 <textarea
-                  className="w-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
+                  className="w-full bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
                   placeholder="📝 今日指派作業 (例如：完成習作 P.10-15)"
                   value={newEntry.homework}
                   onChange={e => setNewEntry({ ...newEntry, homework: e.target.value })}
                 />
-                <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-2 rounded-[16px] border border-emerald-200/50 dark:border-emerald-500/20 shadow-sm backdrop-blur-md">
+                <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-2 rounded-[16px] border border-emerald-200/50 dark:border-emerald-500/20 shadow-sm">
                   <Calendar size={14} className="text-emerald-600 dark:text-emerald-400" />
                   <input
                     type="date"
@@ -545,7 +545,7 @@ const ContactBookContent = ({ contactBook, setContactBook, subjects, isAdmin, sa
 
               <div className="relative">
                 <textarea
-                  className="w-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-xl border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-red-400 focus:ring-2 focus:ring-red-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
+                  className="w-full bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 rounded-[28px] px-6 py-5 text-[15px] font-bold outline-none focus:border-red-400 focus:ring-2 focus:ring-red-400/20 transition-all duration-300 min-h-[120px] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] text-[var(--text-primary)] resize-none"
                   placeholder="💯 明日考試內容 (例如：第一課默寫)"
                   value={newEntry.exam}
                   onChange={e => setNewEntry({ ...newEntry, exam: e.target.value })}
@@ -561,7 +561,7 @@ const ContactBookContent = ({ contactBook, setContactBook, subjects, isAdmin, sa
                     ))}
                   </select>
                 </div>
-                <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-red-50 dark:bg-red-950/40 px-4 py-2 rounded-[16px] border border-red-200/50 dark:border-red-500/20 shadow-sm backdrop-blur-md">
+                <div className="absolute right-4 bottom-4 flex items-center gap-2 bg-red-50 dark:bg-red-950/40 px-4 py-2 rounded-[16px] border border-red-200/50 dark:border-red-500/20 shadow-sm">
                   <Calendar size={14} className="text-red-600 dark:text-red-400" />
                   <input
                     type="date"
@@ -742,7 +742,7 @@ const ContactBookContent = ({ contactBook, setContactBook, subjects, isAdmin, sa
 
       {/* 刪除確認 Modal */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 animate-fadeIn">
           <div className="liquid-glass-heavy rounded-[32px] p-6 w-full max-w-sm shadow-2xl transform transition-all animate-pop-in overflow-hidden">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 rounded-2xl">
@@ -773,7 +773,7 @@ const ContactBookContent = ({ contactBook, setContactBook, subjects, isAdmin, sa
 
       {/* 期限過期確認 Modal */}
       {expiredConfirmOpen && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-900/50 animate-fadeIn">
           <div className="liquid-glass-heavy rounded-[32px] p-6 w-full max-w-sm shadow-2xl transform transition-all animate-pop-in overflow-hidden">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl">

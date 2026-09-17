@@ -16,21 +16,25 @@
   --text-secondary: #64748b;
   --border-color: rgba(0,0,0,0.06);
 
-  /* ── Liquid Glass tokens (Light) ── */
-  --glass-bg: rgba(255,255,255,0.55);
-  --glass-bg-heavy: rgba(255,255,255,0.72);
-  --glass-border: rgba(255,255,255,0.65);
-  --glass-border-subtle: rgba(255,255,255,0.35);
-  --glass-blur: 28px;
-  --glass-saturate: 180%;
-  --glass-inner-glow: inset 0 1px 0 rgba(255,255,255,0.85), inset 0 0 0 0.5px rgba(255,255,255,0.5);
-  --glass-shadow: 0 8px 32px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
-  --glass-shadow-lg: 0 20px 60px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
-  --glass-shadow-xl: 0 32px 80px rgba(0,0,0,0.1), 0 8px 24px rgba(0,0,0,0.05);
+  /* ── Surface tokens（Light）──
+     質感由這組權杖決定：平塗實色、墨黑粗框、實心位移陰影。
+     .liquid-glass / -heavy / -subtle 三個語意類別全部讀這裡，
+     因此調整質感只需要改這一段，不需要動任何元件。 */
+  --ink: #16161d;
+  --glass-bg: #ffffff;
+  --glass-bg-heavy: #ffffff;
+  --glass-border: var(--ink);
+  --glass-border-subtle: rgba(22,22,29,0.55);
+  --glass-border-width: 2.5px;
+  --glass-border-width-sm: 2px;
+  --glass-inner-glow: 0 0 0 0 transparent;
+  --glass-shadow: 4px 4px 0 var(--ink);
+  --glass-shadow-lg: 6px 6px 0 var(--ink);
+  --glass-shadow-xl: 8px 8px 0 var(--ink);
 
-  --card-radius: 28px;
-  --card-radius-lg: 36px;
-  --card-radius-sm: 18px;
+  --card-radius: 14px;
+  --card-radius-lg: 18px;
+  --card-radius-sm: 10px;
   --pill-radius: 100px;
 }
 
@@ -42,14 +46,16 @@
   --text-secondary: #94a3b8;
   --border-color: rgba(255,255,255,0.08);
 
-  --glass-bg: rgba(15,23,42,0.45);
-  --glass-bg-heavy: rgba(15,23,42,0.65);
-  --glass-border: rgba(255,255,255,0.12);
-  --glass-border-subtle: rgba(255,255,255,0.06);
-  --glass-inner-glow: inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 0.5px rgba(255,255,255,0.04);
-  --glass-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 1px 3px rgba(0,0,0,0.25);
-  --glass-shadow-lg: 0 20px 60px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.3);
-  --glass-shadow-xl: 0 32px 80px rgba(0,0,0,0.55), 0 8px 24px rgba(0,0,0,0.35);
+  /* 深色模式：卡片提亮、框線用純黑，陰影才看得出來 */
+  --ink: #000000;
+  --glass-bg: #232732;
+  --glass-bg-heavy: #2b3040;
+  --glass-border: #000000;
+  --glass-border-subtle: rgba(0,0,0,0.6);
+  --glass-inner-glow: 0 0 0 0 transparent;
+  --glass-shadow: 4px 4px 0 var(--ink);
+  --glass-shadow-lg: 6px 6px 0 var(--ink);
+  --glass-shadow-xl: 8px 8px 0 var(--ink);
 }
 
 /* ═══ Layout & iOS Adaptation ═══ */
@@ -77,41 +83,38 @@ body, html {
   .pb-safe { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
 }
 
-/* ═══ Liquid Glass — Core Classes ═══ */
+/* ═══ Surface — Core Classes ═══
+   三個層級：-subtle 次要區塊、預設 一般卡片、-heavy 對話框與重點卡。
+   差別只在框線粗細、陰影深淺與圓角，全部讀上方權杖。
+   類別名稱沿用 liquid-glass*，因為 JSX 已有 137 處引用；
+   改名的效益不足以抵過大範圍替換的風險。 */
 .liquid-glass {
   background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  border: 0.5px solid var(--glass-border);
-  box-shadow: var(--glass-inner-glow), var(--glass-shadow);
+  border: var(--glass-border-width) solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   border-radius: var(--card-radius);
 }
 
 .liquid-glass-heavy {
   background: var(--glass-bg-heavy);
-  backdrop-filter: blur(36px) saturate(200%);
-  -webkit-backdrop-filter: blur(36px) saturate(200%);
-  border: 0.5px solid var(--glass-border);
-  box-shadow: var(--glass-inner-glow), var(--glass-shadow-lg);
+  border: var(--glass-border-width) solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
   border-radius: var(--card-radius-lg);
 }
 
 .liquid-glass-subtle {
   background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 0.5px solid var(--glass-border-subtle);
-  box-shadow: var(--glass-inner-glow), 0 2px 8px rgba(0,0,0,0.03);
+  border: var(--glass-border-width-sm) solid var(--glass-border-subtle);
+  box-shadow: var(--glass-shadow);
   border-radius: var(--card-radius-sm);
 }
 
-/* Deprecated alias kept for compat */
+/* 舊別名，保留相容 */
 .glass-effect {
   background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  border: 0.5px solid var(--glass-border);
-  box-shadow: var(--glass-inner-glow), var(--glass-shadow);
+  border: var(--glass-border-width) solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--card-radius);
 }
 
 /* ═══ Typography ═══ */
@@ -241,24 +244,8 @@ input, textarea { font-size: 16px !important; }
   overscroll-behavior: contain;
 }
 
-/* ═══ Mobile: lighter blur for GPU ═══ */
-@media (max-width: 768px) {
-  :root {
-    --glass-blur: 20px;
-    --glass-saturate: 160%;
-  }
-  .backdrop-blur-2xl,
-  .backdrop-blur-xl,
-  .backdrop-blur-3xl {
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
-  }
-  .backdrop-blur-\[32px\],
-  .backdrop-blur-\[48px\] {
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
-  }
-}
+/* 手機專用的 blur 降階覆寫已移除：
+   設計改為平塗後不再使用 backdrop-filter，JSX 中的 backdrop-blur-* 也已清除。 */
 
 /* ═══ Reduced Motion ═══ */
 @media (prefers-reduced-motion: reduce) {

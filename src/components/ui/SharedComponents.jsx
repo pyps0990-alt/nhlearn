@@ -32,7 +32,7 @@ export const IosNotification = ({ notification }) => {
 };
 
 export const PrivacyModal = ({ onAccept, title = "隱私權聲明與使用條款" }) => (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-emerald-950/40 backdrop-blur-md animate-fadeIn text-left">
+  <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-emerald-950/40 animate-fadeIn text-left">
     <div className="liquid-glass-heavy w-full max-w-sm shadow-2xl overflow-hidden">
       <div className="p-8 pb-4">
         <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/10 rounded-3xl flex items-center justify-center mb-6 shrink-0 border border-transparent dark:border-white/10">
@@ -204,7 +204,7 @@ export const FeedbackModal = ({ isOpen, onClose }) => {
     setContent('');
   };
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
       <div className="liquid-glass-heavy w-full max-w-md p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-black flex items-center gap-2"><MessageSquare size={24} className="text-emerald-500 shrink-0" />意見回饋</h2>

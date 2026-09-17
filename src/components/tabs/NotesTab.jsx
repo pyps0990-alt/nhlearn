@@ -54,7 +54,7 @@ const QuizModal = ({ isOpen, onClose, quizData, subject }) => {
   const q = quizData[currentQuestion];
 
   return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fadeIn" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 p-4 animate-fadeIn" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="w-full max-w-[450px] liquid-glass-heavy rounded-[40px] overflow-hidden flex flex-col max-h-[90vh]">
         <div className="bg-emerald-600 p-6 text-white flex justify-between items-center">
           <div>
@@ -71,7 +71,7 @@ const QuizModal = ({ isOpen, onClose, quizData, subject }) => {
               </div>
               <div className="flex flex-col gap-3">
                 {q.options.map((opt, idx) => {
-                  let statusClass = "bg-white/50 dark:bg-slate-800/50 backdrop-blur-md border-white/60 dark:border-white/10 text-[var(--text-primary)] hover:border-emerald-200 hover:bg-emerald-50/80 dark:hover:bg-emerald-500/20";
+                  let statusClass = "bg-white/50 dark:bg-slate-800/50 border-white/60 dark:border-white/10 text-[var(--text-primary)] hover:border-emerald-200 hover:bg-emerald-50/80 dark:hover:bg-emerald-500/20";
                   if (selectedAnswer === idx) {
                     statusClass = isCorrect ? "bg-emerald-500 text-white border-emerald-500 scale-[1.02] shadow-lg shadow-emerald-500/30" : "bg-red-500 text-white border-red-500 scale-[1.02] shadow-lg shadow-red-500/30";
                   } else if (selectedAnswer !== null && idx === q.answerIndex) {

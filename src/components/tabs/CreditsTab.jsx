@@ -307,7 +307,7 @@ export default function CreditsTab({ user, triggerNotification }) {
       {/* 📝 Premium Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setShowAddModal(false)} />
+          <div className="absolute inset-0 bg-slate-900/60" onClick={() => setShowAddModal(false)} />
           <div className="relative w-full max-sm:max-w-full max-w-sm liquid-glass-heavy overflow-hidden shadow-2xl animate-pop-in">
             <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-10 text-white text-center">
                <div className="w-16 h-16 bg-white/20 rounded-3xl mx-auto flex items-center justify-center mb-4">

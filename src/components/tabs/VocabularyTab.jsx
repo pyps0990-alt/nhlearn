@@ -189,7 +189,7 @@ const StatsModal = ({ isOpen, onClose, stats }) => {
   const todayMin = Math.floor(todayStats.time / 60);
 
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fadeIn" onClick={onClose}>
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/60 animate-fadeIn" onClick={onClose}>
       <div className="bg-white dark:bg-zinc-900 w-[320px] rounded-[36px] p-6 shadow-2xl border border-slate-100 dark:border-white/10 animate-pop-in text-center" onClick={e => e.stopPropagation()}>
         <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-600 dark:text-emerald-400">
           <Clock size={32} />
@@ -368,7 +368,7 @@ const WordDetailOverlay = ({
   const cleanAnalysis = analysis && !analysis.startsWith('ERROR:') ? analysis.replace(/###\s*\[?單字構造拆解\]?[\s\S]*?(?=###|$)/i, '').trim() : '';
 
   return createPortal(
-    <div className={`fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 backdrop-blur-xl transition-opacity duration-200 ${isClosing ? 'opacity-0 pointer-events-none' : 'animate-fadeIn'}`} onClick={handleClose}>
+    <div className={`fixed inset-0 z-[2000] flex items-center justify-center bg-black/80 transition-opacity duration-200 ${isClosing ? 'opacity-0 pointer-events-none' : 'animate-fadeIn'}`} onClick={handleClose}>
       <div
         className={`liquid-glass-heavy w-full h-[100dvh] md:h-[90vh] md:max-w-4xl md:rounded-[48px] overflow-hidden flex flex-col transition-all duration-200 ${isClosing ? 'scale-[0.98] opacity-0 translate-y-4 md:translate-y-0' : 'animate-pop-in'}`}
         onClick={e => e.stopPropagation()}
@@ -496,7 +496,7 @@ const WordDetailOverlay = ({
                 <Heart size={26} className={isSaved ? 'fill-current animate-heart-burst' : ''} />
               </button>
             )}
-            <button onClick={handleClose} className="p-3 md:p-4 bg-slate-200/80 dark:bg-white/20 rounded-full text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-emerald-400 transition-all active:scale-90 flex items-center justify-center touch-manipulation shrink-0 hover:bg-slate-300 dark:hover:bg-white/30 shadow-md border border-slate-300 dark:border-white/30 backdrop-blur-md" title="關閉視窗">
+            <button onClick={handleClose} className="p-3 md:p-4 bg-slate-200/80 dark:bg-white/20 rounded-full text-slate-700 dark:text-white hover:text-slate-900 dark:hover:text-emerald-400 transition-all active:scale-90 flex items-center justify-center touch-manipulation shrink-0 hover:bg-slate-300 dark:hover:bg-white/30 shadow-md border border-slate-300 dark:border-white/30" title="關閉視窗">
               <X size={28} strokeWidth={2.5} />
             </button>
           </div>
@@ -1721,7 +1721,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
         }
       `}</style>
       {/* Header (Sticky) */}
-      <div className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md pt-2 px-1">
+      <div className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 pt-2 px-1">
         <div className="flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl shrink-0">
@@ -1750,7 +1750,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
 
         {/* 錯誤提示 (Sticky Notice) */}
         {dbError && (
-          <div className="mt-2 p-3 bg-red-100/80 dark:bg-red-900/40 backdrop-blur-lg border border-red-200 dark:border-red-800/50 rounded-2xl flex items-center gap-3 animate-slide-up-fade shadow-lg mx-1">
+          <div className="mt-2 p-3 bg-red-100/80 dark:bg-red-900/40 border border-red-200 dark:border-red-800/50 rounded-2xl flex items-center gap-3 animate-slide-up-fade shadow-lg mx-1">
             <AlertCircle size={18} className="text-red-500 shrink-0" />
             <span className="text-[13px] font-black text-red-700 dark:text-red-300 min-w-0 break-words leading-tight">{dbError}</span>
             <button onClick={() => setDbError('')} className="ml-auto p-1.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors">

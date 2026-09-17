@@ -377,7 +377,7 @@ const ScheduleAdminTab = ({
 
       {/* Edit Form Modal */}
       {editingItem !== null && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 animate-fadeIn">
           <div className="liquid-glass-heavy p-6 w-full max-w-md shadow-2xl animate-slide-up-fade overflow-hidden">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-[18px] font-black text-slate-800 dark:text-white flex items-center gap-2">

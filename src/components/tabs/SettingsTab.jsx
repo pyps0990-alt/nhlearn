@@ -380,7 +380,7 @@ const SettingsTab = ({
         <div
           ref={scrollRef}
           onMouseDown={onMouseDown} onMouseLeave={() => setIsDragging(false)} onMouseUp={() => setIsDragging(false)} onMouseMove={onMouseMove}
-          className={`relative p-1.5 bg-slate-200/50 dark:bg-zinc-800/50 backdrop-blur-2xl rounded-[28px] flex w-full shadow-inner overflow-x-auto scrollbar-hide border border-white/40 dark:border-white/5 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`relative p-1.5 bg-slate-200/50 dark:bg-zinc-800/50 rounded-[28px] flex w-full shadow-inner overflow-x-auto scrollbar-hide border border-white/40 dark:border-white/5 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
           {/* 魔法滑動背景膠囊 */}
           <div

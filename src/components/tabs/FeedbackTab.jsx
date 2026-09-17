@@ -268,7 +268,7 @@ const FeedbackTab = ({ userProfile, triggerNotification }) => {
 
       {/* Fullscreen Image Preview Modal */}
       {isPreviewOpen && screenshot && (
-        <div className="fixed inset-0 z-[9999] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn" onClick={() => setIsPreviewOpen(false)}>
+        <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setIsPreviewOpen(false)}>
           <img src={screenshot} alt="Fullscreen preview" className="max-w-full max-h-full rounded-2xl object-contain shadow-2xl scale-[0.95] animate-pop-in" />
           <button className="absolute top-6 right-6 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors active:scale-90" onClick={() => setIsPreviewOpen(false)}>
             <X size={24} />

@@ -58,10 +58,10 @@ const CommandPalette = ({ isOpen, onClose, onSelectTab }) => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh] animate-fadeIn transition-all" onClick={onClose}>
-      <div className="absolute inset-0 bg-slate-900/30 dark:bg-slate-900/60 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-slate-900/30 dark:bg-slate-900/60" />
       <div
         onClick={e => e.stopPropagation()}
-        className="relative w-[90%] max-w-xl bg-white/70 dark:bg-zinc-800/70 backdrop-blur-3xl backdrop-saturate-200 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_24px_64px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_24px_64px_rgba(0,0,0,0.4)] overflow-hidden animate-slide-up-fade transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
+        className="relative w-[90%] max-w-xl bg-white/70 dark:bg-zinc-800/70 backdrop-saturate-200 rounded-[32px] border border-white/60 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_24px_64px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_24px_64px_rgba(0,0,0,0.4)] overflow-hidden animate-slide-up-fade transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)]"
       >
         {/* Search Input */}
         <div className="flex items-center gap-4 px-6 py-5 border-b border-gray-200/50 dark:border-white/10">

@@ -202,7 +202,7 @@ const YoubikeWidget = ({ campusName, campusAddress, campusLat = '25.078410', cam
           </span>
           <button
             onClick={fetchYoubike}
-            className="p-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md border border-white/60 dark:border-white/10 text-slate-600 dark:text-slate-300 rounded-[14px] active:scale-[0.90] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white/80 dark:hover:bg-white/20 shadow-sm hover:shadow-md shrink-0"
+            className="p-2.5 bg-white/50 dark:bg-slate-800/50 border border-white/60 dark:border-white/10 text-slate-600 dark:text-slate-300 rounded-[14px] active:scale-[0.90] transition-all duration-[400ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white/80 dark:hover:bg-white/20 shadow-sm hover:shadow-md shrink-0"
             aria-label="重新整理"
           >
             <RefreshCw size={18} className={`shrink-0 ${loading && youbikeData.length ? 'animate-spin' : ''}`} />
@@ -336,7 +336,7 @@ const YoubikeWidget = ({ campusName, campusAddress, campusLat = '25.078410', cam
                       </button>
                     </div>
                   </div>
-                  <div className="flex bg-white/50 dark:bg-black/20 rounded-xl p-2 border border-slate-100/50 dark:border-white/10 shadow-sm backdrop-blur-sm">
+                  <div className="flex bg-white/50 dark:bg-black/20 rounded-xl p-2 border border-slate-100/50 dark:border-white/10 shadow-sm">
                     <div className="flex-1 flex flex-col items-center justify-center border-r border-gray-100 dark:border-white/5">
                       <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 mb-0.5">可借</span>
                       <span className={`text-[22px] font-black ${s.rent > 0 ? (isElectric ? 'text-orange-500' : 'text-emerald-600') : 'text-gray-300'}`}>

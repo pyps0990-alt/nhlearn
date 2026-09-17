@@ -304,7 +304,7 @@ export default function GradesTab({ user, triggerNotification }) {
             {/* 新增/編輯彈窗 */}
             {showAddModal && (
                 <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowAddModal(false)} />
+                    <div className="absolute inset-0 bg-slate-900/60 animate-fadeIn" onClick={() => setShowAddModal(false)} />
                     <div className="liquid-glass-heavy rounded-[40px] p-8 w-full max-w-sm shadow-2xl relative z-10 animate-pop-in overflow-hidden">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black text-slate-800 dark:text-white">{editingExam.id ? '編輯成績' : '新增模擬考成績'}</h3>
@@ -352,7 +352,7 @@ export default function GradesTab({ user, triggerNotification }) {
             {/* ⚙️ 專屬設定彈窗：自訂科目與類型 */}
             {showSettingsModal && (
                 <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setShowSettingsModal(false)} />
+                    <div className="absolute inset-0 bg-slate-900/60 animate-fadeIn" onClick={() => setShowSettingsModal(false)} />
                     <div className="liquid-glass-heavy rounded-[40px] p-8 w-full max-w-sm shadow-2xl relative z-10 animate-pop-in overflow-hidden">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2"><Settings size={20} /> 自訂科目與類型</h3>
