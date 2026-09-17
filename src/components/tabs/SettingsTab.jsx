@@ -37,6 +37,7 @@ const SettingsTab = ({
   const [editingCampus, setEditingCampus] = useState(false);
   const [tempName, setTempName] = useState(campusName);
   const [tempAddr, setTempAddr] = useState(campusAddress);
+  const [tempLat, setTempLat] = useState(campusLat || '25.078410');
   const [tempLng, setTempLng] = useState(campusLng || '121.587152');
 
   const SETTINGS_TABS = [

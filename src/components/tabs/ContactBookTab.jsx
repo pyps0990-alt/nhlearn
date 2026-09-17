@@ -10,7 +10,11 @@ import toast from 'react-hot-toast';
 import { db } from '../../config/firebase'; // 確保路徑正確
 import { collection, addDoc, onSnapshot, query, where, doc, setDoc, deleteDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
-const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID, user, schoolId, gradeId, navToSettings, errorMsg }) => {
+// 守門層：所有提前 return 都集中在這裡，確保底下的 ContactBookContent
+// 一旦被掛載，其 Hooks 就會在每次 render 都以相同順序執行（Rules of Hooks）。
+const ContactBookTab = (props) => {
+  const { contactBook, subjects, classID, schoolId, gradeId, navToSettings } = props;
+
   if (!schoolId || !gradeId || !classID) {
     return (
       <div className="flex flex-col items-center justify-center py-32 px-6 text-center animate-slide-up-fade">
@@ -39,6 +43,10 @@ const ContactBookTab = ({ contactBook, setContactBook, subjects, isAdmin, saveCo
     </div>
   );
 
+  return <ContactBookContent {...props} />;
+};
+
+const ContactBookContent = ({ contactBook, setContactBook, subjects, isAdmin, saveContactBookToFirestore, classID, user, schoolId, gradeId, navToSettings, errorMsg }) => {
   // 考試類型與顏色對應表
   const EXAM_TYPES = {
     '小考': { color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400' },

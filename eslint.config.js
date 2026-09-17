@@ -26,4 +26,24 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  // Cloud Functions / Vercel Serverless：Node 環境，可用 require、exports、process
+  {
+    files: ['functions/**/*.js', 'homework/**/*.js', 'api/**/*.js', '*.config.js', '**/.eslintrc.js'],
+    languageOptions: {
+      globals: { ...globals.node },
+      sourceType: 'commonjs',
+    },
+  },
+  // api/ 內為 ESM 格式的 Vercel Functions
+  {
+    files: ['api/**/*.js'],
+    languageOptions: { sourceType: 'module' },
+  },
+  // Service Worker：可用 importScripts、self，以及 Firebase compat 全域物件
+  {
+    files: ['public/**/*.js'],
+    languageOptions: {
+      globals: { ...globals.serviceworker, firebase: 'readonly' },
+    },
+  },
 ])
