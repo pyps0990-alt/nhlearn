@@ -25,7 +25,6 @@
 
 ## 📸 畫面預覽 (Screenshots)
 
-> **💡 提示：** 建議在此處放入實際的 App 截圖或 GIF 動畫
 > 
 > <div align="center">
 >   <img src="./public/photo/dashborad.png" width="24%">
