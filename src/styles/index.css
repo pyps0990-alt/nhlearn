@@ -416,3 +416,77 @@ html {
   background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
   animation: shimmer-slide 2s infinite linear;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Sticker Skin — 與前導頁一致的貼紙手帳質感
+   ───────────────────────────────────────────────────────────────────
+   取代原本的液態玻璃語彙：平塗實色、粗黑框、實心位移陰影、小圓角。
+   以覆寫 Tailwind 工具類別的方式套用，因此全站 14 個分頁一次生效，
+   不需逐檔修改 1918 處硬寫的樣式。
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --ink: #16161d;
+  --sticker-shadow: 4px 4px 0 var(--ink);
+  --sticker-shadow-lg: 6px 6px 0 var(--ink);
+  --radius-xl: 18px;
+  --radius-lg: 14px;
+  --shadow-soft: var(--sticker-shadow);
+  --shadow-float: var(--sticker-shadow-lg);
+}
+.dark {
+  --ink: #000000;
+  --shadow-soft: var(--sticker-shadow);
+  --shadow-float: var(--sticker-shadow-lg);
+}
+
+/* ── 平塗：移除所有毛玻璃 ──
+   backdrop-filter 是全站最貴的繪製操作，拿掉同時得到扁平外觀與效能。 */
+[class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.glass-effect, .dark .glass-effect,
+.glass-morphism, .dark .glass-morphism {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--bg-card-solid) !important;
+  border: 2.5px solid var(--ink) !important;
+  box-shadow: var(--sticker-shadow) !important;
+}
+
+/* ── 底色不透明化 ── */
+.bg-white\/5, .bg-white\/10, .bg-white\/20, .bg-white\/40,
+.bg-white\/60, .bg-white\/70, .bg-white\/80, .bg-white\/90 {
+  background-color: var(--bg-card-solid) !important;
+}
+
+/* ── 粗框 ── */
+.border { border-width: 2.5px !important; }
+.border-2 { border-width: 3px !important; }
+.border-white\/5, .border-white\/10, .border-white\/20, .border-white\/60,
+.border-slate-100, .border-slate-200, .border-slate-200\/50,
+.border-slate-300, .border-slate-700, .border-gray-100 {
+  border-color: var(--ink) !important;
+}
+
+/* ── 實心位移陰影 ── */
+.shadow-sm, .shadow-md { box-shadow: 3px 3px 0 var(--ink) !important; }
+.shadow-lg, .shadow-xl { box-shadow: var(--sticker-shadow) !important; }
+.shadow-2xl { box-shadow: var(--sticker-shadow-lg) !important; }
+.shadow-soft { box-shadow: var(--sticker-shadow) !important; }
+.shadow-float { box-shadow: var(--sticker-shadow-lg) !important; }
+.shadow-neo { box-shadow: var(--sticker-shadow) !important; }
+
+/* ── 收小圓角（rounded-full 保留，那是膠囊與頭像）── */
+.rounded-lg  { border-radius: 10px !important; }
+.rounded-xl  { border-radius: 12px !important; }
+.rounded-2xl { border-radius: 14px !important; }
+.rounded-3xl { border-radius: 16px !important; }
+.rounded-\[16px\], .rounded-\[20px\], .rounded-\[22px\], .rounded-\[24px\],
+.rounded-\[28px\], .rounded-\[32px\], .rounded-\[40px\], .rounded-\[48px\] {
+  border-radius: 16px !important;
+}
+
+/* ── 按下去像真的按鈕：陰影收掉、往右下位移 ── */
+button:active { transform: translate(2px, 2px) !important; }
