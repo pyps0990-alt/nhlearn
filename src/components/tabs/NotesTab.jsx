@@ -329,7 +329,7 @@ const NotesTab = ({ notes, setNotes, subjects, setSubjects, selectedSubject, set
             <p className="text-[12px] font-bold text-slate-400">{sn.length} 則筆記</p>
           </div>
         </div>
-        <button onClick={handleGenerateQuiz} disabled={isGeneratingQuiz || sn.length === 0} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl text-[13px] font-black active:scale-95 shadow-lg">
+        <button onClick={handleGenerateQuiz} disabled={isGeneratingQuiz || sn.length === 0} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-2xl text-[13px] font-black active:scale-95 shadow-lg">
           {isGeneratingQuiz ? <RefreshCw className="animate-spin" size={16} /> : <Wand2 size={16} />} AI 出題
         </button>
       </div>

@@ -96,37 +96,37 @@ const THEME_COLORS = {
   emerald: {
     key: 'emerald', hex: 'bg-emerald-500', text: 'text-emerald-500',
     bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-200 dark:border-emerald-500/20',
-    activeBg: 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-emerald-500/30', ring: 'ring-emerald-500/20'
+    activeBg: 'bg-emerald-500 text-white shadow-emerald-500/30', ring: 'ring-emerald-500/20'
   },
   blue: {
     key: 'blue', hex: 'bg-blue-500', text: 'text-blue-500',
     bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-200 dark:border-blue-500/20',
-    activeBg: 'bg-gradient-to-br from-blue-500 to-indigo-500 text-white shadow-blue-500/30', ring: 'ring-blue-500/20'
+    activeBg: 'bg-blue-500 text-white shadow-blue-500/30', ring: 'ring-blue-500/20'
   },
   rose: {
     key: 'rose', hex: 'bg-rose-500', text: 'text-rose-500',
     bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-200 dark:border-rose-500/20',
-    activeBg: 'bg-gradient-to-br from-rose-500 to-orange-500 text-white shadow-rose-500/30', ring: 'ring-rose-500/20'
+    activeBg: 'bg-rose-500 text-white shadow-rose-500/30', ring: 'ring-rose-500/20'
   },
   amber: {
     key: 'amber', hex: 'bg-amber-500', text: 'text-amber-500',
     bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-200 dark:border-amber-500/20',
-    activeBg: 'bg-gradient-to-br from-amber-500 to-orange-400 text-white shadow-amber-500/30', ring: 'ring-amber-500/20'
+    activeBg: 'bg-amber-500 text-white shadow-amber-500/30', ring: 'ring-amber-500/20'
   },
   purple: {
     key: 'purple', hex: 'bg-purple-500', text: 'text-purple-500',
     bg: 'bg-purple-50 dark:bg-purple-500/10', border: 'border-purple-200 dark:border-purple-500/20',
-    activeBg: 'bg-gradient-to-br from-purple-500 to-fuchsia-500 text-white shadow-purple-500/30', ring: 'ring-purple-500/20'
+    activeBg: 'bg-purple-500 text-white shadow-purple-500/30', ring: 'ring-purple-500/20'
   },
   indigo: {
     key: 'indigo', hex: 'bg-indigo-500', text: 'text-indigo-500',
     bg: 'bg-indigo-50 dark:bg-indigo-500/10', border: 'border-indigo-200 dark:border-indigo-500/20',
-    activeBg: 'bg-gradient-to-br from-indigo-500 to-blue-500 text-white shadow-indigo-500/30', ring: 'ring-indigo-500/20'
+    activeBg: 'bg-indigo-500 text-white shadow-indigo-500/30', ring: 'ring-indigo-500/20'
   },
   slate: {
     key: 'slate', hex: 'bg-slate-500', text: 'text-slate-500',
     bg: 'bg-slate-50 dark:bg-slate-500/10', border: 'border-slate-200 dark:border-slate-500/20',
-    activeBg: 'bg-gradient-to-br from-slate-600 to-gray-500 text-white shadow-slate-500/30', ring: 'ring-slate-500/20'
+    activeBg: 'bg-slate-600 text-white shadow-slate-500/30', ring: 'ring-slate-500/20'
   }
 };
 
@@ -315,7 +315,7 @@ const FocusTimerWidget = ({ triggerNotification }) => {
   return (
     <div className="liquid-glass-heavy overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] animate-slide-up-fade">
       {/* Header */}
-      <div className={`px-6 py-4 flex items-center justify-between ${mode === 'focus' ? 'bg-gradient-to-r from-rose-500/10 to-orange-500/10 dark:from-rose-950/40 dark:to-orange-950/40' : 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-950/40 dark:to-teal-950/40'}`}>
+      <div className={`px-6 py-4 flex items-center justify-between ${mode === 'focus' ? 'bg-rose-500/10 dark:bg-rose-950/40' : 'bg-emerald-500/10 dark:bg-emerald-950/40'}`}>
         <div className="flex items-center gap-3">
           <Timer size={20} className={mode === 'focus' ? 'text-rose-500' : 'text-emerald-500'} />
           <span className="text-[14px] font-black text-slate-800 dark:text-white">
@@ -384,8 +384,8 @@ const FocusTimerWidget = ({ triggerNotification }) => {
           <button
             onClick={() => setIsRunning(!isRunning)}
             className={`p-5 rounded-full shadow-lg transition-all active:scale-90 ${mode === 'focus'
-              ? 'bg-gradient-to-br from-rose-500 to-orange-500 text-white shadow-rose-500/30 hover:shadow-rose-500/50'
-              : 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-emerald-500/30 hover:shadow-emerald-500/50'
+              ? 'bg-rose-500 text-white shadow-rose-500/30 hover:shadow-rose-500/50'
+              : 'bg-emerald-500 text-white shadow-emerald-500/30 hover:shadow-emerald-500/50'
               }`}
           >
             {isRunning ? <Pause size={24} /> : <Play size={24} className="ml-0.5" />}
@@ -564,12 +564,12 @@ const AiBriefing = React.memo(({ weeklySchedule, contactBook, user, classID, act
     <div className="w-full mb-6">
       {/* 🔮 儀表板看板模式：置頂 AI 導航員 */}
       <div className="relative group overflow-hidden liquid-glass-heavy transition-all hover:shadow-[var(--glass-shadow-xl)] duration-500">
-        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-500 via-purple-500 to-rose-400" />
+        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
         
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
                 <Sparkles size={20} className="animate-pulse" />
               </div>
               <div>
@@ -1508,9 +1508,9 @@ JSON 結構必須是這樣：
 
         const styles = {
           simple: "liquid-glass text-slate-800 dark:text-white [---dot-active:#10b981] [---dot-idle:rgba(148,163,184,0.2)]",
-          gradient: "bg-gradient-to-br from-emerald-500 to-teal-600 text-white [---dot-active:#fff] [---dot-idle:rgba(255,255,255,0.2)]",
+          gradient: "bg-emerald-500 text-white [---dot-active:#fff] [---dot-idle:rgba(255,255,255,0.2)]",
           neon: "bg-slate-900 border border-emerald-500/30 text-emerald-400 [---dot-active:#10b981] [---dot-idle:rgba(16,185,129,0.1)]",
-          sakura: "bg-gradient-to-br from-pink-400 to-rose-300 text-white [---dot-active:#fff] [---dot-idle:rgba(255,255,255,0.2)]",
+          sakura: "bg-pink-400 text-white [---dot-active:#fff] [---dot-idle:rgba(255,255,255,0.2)]",
           cyber: "bg-slate-900 border border-fuchsia-500/40 text-fuchsia-400 [---dot-active:#d946ef] [---dot-idle:rgba(217,70,239,0.15)]"
         };
 
@@ -1565,9 +1565,9 @@ JSON 結構必須是這樣：
 
   const greeting = getGreeting();
   const bgGradients = {
-    morning: "bg-gradient-to-br from-amber-50/70 to-orange-100/70 dark:from-amber-900/30 dark:to-orange-900/30",
-    afternoon: "bg-gradient-to-br from-blue-50/70 to-cyan-100/70 dark:from-blue-900/30 dark:to-cyan-900/30",
-    evening: "bg-gradient-to-br from-indigo-100/70 to-purple-100/70 dark:from-indigo-900/30 dark:to-purple-900/30"
+    morning: "bg-amber-50/70 dark:bg-amber-900/30",
+    afternoon: "bg-blue-50/70 dark:bg-blue-900/30",
+    evening: "bg-indigo-100/70 dark:bg-indigo-900/30"
   };
 
   const widgetGreeting = (
@@ -1600,10 +1600,10 @@ JSON 結構必須是這樣：
           </div>
           <div className="h-3 bg-emerald-200/50 dark:bg-black/20 rounded-full overflow-hidden border border-emerald-100/50 dark:border-white/5 relative">
             <div
-              className="h-full bg-gradient-to-r from-emerald-400 to-teal-400 shadow-[0_0_15px_rgba(16,185,129,0.5)] progress-smooth"
+              className="h-full bg-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)] progress-smooth"
               style={{ width: `${currentProgress}%` }}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-[shimmer-slide_2s_infinite]"></div>
+            <div className="absolute inset-0 bg-white/30 -translate-x-full animate-[shimmer-slide_2s_infinite]"></div>
           </div>
         </div>
 
@@ -1703,7 +1703,7 @@ JSON 結構必須是這樣：
 
       {examToShow && !isSwapMode && !isEditingSchedule ? (
         /* 🏆 核心需求：段考場次特別模式 */
-        <div className="space-y-4 animate-in slide-in-from-bottom-5 duration-700 relative z-10">
+        <div className="space-y-4 animate-in slide-in- duration-700 relative z-10">
            {examToShow.sessions && examToShow.sessions.length > 0 ? (
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                {examToShow.sessions.map((s, idx) => (
@@ -1819,7 +1819,7 @@ JSON 結構必須是這樣：
       ) : (
         <div className="relative pl-[40px]">
           {/* Timeline Vertical Line */}
-          <div className="absolute left-[15px] top-2 bottom-6 w-[2px] bg-gradient-to-b from-emerald-500/40 via-emerald-500/20 to-transparent dark:from-emerald-500/30 dark:via-emerald-500/10 rounded-full" />
+          <div className="absolute left-[15px] top-2 bottom-6 w-[2px] bg-emerald-500/40 rounded-full" />
 
           <div className="space-y-10">
             {!hasScheduleData ? (
@@ -1926,7 +1926,7 @@ JSON 結構必須是這樣：
                             return (
                               <div key={el.id} className="relative flex items-center gap-4 py-3 my-1">
                                 <div className="absolute left-[-32px] w-4 h-4 bg-rose-500 rounded-full border-[3px] border-white dark:border-slate-900 shadow-[0_0_15px_rgba(244,63,94,0.8)] z-20 animate-pulse" />
-                                <div className="h-[2px] flex-1 bg-gradient-to-r from-rose-500/60 to-transparent relative">
+                                <div className="h-[2px] flex-1 bg-rose-500/60 relative">
                                   <span className="absolute -top-5 left-0 text-[10px] font-black text-rose-500 bg-rose-50/90 dark:bg-rose-950/80 px-2 py-1 rounded-lg border border-rose-200/50 dark:border-rose-500/30 tracking-widest shadow-sm">現在時間 NOW</span>
                                 </div>
                               </div>
@@ -2068,7 +2068,7 @@ JSON 結構必須是這樣：
           return (
             <a key={link.id || `custom-link-${idx}`} href={link.url} target="_blank" rel="noreferrer"
               className="flex flex-col items-center gap-3 p-4 liquid-glass-subtle active:scale-[0.95] transition-all duration-300 hover:-translate-y-1 group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-colors duration-[600ms]"></div>
+              <div className="absolute inset-0 bg-blue-500/0 transition-colors duration-[600ms]"></div>
               <div className={`p-4 bg-white/60 dark:bg-black/20 rounded-[24px] group-hover:scale-[1.15] group-hover:-rotate-6 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] shrink-0 shadow-sm border border-white/60 dark:border-white/5 relative z-10 ${col.text} ${col.shadow} ${col.bgHover}`}>
                 <IconComp size={28} className="shrink-0 drop-shadow-sm" />
               </div>

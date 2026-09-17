@@ -255,7 +255,7 @@ const FeedbackTab = ({ userProfile, triggerNotification }) => {
             ))}
           </div>
 
-          <div className="p-6 liquid-glass bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-indigo-500/20 mt-2 overflow-hidden">
+          <div className="p-6 liquid-glass bg-indigo-500/10 border-indigo-500/20 mt-2 overflow-hidden">
             <h4 className="text-indigo-600 dark:text-indigo-400 font-black text-sm flex items-center gap-2 mb-2">
               <Sparkles size={16} /> 想加入開發？
             </h4>

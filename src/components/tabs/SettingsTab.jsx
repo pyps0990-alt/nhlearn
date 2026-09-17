@@ -826,7 +826,7 @@ const SettingsTab = ({
                           <div className="flex items-center gap-3">
                             <div className="flex flex-col items-center shrink-0">
                               <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                              <div className="w-0.5 h-8 bg-gradient-to-b from-emerald-400 to-rose-400 mt-1" />
+                              <div className="w-0.5 h-8 bg-emerald-400 mt-1" />
                             </div>
                             <div className="flex-1 flex gap-2 items-center">
                               <input

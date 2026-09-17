@@ -298,7 +298,7 @@ const YoubikeWidget = ({ campusName, campusAddress, campusLat = '25.078410', cam
               return (
                 <div
                   key={s.sno}
-                  className={`p-5 rounded-[28px] border flex flex-col gap-4 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-lg hover:-translate-y-1 ${isElectric ? 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/40 border-orange-200/50 dark:border-orange-500/20' : 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border-emerald-200/50 dark:border-emerald-500/20'} ${s.rent === 0 ? 'opacity-60 grayscale-[50%]' : ''}`}
+                  className={`p-5 rounded-[28px] border flex flex-col gap-4 transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-lg hover:-translate-y-1 ${isElectric ? 'bg-orange-50 dark:bg-orange-950/40 border-orange-200/50 dark:border-orange-500/20' : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/50 dark:border-emerald-500/20'} ${s.rent === 0 ? 'opacity-60 grayscale-[50%]' : ''}`}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1 mr-2">
@@ -479,7 +479,7 @@ const TrafficTab = ({ campusName, campusAddress, campusLat = '25.078410', campus
     </section>
 
     <div className="px-4">
-      <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+      <div className="h-px bg-gray-200"></div>
     </div>
 
     <section className="space-y-4">

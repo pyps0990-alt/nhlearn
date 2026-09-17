@@ -505,12 +505,12 @@ const WordDetailOverlay = ({
         <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-[calc(3rem+env(safe-area-inset-bottom))] space-y-8 custom-scrollbar">
           {/* 1. 視覺化拆解圖 (支援 Prefix, Root, Suffix, Connector) */}
           {decomposition && (
-            <div className="p-4 md:p-8 bg-gradient-to-br from-slate-50 to-white dark:from-white/5 dark:to-transparent rounded-[24px] md:rounded-[40px] border border-slate-100 dark:border-white/5 relative overflow-hidden group shadow-sm">
+            <div className="p-4 md:p-8 bg-slate-50 dark:bg-white/5 rounded-[24px] md:rounded-[40px] border border-slate-100 dark:border-white/5 relative overflow-hidden group shadow-sm">
               <div className="relative z-10 flex flex-wrap items-center justify-center gap-1 md:gap-6 pt-2">
                 {decomposition.length > 0 ? (
                   decomposition.map((p, i) => {
                     let colorConfig = {
-                      gradient: 'from-slate-200 to-slate-400 dark:from-slate-600 dark:to-slate-800',
+                      gradient: 'bg-slate-200 dark:bg-slate-600',
                       border: 'border-slate-300 dark:border-slate-500',
                       borderB: 'border-slate-400 dark:border-slate-700',
                       studBg: 'bg-slate-300 dark:bg-slate-600',
@@ -519,11 +519,11 @@ const WordDetailOverlay = ({
                     };
 
                     if (p.type === 'Prefix') {
-                      colorConfig = { gradient: 'from-amber-300 to-amber-500 dark:from-amber-500 dark:to-amber-700', border: 'border-amber-400 dark:border-amber-600', borderB: 'border-amber-600 dark:border-amber-900', studBg: 'bg-amber-400 dark:bg-amber-600', text: 'text-white', label: 'text-amber-500' };
+                      colorConfig = { gradient: 'bg-amber-300 dark:bg-amber-500', border: 'border-amber-400 dark:border-amber-600', borderB: 'border-amber-600 dark:border-amber-900', studBg: 'bg-amber-400 dark:bg-amber-600', text: 'text-white', label: 'text-amber-500' };
                     } else if (p.type === 'Root') {
-                      colorConfig = { gradient: 'from-emerald-400 to-emerald-600 dark:from-emerald-600 dark:to-emerald-800', border: 'border-emerald-500 dark:border-emerald-700', borderB: 'border-emerald-700 dark:border-emerald-900', studBg: 'bg-emerald-500 dark:bg-emerald-700', text: 'text-white', label: 'text-emerald-500' };
+                      colorConfig = { gradient: 'bg-emerald-400 dark:bg-emerald-600', border: 'border-emerald-500 dark:border-emerald-700', borderB: 'border-emerald-700 dark:border-emerald-900', studBg: 'bg-emerald-500 dark:bg-emerald-700', text: 'text-white', label: 'text-emerald-500' };
                     } else if (p.type === 'Suffix') {
-                      colorConfig = { gradient: 'from-sky-400 to-sky-600 dark:from-sky-600 dark:to-sky-800', border: 'border-sky-500 dark:border-sky-700', borderB: 'border-sky-700 dark:border-sky-900', studBg: 'bg-sky-500 dark:bg-sky-700', text: 'text-white', label: 'text-sky-500' };
+                      colorConfig = { gradient: 'bg-sky-400 dark:bg-sky-600', border: 'border-sky-500 dark:border-sky-700', borderB: 'border-sky-700 dark:border-sky-900', studBg: 'bg-sky-500 dark:bg-sky-700', text: 'text-white', label: 'text-sky-500' };
                     }
 
                     return (
@@ -548,7 +548,7 @@ const WordDetailOverlay = ({
                           </span>
 
                           {/* 3D Lego Brick */}
-                          <div className={`relative px-3 py-2 md:px-8 md:py-5 rounded-lg md:rounded-2xl border-x-2 border-t-2 border-b-4 md:border-b-[10px] bg-gradient-to-b ${colorConfig.gradient} ${colorConfig.border} border-b-${colorConfig.borderB} shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_8px_16px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),0_8px_16px_rgba(0,0,0,0.3)] active:border-b-2 active:translate-y-[2px] md:active:translate-y-[8px] transition-all duration-200 group-hover/part:rotate-[2deg] group-hover/part:scale-105 flex items-center justify-center min-w-[48px] md:min-w-[90px] h-10 md:h-16 shrink-0 max-w-[120px] md:max-w-none`}>
+                          <div className={`relative px-3 py-2 md:px-8 md:py-5 rounded-lg md:rounded-2xl border-x-2 border-t-2 border-b-4 md:border-b-[10px] ${colorConfig.gradient} ${colorConfig.border} border-b-${colorConfig.borderB} shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_8px_16px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_2px_4px_rgba(255,255,255,0.2),0_8px_16px_rgba(0,0,0,0.3)] active:border-b-2 active:translate-y-[2px] md:active:translate-y-[8px] transition-all duration-200 group-hover/part:rotate-[2deg] group-hover/part:scale-105 flex items-center justify-center min-w-[48px] md:min-w-[90px] h-10 md:h-16 shrink-0 max-w-[120px] md:max-w-none`}>
 
                             {/* 🌟 Lego Studs (凸起) - 呈現立體塑膠感 */}
                             <div className="absolute -top-[5px] md:-top-[7px] left-1/2 -translate-x-1/2 flex gap-3 md:gap-5">
@@ -660,7 +660,7 @@ const WordDetailOverlay = ({
                   {cleanAnalysis.split(/(?=###)/g).map((sec, idx) => {
                     if (sec.trim().startsWith('###') && sec.includes('大腦記憶法')) {
                       return (
-                        <div key={idx} className="my-6 p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200/50 dark:border-amber-500/20 rounded-[28px] shadow-sm relative overflow-hidden group">
+                        <div key={idx} className="my-6 p-6 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-500/20 rounded-[28px] shadow-sm relative overflow-hidden group">
                           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
                           <h4 className="flex items-center gap-2 text-[16px] text-amber-600 dark:text-amber-400 font-black mb-3 relative z-10">
                             <Brain size={20} className="text-amber-500" /> AI 大腦記憶法
@@ -705,7 +705,7 @@ const WordDetailOverlay = ({
                       <p className="text-[12px] font-bold text-purple-600/70 dark:text-purple-400/70">解鎖字根字首與專屬諧音記憶法</p>
                     </div>
                   </div>
-                  <button onClick={() => handleAiAnalyze(word.id, word.word)} className="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-400 hover:to-indigo-400 text-white rounded-[18px] font-black shadow-lg shadow-purple-500/30 active:scale-95 transition-all whitespace-nowrap text-[14px]">✨ 一鍵生成</button>
+                  <button onClick={() => handleAiAnalyze(word.id, word.word)} className="w-full sm:w-auto px-6 py-3.5 bg-purple-500 text-white rounded-[18px] font-black shadow-lg shadow-purple-500/30 active:scale-95 transition-all whitespace-nowrap text-[14px]">✨ 一鍵生成</button>
                 </div>
               )}
             </div>
@@ -747,7 +747,7 @@ const WordDetailOverlay = ({
               {currentSet !== '6000_words' && (
                 <button
                   onClick={handleContributeToGlobal}
-                  className="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-[20px] font-black text-[13px] shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-amber-400 text-white rounded-[20px] font-black text-[13px] shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
                   <Globe size={18} /> 貢獻至雲端共用字庫
                 </button>
@@ -2659,7 +2659,7 @@ const WordBank = ({
 
       {/* 4. 進階篩選面板 (詞性、等級、掌握度) */}
       {showFilters && (
-        <div className="mx-1 mb-2 p-4 liquid-glass shadow-sm animate-in slide-in-from-top-2 duration-300 space-y-4">
+        <div className="mx-1 mb-2 p-4 liquid-glass shadow-sm animate-in slide-in- duration-300 space-y-4">
           {/* 詞性篩選 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
@@ -3075,7 +3075,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent, 
           {/* BACK FACE (已翻面) */}
           <div
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-            className="absolute inset-0 flex flex-col items-center justify-center p-10 rounded-[48px] bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border border-emerald-200/50 dark:border-emerald-500/20 shadow-[0_20px_50px_rgba(16,185,129,0.2)] overflow-hidden"
+            className="absolute inset-0 flex flex-col items-center justify-center p-10 rounded-[48px] bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-500/20 shadow-[0_20px_50px_rgba(16,185,129,0.2)] overflow-hidden"
           >
             {showAnswer && offsetX > 20 && <div className="absolute inset-0 bg-emerald-400/20 flex items-center justify-end p-8 transition-opacity duration-300 pointer-events-none"><span className="text-6xl drop-shadow-lg">😎</span></div>}
             {showAnswer && offsetX < -20 && <div className="absolute inset-0 bg-rose-400/20 flex items-center justify-start p-8 transition-opacity duration-300 pointer-events-none"><span className="text-6xl drop-shadow-lg">😵</span></div>}
@@ -3344,12 +3344,12 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
           </div>
         )}
         <button onClick={generateChoiceQuiz} disabled={words.length < 4}
-          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-[32px] border border-blue-100 dark:border-blue-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
+          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-blue-50 dark:bg-blue-950/30 rounded-[32px] border border-blue-100 dark:border-blue-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
           <div className="p-3 sm:p-4 bg-blue-500 rounded-2xl text-white shadow-lg shadow-blue-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0"><Shuffle size={24} className="sm:w-7 sm:h-7" /></div>
           <div><span className="text-[15px] sm:text-[16px] font-black text-slate-800 dark:text-white block">選擇題模式</span><span className="text-[11px] sm:text-[12px] font-bold text-slate-400">看英文選中文，{quizCount} 題快速測驗</span></div>
         </button>
         <button onClick={generateSpellQuiz} disabled={words.length < 1}
-          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-[32px] border border-purple-100 dark:border-purple-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
+          className="w-full flex items-center gap-4 sm:gap-5 p-5 sm:p-6 bg-purple-50 dark:bg-purple-950/30 rounded-[32px] border border-purple-100 dark:border-purple-500/20 active:scale-[0.98] transition-all duration-[600ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:shadow-float disabled:opacity-40 group text-left">
           <div className="p-3 sm:p-4 bg-purple-500 rounded-2xl text-white shadow-lg shadow-purple-500/30 group-hover:scale-110 group-hover:rotate-3 transition-transform shrink-0"><PenTool size={24} className="sm:w-7 sm:h-7" /></div>
           <div><span className="text-[15px] sm:text-[16px] font-black text-slate-800 dark:text-white block">拼寫測驗</span><span className="text-[11px] sm:text-[12px] font-bold text-slate-400">看中文拼英文，{quizCount} 題訓練記憶</span></div>
         </button>
@@ -3630,7 +3630,7 @@ const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin, currentSet }) =>
     <div className="space-y-6 py-4">
       {/* Teacher AI Section */}
       {isAdmin && (
-        <div className="bg-gradient-to-br from-purple-500/10 to-indigo-500/10 dark:from-purple-950/30 dark:to-indigo-950/30 rounded-[28px] p-6 border border-purple-200/50 dark:border-purple-500/20">
+        <div className="bg-purple-500/10 dark:bg-purple-950/30 rounded-[28px] p-6 border border-purple-200/50 dark:border-purple-500/20">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-500 rounded-xl text-white shadow-lg">
@@ -3656,7 +3656,7 @@ const ImportTab = ({ addWords, syncFromGAS, isSyncing, isAdmin, currentSet }) =>
       )}
 
       {/* Google Sheet Sync Section */}
-      <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-[28px] p-6 border border-emerald-200/50 dark:border-emerald-500/20">
+      <div className="bg-emerald-500/10 dark:bg-emerald-950/30 rounded-[28px] p-6 border border-emerald-200/50 dark:border-emerald-500/20">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-emerald-500 rounded-xl text-white shadow-lg">

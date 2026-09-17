@@ -170,7 +170,7 @@ export default function CreditsTab({ user, triggerNotification }) {
   return (
     <div className="max-w-4xl mx-auto space-y-10 pb-20 animate-fadeIn px-2">
       {/* 🏆 Hero Summary Section */}
-      <section className="liquid-glass-heavy relative overflow-hidden bg-gradient-to-br from-emerald-500/10 to-blue-500/10 dark:from-emerald-500/5 dark:to-blue-500/5 p-8 md:p-12">
+      <section className="liquid-glass-heavy relative overflow-hidden bg-emerald-500/10 dark:bg-emerald-500/5 p-8 md:p-12">
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
@@ -309,7 +309,7 @@ export default function CreditsTab({ user, triggerNotification }) {
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 animate-fadeIn">
           <div className="absolute inset-0 bg-slate-900/60" onClick={() => setShowAddModal(false)} />
           <div className="relative w-full max-sm:max-w-full max-w-sm liquid-glass-heavy overflow-hidden shadow-2xl animate-pop-in">
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-10 text-white text-center">
+            <div className="bg-emerald-500 p-10 text-white text-center">
                <div className="w-16 h-16 bg-white/20 rounded-3xl mx-auto flex items-center justify-center mb-4">
                  <BookOpen size={32} />
                </div>

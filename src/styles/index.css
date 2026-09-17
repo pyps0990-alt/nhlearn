@@ -15,28 +15,28 @@
     --ease-spring-snappy: cubic-bezier(0.175, 0.885, 0.32, 1.15);
 
     /* ── Light Palette ── */
-    --light-primary-100: #00C07F;
-    --light-primary-200: #00A06A;
+    --light-primary-100: #00D68F;
+    --light-primary-200: #00AB73;
     --light-primary-300: #FFFFFF;
-    --light-accent-100: #E0AA00;
-    --light-accent-200: #FFE600;
+    --light-accent-100: #FFE600;
+    --light-accent-200: #FFF27A;
     --light-text-100: #16161d;
-    --light-text-200: #54524d;
-    --light-bg-100: #f2f1ec;
-    --light-bg-200: #f8f7f4;
+    --light-text-200: #5b5a63;
+    --light-bg-100: #f4f3ef;
+    --light-bg-200: #faf9f6;
     --light-bg-300: #ffffff;
 
     /* ── Dark Palette (Deep Navy) ── */
-    --dark-primary-100: #12d492;
-    --dark-primary-200: #00c07f;
-    --dark-primary-300: #1c1c1a;
-    --dark-accent-100: #ffd000;
-    --dark-accent-200: #e0aa00;
-    --dark-text-100: #f2f1ec;
-    --dark-text-200: #9c998f;
-    --dark-bg-100: #111110;
-    --dark-bg-200: #181816;
-    --dark-bg-300: #22221f;
+    --dark-primary-100: #2ee5a5;
+    --dark-primary-200: #00d68f;
+    --dark-primary-300: #16161d;
+    --dark-accent-100: #ffe600;
+    --dark-accent-200: #f0cc00;
+    --dark-text-100: #f4f3ef;
+    --dark-text-200: #a3a1ab;
+    --dark-bg-100: #16161d;
+    --dark-bg-200: #1b1b23;
+    --dark-bg-300: #232732;
 
     /* ── Light Active ── */
     --bg-page: var(--light-bg-100);

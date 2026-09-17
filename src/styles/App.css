@@ -4,17 +4,17 @@
 
 :root {
   /* ── Accent ── */
-  --accent-primary: #10b981;
-  --accent-secondary: #06b6d4;
-  --accent-gradient: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+  --accent-primary: #00d68f;   /* 薄荷綠 */
+  --accent-secondary: #2b4cff; /* 電光藍 */
+  --accent-gradient: #00d68f; /* 平塗，不用漸層 */
 
   /* ── Light Surfaces ── */
-  --bg-main: #f0f2f5;
-  --bg-container: #f8f9fb;
-  --bg-surface: rgba(255,255,255,0.72);
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --border-color: rgba(0,0,0,0.06);
+  --bg-main: #f4f3ef;      /* 紙灰 */
+  --bg-container: #faf9f6;
+  --bg-surface: #ffffff;
+  --text-primary: #16161d; /* 墨黑 */
+  --text-secondary: #5b5a63;
+  --border-color: #16161d;
 
   /* ── Surface tokens（Light）──
      質感由這組權杖決定：平塗實色、墨黑粗框、實心位移陰影。
@@ -39,12 +39,12 @@
 }
 
 .dark {
-  --bg-main: #050a14;
-  --bg-container: #0a1020;
-  --bg-surface: rgba(15,23,42,0.6);
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --border-color: rgba(255,255,255,0.08);
+  --bg-main: #16161d;
+  --bg-container: #1b1b23;
+  --bg-surface: #232732;
+  --text-primary: #f4f3ef;
+  --text-secondary: #a3a1ab;
+  --border-color: #000000;
 
   /* 深色模式：卡片提亮、框線用純黑，陰影才看得出來 */
   --ink: #000000;

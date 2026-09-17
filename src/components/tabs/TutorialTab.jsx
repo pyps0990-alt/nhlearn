@@ -10,7 +10,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
     {
       title: '新手入門與安裝',
       icon: Smartphone,
-      color: 'from-blue-500 to-cyan-500',
+      color: 'bg-blue-500',
       shadow: 'shadow-blue-500/20',
       items: [
         { 
@@ -24,7 +24,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
     {
       title: 'AI 智慧引擎',
       icon: BrainCircuit,
-      color: 'from-purple-500 to-indigo-500',
+      color: 'bg-purple-500',
       shadow: 'shadow-purple-500/20',
       items: [
         { label: '錯題本解析', desc: '在知識筆記上傳錯題照片，AI 將自動為您解析考點、詳細解法與常見陷阱。' },
@@ -34,7 +34,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
     {
       title: '學習排程與課表',
       icon: Calendar,
-      color: 'from-emerald-500 to-teal-500',
+      color: 'bg-emerald-500',
       shadow: 'shadow-emerald-500/20',
       items: [
         { label: '多校雲端同步', desc: '前往設定選擇學校與班級代碼，即可與全班同學共享雲端課表。' },
@@ -44,7 +44,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
     {
       title: '單字與聯絡簿',
       icon: BookOpen,
-      color: 'from-orange-500 to-amber-500',
+      color: 'bg-orange-500',
       shadow: 'shadow-orange-500/20',
       items: [
         { label: '大腦記憶法', desc: '點擊單字庫卡片，AI 會為您生成諧音與字根字首的深度語源解析。' },
@@ -54,7 +54,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
     {
       title: '數據與擴充模組',
       icon: TrendingUp,
-      color: 'from-pink-500 to-rose-500',
+      color: 'bg-pink-500',
       shadow: 'shadow-pink-500/20',
       items: [
         { label: '成績與學分', desc: '視覺化的折線圖掌握成績趨勢，並可追蹤畢業學分達成進度。' },
@@ -64,7 +64,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
     {
       title: '首頁排版自訂',
       icon: LayoutTemplate,
-      color: 'from-slate-600 to-slate-800',
+      color: 'bg-slate-600',
       shadow: 'shadow-slate-500/20',
       items: [
         { label: '拖曳排版', desc: '前往設定的「首頁排版設定」，可自由隱藏或上下拖曳番茄鐘、熱力圖等模組。' },
@@ -76,7 +76,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
   return (
     <div className="space-y-8 flex flex-col w-full text-left animate-slide-up-fade pb-12">
       {/* 🚀 Hero Section */}
-      <div className="liquid-glass-heavy relative overflow-hidden bg-gradient-to-br from-emerald-500 to-teal-600 p-8 md:p-10 text-white shadow-lg shadow-emerald-500/20">
+      <div className="liquid-glass-heavy relative overflow-hidden bg-emerald-500 p-8 md:p-10 text-white shadow-lg shadow-emerald-500/20">
         <div className="relative z-10">
           <h2 className="text-[28px] md:text-[36px] font-black tracking-tight leading-tight mb-2">
             歡迎來到 GSAT Pro
@@ -93,7 +93,7 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
         {guides.map((guide, idx) => (
           <div key={idx} className="liquid-glass p-6 overflow-hidden hover:-translate-y-1 transition-transform duration-500 flex flex-col h-full group">
             <div className="flex items-center gap-3 mb-5">
-              <div className={`w-12 h-12 rounded-[20px] bg-gradient-to-br ${guide.color} shadow-lg ${guide.shadow} flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform duration-500`}>
+              <div className={`w-12 h-12 rounded-[20px] ${guide.color} shadow-lg ${guide.shadow} flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform duration-500`}>
                 <guide.icon size={22} />
               </div>
               <h3 className="text-[17px] font-black text-slate-800 dark:text-white">{guide.title}</h3>
@@ -120,8 +120,8 @@ const TutorialTab = ({ onOpenFeedback, campusName }) => {
       </div>
 
       {/* Feedback */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 dark:from-black dark:to-zinc-900 p-8 rounded-[36px] text-white shadow-2xl relative overflow-hidden group mx-1">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-[1500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"></div>
+      <div className="bg-slate-900 dark:bg-black p-8 rounded-[36px] text-white shadow-2xl relative overflow-hidden group mx-1">
+        <div className="absolute inset-0 bg-emerald-500/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-[1500ms] ease-[cubic-bezier(0.23,1,0.32,1)]"></div>
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div>
             <h3 className="font-black text-[20px] flex items-center gap-2 mb-2">

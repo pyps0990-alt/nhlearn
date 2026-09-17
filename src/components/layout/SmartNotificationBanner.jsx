@@ -27,7 +27,7 @@ const SmartNotificationBanner = ({ onActivate }) => {
     if (status === 'hidden') return null;
 
     return (
-        <div className="fixed top-4 left-4 right-4 z-[100] animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="fixed top-4 left-4 right-4 z-[100] animate-in fade-in slide-in- duration-500">
             <div className="bg-white/90 dark:bg-zinc-900/90 border border-emerald-500/30 p-4 rounded-3xl shadow-2xl">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white text-xl">

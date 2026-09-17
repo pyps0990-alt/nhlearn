@@ -1120,7 +1120,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
 
             {/* 掃光進度條 */}
             <div className="w-48 h-1.5 bg-slate-200 dark:bg-white/10 rounded-full mt-8 overflow-hidden relative shadow-inner">
-              <div className="absolute top-0 bottom-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-emerald-500 to-transparent animate-[shimmer-slide_1.5s_infinite_linear]"></div>
+              <div className="absolute top-0 bottom-0 left-0 w-1/2 bg-emerald-500 animate-[shimmer-slide_1.5s_infinite_linear]"></div>
             </div>
           </div>
         </div>
@@ -1151,7 +1151,7 @@ const MainApp = ({ forcedTheme, setForcedTheme, testPushNotification, requestPus
                   await testPushNotification(user);
                 }
                 setShowPushPrompt(false);
-              }} className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white rounded-[24px] font-black text-[15px] shadow-[0_10px_20px_rgba(16,185,129,0.3)] transition-all active:scale-95 border border-emerald-400/50">立即啟用</button>
+              }} className="flex-1 py-4 bg-emerald-500 text-white rounded-[24px] font-black text-[15px] shadow-[0_10px_20px_rgba(16,185,129,0.3)] transition-all active:scale-95 border border-emerald-400/50">立即啟用</button>
             </div>
           </div>
         </div>
