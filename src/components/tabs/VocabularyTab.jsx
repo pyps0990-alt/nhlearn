@@ -7,7 +7,7 @@ import {
   FileText, BarChart2, Flame, Clock, TrendingUp, Share2, Book, Zap, AlertCircle, Tag, Frown, Meh, Smile, Award, Globe, Lock, SlidersHorizontal
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+// 注意：xlsx 體積龐大（~430KB），改為在 handleFile 內以 await import('xlsx') 動態載入
 import ReactMarkdown from 'react-markdown';
 import { db } from '../../config/firebase';
 import {
@@ -158,20 +158,25 @@ const SUB_TABS = [
 // ─── 煙火紙片特效元件 ─────────────────────────────────────────────────────────
 const Confetti = ({ score, total }) => {
   const pct = score / total;
-  if (pct < 0.5) return null; // 不及格不灑紙花
   const isPerfect = pct >= 0.8;
-  const colors = isPerfect ? ['#10b981', '#34d399', '#fcd34d', '#fbbf24', '#60a5fa'] : ['#f59e0b', '#fbbf24', '#f87171'];
-  const particleCount = isPerfect ? 60 : 25;
 
-  const particles = Array.from({ length: particleCount }).map((_, i) => ({
-    id: i,
-    left: Math.random() * 100 + '%',
-    animationDuration: (Math.random() * 2 + 1.5) + 's',
-    animationDelay: (Math.random() * 0.5) + 's',
-    color: colors[Math.floor(Math.random() * colors.length)],
-    size: (Math.random() * 8 + 6) + 'px',
-    shape: Math.random() > 0.5 ? '50%' : '2px' // 圓形或方形紙片
-  }));
+  // 亂數只在分數變動時計算一次。若直接寫在 render 裡，
+  // 任何一次重新渲染都會重新抽亂數，導致紙花動畫從頭跳一次。
+  const particles = useMemo(() => {
+    const colors = isPerfect ? ['#10b981', '#34d399', '#fcd34d', '#fbbf24', '#60a5fa'] : ['#f59e0b', '#fbbf24', '#f87171'];
+    const particleCount = isPerfect ? 60 : 25;
+    return Array.from({ length: particleCount }).map((_, i) => ({
+      id: i,
+      left: Math.random() * 100 + '%',
+      animationDuration: (Math.random() * 2 + 1.5) + 's',
+      animationDelay: (Math.random() * 0.5) + 's',
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: (Math.random() * 8 + 6) + 'px',
+      shape: Math.random() > 0.5 ? '50%' : '2px' // 圓形或方形紙片
+    }));
+  }, [isPerfect]);
+
+  if (pct < 0.5) return null; // 不及格不灑紙花
 
   return <div className="absolute inset-0 pointer-events-none overflow-hidden z-50 rounded-[48px]">{particles.map(p => <div key={p.id} className="absolute -top-10 animate-confetti-fall" style={{ left: p.left, width: p.size, height: p.size, backgroundColor: p.color, animationDuration: p.animationDuration, animationDelay: p.animationDelay, borderRadius: p.shape }} />)}</div>;
 };
@@ -295,7 +300,7 @@ const WordDetailOverlay = ({
       try {
         const parsed = JSON.parse(usageStr);
         if (parsed.date === today) usage = parsed;
-      } catch (e) { }
+      } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
     }
 
     if (usage.count >= 50) {
@@ -1553,7 +1558,7 @@ export default function VocabularyTab({ user, isAdmin, schoolId, gradeId }) {
           else break;
         }
       }
-    } catch (e) { }
+    } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
 
     const canvas = document.createElement('canvas');
     canvas.width = 1080;
@@ -2876,7 +2881,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent, 
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.6);
-    } catch { }
+    } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
   }, []);
 
   const playBuzzer = useCallback(() => {
@@ -2892,7 +2897,7 @@ const ReviewMode = ({ words, updateWord, incrementWordCount, playVoice, accent, 
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
-    } catch { }
+    } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
   }, []);
 
   // --- 防呆與空狀態處理 ---
@@ -3162,7 +3167,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.6);
-    } catch { }
+    } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
   }, []);
 
   const playBuzzer = useCallback(() => {
@@ -3180,7 +3185,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
       gain.gain.setValueAtTime(0.15, t);
       gain.gain.linearRampToValueAtTime(0.001, t + 0.3);
       osc.start(t); osc.stop(t + 0.3);
-    } catch { }
+    } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
   }, []);
 
   const playVictory = useCallback(() => {
@@ -3202,7 +3207,7 @@ const QuizMode = ({ words, updateWord, setWords, incrementWordCount, playVoice, 
       playNote(659.25, t + 0.15, 0.2);
       playNote(783.99, t + 0.3, 0.4);
       playNote(1046.50, t + 0.45, 0.6);
-    } catch { }
+    } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
   }, []);
 
   // 🌟 純前端手搓：加權隨機演算法 (Weighted Random Selection)

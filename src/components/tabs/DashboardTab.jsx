@@ -181,12 +181,12 @@ const FocusTimerWidget = ({ triggerNotification }) => {
       gain.gain.setValueAtTime(0.3, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.8);
-    } catch { }
+    } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
   }, []);
 
   const stopNoise = useCallback(() => {
     if (noiseNodeRef.current) {
-      try { noiseNodeRef.current.stop(); } catch (e) { }
+      try { noiseNodeRef.current.stop(); } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
       noiseNodeRef.current.disconnect();
       noiseNodeRef.current = null;
     }
@@ -791,7 +791,7 @@ const DashboardTab = ({
         }
       }
       setStreak(currentStreak);
-    } catch (e) { }
+    } catch { /* 非關鍵功能，失敗時靜默忽略 */ }
   }, []);
 
   // --- 段考期間檢查 (精確對比日期與時間) ---
@@ -1441,7 +1441,7 @@ JSON 結構必須是這樣：
       const parts = nextToday.startTime.split(':');
       if (parts.length === 2) {
         const countdown = (Number(parts[0]) * 60 + Number(parts[1])) - currentMins;
-        return { type: 'next', item: nextToday, countdown, countdown, label: 'Upcoming' };
+        return { type: 'next', item: nextToday, countdown, label: 'Upcoming' };
       }
     }
 
@@ -1921,7 +1921,7 @@ JSON 結構必須是這樣：
                           elements.push({ type: 'now', id: 'now-end' });
                         }
 
-                        return elements.map((el) => {
+                        return elements.map((el, idx) => {
                           if (el.type === 'now') {
                             return (
                               <div key={el.id} className="relative flex items-center gap-4 py-3 my-1">
